@@ -1,0 +1,206 @@
+{
+  "$schema": "https://rapp-store.github.io/schema/v1/manifest.json",
+  "version": "1.0.0",
+  "store": {
+    "name": "RAPP Store",
+    "description": "Universal store for RAPP Agents and Claude Skills - cross-compatible AI agent marketplace",
+    "owner": "kody-w",
+    "url": "https://github.com/kody-w/RAPP_Store",
+    "license": "Apache-2.0",
+    "created": "2026-01-30",
+    "updated": "2026-01-30"
+  },
+  "protocol": {
+    "version": "1.0",
+    "supports": ["rapp-agent", "claude-skill"],
+    "discovery_endpoint": "manifest.json",
+    "raw_base": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main"
+  },
+  "categories": [
+    {
+      "id": "document-processing",
+      "name": "Document Processing",
+      "description": "Agents and skills for PDF, Word, Excel, PowerPoint processing",
+      "icon": "📄"
+    },
+    {
+      "id": "code-generation",
+      "name": "Code & Development",
+      "description": "Agents for code generation, MCP servers, and development tools",
+      "icon": "💻"
+    },
+    {
+      "id": "creative",
+      "name": "Creative & Design",
+      "description": "Generative art, design tools, and creative workflows",
+      "icon": "🎨"
+    },
+    {
+      "id": "business",
+      "name": "Business & Enterprise",
+      "description": "CRM, sales, analytics, and enterprise automation",
+      "icon": "📊"
+    },
+    {
+      "id": "communication",
+      "name": "Communication",
+      "description": "Email, messaging, and collaboration tools",
+      "icon": "💬"
+    },
+    {
+      "id": "data",
+      "name": "Data & Analytics",
+      "description": "Data processing, analysis, and visualization",
+      "icon": "📈"
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "description": "General-purpose tools and helper agents",
+      "icon": "🔧"
+    }
+  ],
+  "agents": [
+    {
+      "id": "pdf_processor_agent",
+      "type": "rapp-agent",
+      "name": "PDF Processor Agent",
+      "description": "Comprehensive PDF manipulation toolkit - extract text, merge, split, fill forms, add watermarks",
+      "version": "1.0.0",
+      "category": "document-processing",
+      "author": "RAPP Store",
+      "license": "Apache-2.0",
+      "path": "agents/pdf_processor_agent",
+      "filename": "pdf_processor_agent.py",
+      "icon": "📑",
+      "tags": ["pdf", "document", "extraction", "forms"],
+      "features": [
+        "Extract text and tables from PDFs",
+        "Merge multiple PDFs",
+        "Split PDFs by page",
+        "Fill PDF forms programmatically",
+        "Add watermarks and annotations"
+      ],
+      "dependencies": ["pypdf", "pdfplumber", "reportlab"],
+      "min_python": "3.9"
+    },
+    {
+      "id": "email_assistant_agent",
+      "type": "rapp-agent",
+      "name": "Email Assistant Agent",
+      "description": "Smart email drafting with tone analysis, templates, and professional formatting",
+      "version": "1.0.0",
+      "category": "communication",
+      "author": "RAPP Store",
+      "license": "Apache-2.0",
+      "path": "agents/email_assistant_agent",
+      "filename": "email_assistant_agent.py",
+      "icon": "📧",
+      "tags": ["email", "communication", "drafting", "templates"],
+      "features": [
+        "Draft professional emails",
+        "Adjust tone (formal, casual, urgent)",
+        "Reply suggestions",
+        "Template management"
+      ],
+      "dependencies": [],
+      "min_python": "3.9"
+    },
+    {
+      "id": "data_analyst_agent",
+      "type": "rapp-agent",
+      "name": "Data Analyst Agent",
+      "description": "Analyze datasets, generate insights, create visualizations and reports",
+      "version": "1.0.0",
+      "category": "data",
+      "author": "RAPP Store",
+      "license": "Apache-2.0",
+      "path": "agents/data_analyst_agent",
+      "filename": "data_analyst_agent.py",
+      "icon": "📊",
+      "tags": ["data", "analytics", "visualization", "insights"],
+      "features": [
+        "Statistical analysis",
+        "Trend detection",
+        "Data summarization",
+        "Chart recommendations"
+      ],
+      "dependencies": ["pandas", "numpy"],
+      "min_python": "3.9"
+    }
+  ],
+  "skills": [
+    {
+      "id": "algorithmic-art",
+      "type": "claude-skill",
+      "name": "Algorithmic Art",
+      "description": "Create generative art using p5.js with seeded randomness and interactive parameter exploration",
+      "version": "1.0.0",
+      "category": "creative",
+      "author": "RAPP Store",
+      "license": "Apache-2.0",
+      "path": "skills/algorithmic-art",
+      "icon": "🎨",
+      "tags": ["art", "generative", "p5js", "creative"],
+      "features": [
+        "Algorithmic philosophy creation",
+        "p5.js code generation",
+        "Seeded randomness for reproducibility",
+        "Interactive parameter controls"
+      ],
+      "resources": {
+        "templates": ["generator_template.js", "viewer.html"]
+      }
+    },
+    {
+      "id": "mcp-builder",
+      "type": "claude-skill",
+      "name": "MCP Server Builder",
+      "description": "Guide for creating high-quality Model Context Protocol servers",
+      "version": "1.0.0",
+      "category": "code-generation",
+      "author": "RAPP Store",
+      "license": "Apache-2.0",
+      "path": "skills/mcp-builder",
+      "icon": "🔌",
+      "tags": ["mcp", "servers", "protocols", "development"],
+      "features": [
+        "MCP best practices",
+        "Python server templates",
+        "Node.js server templates",
+        "Evaluation tools"
+      ],
+      "resources": {
+        "scripts": ["evaluation.py", "connections.py"],
+        "references": ["mcp_best_practices.md", "python_mcp_server.md"]
+      }
+    },
+    {
+      "id": "doc-coauthoring",
+      "type": "claude-skill",
+      "name": "Document Co-Authoring",
+      "description": "Structured workflow for collaborative documentation writing",
+      "version": "1.0.0",
+      "category": "document-processing",
+      "author": "RAPP Store",
+      "license": "Apache-2.0",
+      "path": "skills/doc-coauthoring",
+      "icon": "📝",
+      "tags": ["documentation", "writing", "collaboration", "workflow"],
+      "features": [
+        "Multi-stage writing process",
+        "Structured feedback loops",
+        "Template-based drafting",
+        "Version tracking"
+      ],
+      "resources": {}
+    }
+  ],
+  "featured": ["pdf_processor_agent", "algorithmic-art", "mcp-builder"],
+  "stats": {
+    "total_agents": 3,
+    "total_skills": 3,
+    "total_downloads": 0,
+    "last_updated": "2026-01-30T00:00:00Z"
+  }
+}

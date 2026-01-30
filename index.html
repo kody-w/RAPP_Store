@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAPP Store - Universal AI Agent Marketplace</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --background: #0f172a;
+            --surface: #1e293b;
+            --surface-light: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #475569;
+            --agent-color: #6366f1;
+            --skill-color: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Search & Filters */
+        .controls {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 2.75rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .filter-btn {
+            padding: 0.75rem 1.25rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: var(--surface-light);
+            color: var(--text);
+        }
+
+        .filter-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .filter-btn.agents.active {
+            background: var(--agent-color);
+            border-color: var(--agent-color);
+        }
+
+        .filter-btn.skills.active {
+            background: var(--skill-color);
+            border-color: var(--skill-color);
+        }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin: 1rem 0 2rem;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 1rem 2rem;
+            background: var(--surface);
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Grid */
+        .grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 4rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            line-height: 1;
+        }
+
+        .card-title-section {
+            flex: 1;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-type {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .card-type.agent {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--agent-color);
+        }
+
+        .card-type.skill {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--skill-color);
+        }
+
+        .card-description {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            flex: 1;
+        }
+
+        .card-features {
+            margin-bottom: 1rem;
+        }
+
+        .feature-tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background: var(--surface-light);
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0.125rem;
+        }
+
+        .card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            margin-top: auto;
+        }
+
+        .card-version {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .card-category {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: var(--surface-light);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+
+        /* Download Buttons */
+        .download-section {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .download-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .download-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .download-btn.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .download-btn.secondary {
+            background: var(--surface-light);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .download-btn.secondary:hover {
+            background: var(--border);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--surface);
+            border-radius: 1rem;
+            max-width: 800px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .code-block {
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .copy-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .copy-btn.copied {
+            background: var(--secondary);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-muted);
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--surface-light);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .filter-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                gap: 1rem;
+            }
+
+            .stat {
+                padding: 0.75rem 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">🤖</div>
+        <h1>RAPP Store</h1>
+        <p class="tagline">Universal Marketplace for AI Agents & Claude Skills</p>
+    </header>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-value" id="agent-count">-</div>
+            <div class="stat-label">Agents</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="skill-count">-</div>
+            <div class="stat-label">Skills</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="category-count">-</div>
+            <div class="stat-label">Categories</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="search-box">
+            <input type="text" id="search" placeholder="Search agents and skills...">
+        </div>
+        <div class="filter-buttons">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn agents" data-filter="agent">Agents</button>
+            <button class="filter-btn skills" data-filter="skill">Skills</button>
+        </div>
+    </div>
+
+    <div class="grid" id="items-grid">
+        <div class="loading">
+            <div class="loading-spinner"></div>
+            <p>Loading RAPP Store...</p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">Download</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre class="code-block" id="modal-code"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="copy-btn" id="copy-btn" onclick="copyCode()">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>
+            <a href="https://github.com/kody-w/RAPP_Store" target="_blank">GitHub</a> ·
+            <a href="https://github.com/kody-w/RAPP_Store/blob/main/docs/PROTOCOL.md" target="_blank">Protocol Docs</a> ·
+            <a href="https://github.com/kody-w/RAPP_Store/blob/main/docs/CONTRIBUTING.md" target="_blank">Contribute</a>
+        </p>
+        <p style="margin-top: 0.5rem;">Cross-compatible with RAPP Agents and Claude Skills</p>
+    </footer>
+
+    <script>
+        // Configuration
+        const REPO_OWNER = 'kody-w';
+        const REPO_NAME = 'RAPP_Store';
+        const BRANCH = 'main';
+        const RAW_BASE = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}`;
+        const MANIFEST_URL = `${RAW_BASE}/manifest.json`;
+
+        // State
+        let storeData = null;
+        let currentFilter = 'all';
+        let searchQuery = '';
+
+        // Fetch and initialize
+        async function init() {
+            try {
+                const response = await fetch(MANIFEST_URL);
+                if (!response.ok) throw new Error('Failed to load manifest');
+                storeData = await response.json();
+                updateStats();
+                renderItems();
+            } catch (error) {
+                console.error('Error loading store:', error);
+                document.getElementById('items-grid').innerHTML = `
+                    <div class="loading">
+                        <p>Error loading store data. Please try again later.</p>
+                        <p style="font-size: 0.8rem; margin-top: 0.5rem;">If running locally, serve with a local server to avoid CORS issues.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Update stats display
+        function updateStats() {
+            document.getElementById('agent-count').textContent = storeData.agents?.length || 0;
+            document.getElementById('skill-count').textContent = storeData.skills?.length || 0;
+            document.getElementById('category-count').textContent = storeData.categories?.length || 0;
+        }
+
+        // Get all items combined
+        function getAllItems() {
+            const agents = (storeData.agents || []).map(a => ({ ...a, itemType: 'agent' }));
+            const skills = (storeData.skills || []).map(s => ({ ...s, itemType: 'skill' }));
+            return [...agents, ...skills];
+        }
+
+        // Filter and search items
+        function getFilteredItems() {
+            let items = getAllItems();
+
+            // Apply type filter
+            if (currentFilter !== 'all') {
+                items = items.filter(item => item.itemType === currentFilter);
+            }
+
+            // Apply search
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                items = items.filter(item =>
+                    item.name.toLowerCase().includes(query) ||
+                    item.description.toLowerCase().includes(query) ||
+                    (item.tags || []).some(tag => tag.toLowerCase().includes(query))
+                );
+            }
+
+            return items;
+        }
+
+        // Render item cards
+        function renderItems() {
+            const items = getFilteredItems();
+            const grid = document.getElementById('items-grid');
+
+            if (items.length === 0) {
+                grid.innerHTML = `
+                    <div class="loading">
+                        <p>No items found matching your criteria.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = items.map(item => `
+                <div class="card" data-id="${item.id}" data-type="${item.itemType}">
+                    <div class="card-header">
+                        <span class="card-icon">${item.icon || (item.itemType === 'agent' ? '🤖' : '✨')}</span>
+                        <div class="card-title-section">
+                            <h3 class="card-title">${item.name}</h3>
+                            <span class="card-type ${item.itemType}">${item.itemType === 'agent' ? 'RAPP Agent' : 'Claude Skill'}</span>
+                        </div>
+                    </div>
+                    <p class="card-description">${item.description}</p>
+                    <div class="card-features">
+                        ${(item.features || []).slice(0, 3).map(f => `<span class="feature-tag">${f}</span>`).join('')}
+                    </div>
+                    <div class="card-meta">
+                        <span class="card-version">v${item.version || '1.0.0'}</span>
+                        <span class="card-category">${getCategoryName(item.category)}</span>
+                    </div>
+                    <div class="download-section">
+                        <button class="download-btn primary" onclick="downloadAs('${item.id}', '${item.itemType}', 'agent')">
+                            📥 As Agent
+                        </button>
+                        <button class="download-btn secondary" onclick="downloadAs('${item.id}', '${item.itemType}', 'skill')">
+                            📥 As Skill
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Get category display name
+        function getCategoryName(categoryId) {
+            const category = (storeData.categories || []).find(c => c.id === categoryId);
+            return category ? category.name : categoryId;
+        }
+
+        // Download as specific format
+        async function downloadAs(itemId, sourceType, targetFormat) {
+            const item = getAllItems().find(i => i.id === itemId);
+            if (!item) return;
+
+            let code = '';
+            let title = '';
+
+            if (targetFormat === 'agent') {
+                title = `${item.name} - RAPP Agent`;
+                if (sourceType === 'agent') {
+                    // Fetch original agent code
+                    const url = `${RAW_BASE}/${item.path}/${item.filename}`;
+                    try {
+                        const response = await fetch(url);
+                        code = await response.text();
+                    } catch (e) {
+                        code = generateAgentFromSkill(item);
+                    }
+                } else {
+                    // Convert skill to agent
+                    code = generateAgentFromSkill(item);
+                }
+            } else {
+                title = `${item.name} - Claude Skill`;
+                if (sourceType === 'skill') {
+                    // Fetch original skill
+                    const url = `${RAW_BASE}/${item.path}/SKILL.md`;
+                    try {
+                        const response = await fetch(url);
+                        code = await response.text();
+                    } catch (e) {
+                        code = generateSkillFromAgent(item);
+                    }
+                } else {
+                    // Convert agent to skill
+                    code = generateSkillFromAgent(item);
+                }
+            }
+
+            showModal(title, code);
+        }
+
+        // Generate RAPP Agent from Skill metadata
+        function generateAgentFromSkill(item) {
+            const className = item.id.split('-').map(part =>
+                part.charAt(0).toUpperCase() + part.slice(1)
+            ).join('') + 'Agent';
+
+            return `"""
+${item.name} - RAPP Agent (Generated from Claude Skill)
+
+${item.description}
+
+Part of the RAPP Store - https://github.com/kody-w/RAPP_Store
+"""
+
+from agents.basic_agent import BasicAgent
+import logging
+
+
+class ${className}(BasicAgent):
+    """
+    ${item.description}
+
+    Original: Claude Skill '${item.id}'
+    Features: ${(item.features || []).join(', ')}
+    """
+
+    SKILL_INSTRUCTIONS = """
+${item.description}
+
+This agent was converted from a Claude Skill. The original skill provided
+guidance for: ${(item.features || []).join(', ')}.
+
+To use this agent, call it with an action and any relevant parameters.
+The agent will process your request according to the skill's guidelines.
+"""
+
+    def __init__(self):
+        self.name = '${className.replace('Agent', '')}'
+        self.metadata = {
+            "name": self.name,
+            "description": "${item.description}",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "Action to perform: 'help' (show guidance), 'process' (process request)",
+                        "enum": ["help", "process"]
+                    },
+                    "request": {
+                        "type": "string",
+                        "description": "Your request or question"
+                    }
+                },
+                "required": ["action"]
+            }
+        }
+        super().__init__(name=self.name, metadata=self.metadata)
+
+    def perform(self, **kwargs):
+        action = kwargs.get('action', 'help')
+        request = kwargs.get('request', '')
+
+        try:
+            if action == 'help':
+                return self._show_help()
+            elif action == 'process':
+                return self._process_request(request)
+            else:
+                return f"Unknown action '{action}'. Use 'help' or 'process'."
+        except Exception as e:
+            logging.error(f"Error in ${className}: {str(e)}")
+            return f"Error: {str(e)}"
+
+    def _show_help(self):
+        return f"""${item.icon || '✨'} ${item.name}
+
+{self.SKILL_INSTRUCTIONS}
+
+**Features:**
+${(item.features || []).map(f => '• ' + f).join('\\n')}
+
+**Usage:**
+action='process', request='your question or task'
+"""
+
+    def _process_request(self, request):
+        if not request:
+            return "Error: 'request' parameter is required for 'process' action"
+
+        return f"""Processing your request based on ${item.name} guidelines:
+
+**Request:** {request}
+
+**Guidance:**
+{self.SKILL_INSTRUCTIONS}
+
+Please provide this context to your AI assistant along with your specific request.
+"""
+`;
+        }
+
+        // Generate Claude Skill from Agent metadata
+        function generateSkillFromAgent(item) {
+            return `---
+name: ${item.id}
+description: ${item.description}
+---
+
+# ${item.name}
+
+${item.description}
+
+## Features
+
+${(item.features || []).map(f => `- ${f}`).join('\n')}
+
+## Usage
+
+This skill was converted from a RAPP Agent. To use it:
+
+1. Copy this SKILL.md to your Claude skills directory
+2. Reference it when you need ${item.name.toLowerCase()} capabilities
+
+## Original Agent
+
+- **ID:** ${item.id}
+- **Version:** ${item.version || '1.0.0'}
+- **Category:** ${item.category}
+- **License:** ${item.license || 'Apache-2.0'}
+
+## Dependencies
+
+${(item.dependencies || []).length > 0 ? (item.dependencies || []).map(d => `- ${d}`).join('\n') : 'No additional dependencies required.'}
+
+## Source
+
+This skill was generated from the RAPP Store.
+Original agent: [${item.id}](https://github.com/kody-w/RAPP_Store/tree/main/${item.path})
+`;
+        }
+
+        // Show modal with code
+        function showModal(title, code) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-code').textContent = code;
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('copy-btn').textContent = 'Copy to Clipboard';
+            document.getElementById('copy-btn').classList.remove('copied');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        // Copy code to clipboard
+        async function copyCode() {
+            const code = document.getElementById('modal-code').textContent;
+            try {
+                await navigator.clipboard.writeText(code);
+                const btn = document.getElementById('copy-btn');
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy to Clipboard';
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (e) {
+                console.error('Failed to copy:', e);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('search').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderItems();
+        });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderItems();
+            });
+        });
+
+        // Close modal on overlay click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

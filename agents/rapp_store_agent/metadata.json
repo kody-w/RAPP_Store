@@ -1,0 +1,19 @@
+{
+  "id": "rapp_store_agent",
+  "name": "RAPP Store Agent",
+  "description": "Universal marketplace interface for RAPP Agents and Claude Skills. Browse, search, install, and convert between formats.",
+  "version": "1.0.0",
+  "author": "RAPP Store",
+  "license": "Apache-2.0",
+  "category": "utilities",
+  "tags": ["marketplace", "store", "agents", "skills", "download", "install"],
+  "features": [
+    "Browse available agents and skills",
+    "Search by name, category, or tags",
+    "Install items to local system",
+    "Add external RAPP Store repositories",
+    "Cross-format conversion (Agent ↔ Skill)"
+  ],
+  "dependencies": [],
+  "min_python": "3.9"
+}

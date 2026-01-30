@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithmic Art Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            color: #eee;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 1rem 2rem;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: #e94560;
+        }
+
+        main {
+            display: flex;
+            flex: 1;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0f0f23;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #controls {
+            width: 300px;
+            padding: 1rem;
+            background: #16213e;
+            border-radius: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            margin-bottom: 0.25rem;
+        }
+
+        .control-group input[type="number"],
+        .control-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        .value-display {
+            text-align: right;
+            font-size: 0.8rem;
+            color: #e94560;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: #e94560;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #c73e54;
+        }
+
+        .btn-secondary {
+            background: #0f3460;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #1a4a7a;
+        }
+
+        .seed-display {
+            text-align: center;
+            padding: 0.5rem;
+            background: #0f0f23;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-bottom: 1rem;
+        }
+
+        .keyboard-help {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #0f0f23;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .keyboard-help kbd {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            background: #16213e;
+            border-radius: 3px;
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            main {
+                flex-direction: column;
+            }
+
+            #controls {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎨 Algorithmic Art Viewer</h1>
+    </header>
+
+    <main>
+        <div id="canvas-container"></div>
+
+        <div id="controls">
+            <div class="seed-display">
+                Seed: <span id="current-seed">-</span>
+            </div>
+
+            <div class="control-group">
+                <label>Noise Scale</label>
+                <input type="range" id="scale" min="0.001" max="0.1" step="0.001" value="0.01">
+                <div class="value-display" id="scale-value">0.01</div>
+            </div>
+
+            <div class="control-group">
+                <label>Complexity</label>
+                <input type="range" id="complexity" min="1" max="10" step="1" value="5">
+                <div class="value-display" id="complexity-value">5</div>
+            </div>
+
+            <div class="control-group">
+                <label>Base Hue</label>
+                <input type="range" id="hue" min="0" max="360" step="1" value="180">
+                <div class="value-display" id="hue-value">180</div>
+            </div>
+
+            <div class="control-group">
+                <label>Custom Seed (optional)</label>
+                <input type="number" id="custom-seed" placeholder="Leave empty for random">
+            </div>
+
+            <button class="btn-primary" onclick="regenerate()">🔄 Regenerate</button>
+            <button class="btn-secondary" onclick="saveArt()">💾 Save Image</button>
+
+            <div class="keyboard-help">
+                <strong>Keyboard Shortcuts:</strong><br>
+                <kbd>S</kbd> Save image<br>
+                <kbd>R</kbd> New random seed<br>
+                <kbd>Space</kbd> Toggle animation
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Parameters
+        let seed;
+        let params = {
+            scale: 0.01,
+            complexity: 5,
+            baseHue: 180,
+            animate: false
+        };
+
+        function setup() {
+            let canvas = createCanvas(600, 600);
+            canvas.parent('canvas-container');
+            colorMode(HSB, 360, 100, 100, 100);
+
+            seed = floor(random(999999));
+            randomSeed(seed);
+            noiseSeed(seed);
+            updateSeedDisplay();
+
+            noLoop();
+            generateArt();
+
+            // Bind controls
+            bindControls();
+        }
+
+        function draw() {
+            if (params.animate) {
+                generateArt();
+            }
+        }
+
+        function generateArt() {
+            background(20);
+
+            let cols = width / 20;
+            let rows = height / 20;
+
+            for (let x = 0; x < cols; x++) {
+                for (let y = 0; y < rows; y++) {
+                    let px = x * 20 + 10;
+                    let py = y * 20 + 10;
+
+                    let n = noise(x * params.scale * 10, y * params.scale * 10);
+                    let angle = n * TWO_PI * params.complexity;
+
+                    push();
+                    translate(px, py);
+                    rotate(angle);
+
+                    let hue = (params.baseHue + n * 120) % 360;
+                    stroke(hue, 80, 90, 80);
+                    strokeWeight(2);
+                    line(0, 0, 15, 0);
+                    pop();
+                }
+            }
+        }
+
+        function bindControls() {
+            document.getElementById('scale').addEventListener('input', function () {
+                params.scale = parseFloat(this.value);
+                document.getElementById('scale-value').textContent = params.scale.toFixed(3);
+                if (!params.animate) redraw();
+            });
+
+            document.getElementById('complexity').addEventListener('input', function () {
+                params.complexity = parseInt(this.value);
+                document.getElementById('complexity-value').textContent = params.complexity;
+                if (!params.animate) redraw();
+            });
+
+            document.getElementById('hue').addEventListener('input', function () {
+                params.baseHue = parseInt(this.value);
+                document.getElementById('hue-value').textContent = params.baseHue;
+                if (!params.animate) redraw();
+            });
+        }
+
+        function regenerate() {
+            let customSeed = document.getElementById('custom-seed').value;
+            seed = customSeed ? parseInt(customSeed) : floor(random(999999));
+            randomSeed(seed);
+            noiseSeed(seed);
+            updateSeedDisplay();
+            if (!params.animate) redraw();
+        }
+
+        function saveArt() {
+            saveCanvas(`algorithmic_art_${seed}`, 'png');
+        }
+
+        function updateSeedDisplay() {
+            document.getElementById('current-seed').textContent = seed;
+        }
+
+        function keyPressed() {
+            if (key === 's' || key === 'S') saveArt();
+            if (key === 'r' || key === 'R') regenerate();
+            if (key === ' ') {
+                params.animate = !params.animate;
+                if (params.animate) loop();
+                else noLoop();
+            }
+        }
+    </script>
+</body>
+</html>
