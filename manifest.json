@@ -14,7 +14,18 @@
     "version": "1.0",
     "supports": ["rapp-agent", "claude-skill"],
     "discovery_endpoint": "manifest.json",
-    "raw_base": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main"
+    "raw_base": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main",
+    "installer": {
+      "name": "RAPP Installer",
+      "url": "https://github.com/kody-w/rapp-installer",
+      "install_sh": "https://raw.githubusercontent.com/kody-w/rapp-installer/main/install.sh",
+      "install_ps1": "https://raw.githubusercontent.com/kody-w/rapp-installer/main/install.ps1"
+    },
+    "hub": {
+      "name": "RAPP Hub",
+      "url": "https://github.com/kody-w/RAPP_Hub",
+      "manifest": "https://raw.githubusercontent.com/kody-w/RAPP_Hub/main/manifest.json"
+    }
   },
   "categories": [
     {
