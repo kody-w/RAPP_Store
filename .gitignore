@@ -1,3 +1,6 @@
+# Local configuration (contains user-specific settings)
+config.local.js
+
 # Python
 __pycache__/
 *.py[cod]
