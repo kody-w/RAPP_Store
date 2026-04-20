@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "execbriefagent",
+  "name": "ExecBrief",
+  "version": "1.0.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/exec-brief-singleton",
+  "summary": "Four-persona executive brief pipeline (Scout → Analyst → Strategist → Writer). One topic in, one polished brief out.",
+  "category": "analysis",
+  "tags": ["composite", "exec-brief-pipeline", "singleton", "rapplication"],
+  "singleton": "singleton/execbrief_agent.py",
+  "source_dir": "source/",
+  "build_command": "python3 tools/build.py",
+  "license": "BSD-style",
+  "homepage": "https://kody-w.github.io/RAPP/store/"
+}

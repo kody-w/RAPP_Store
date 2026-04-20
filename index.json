@@ -794,6 +794,53 @@
         "cycles": 3,
         "role": "composite"
       }
+    },
+    {
+      "id": "execbriefagent",
+      "name": "ExecBrief",
+      "version": "1.0.0",
+      "summary": "Four-persona executive brief pipeline (Scout \u2192 Analyst \u2192 Strategist \u2192 Writer). One topic in, one polished sub-400-word brief out. Best for: strategic analyses, leadership pitches, decision briefs, stakeholder summaries.",
+      "tagline": "Any topic in, one executive brief out \u2014 4 LLM calls under one POST.",
+      "category": "analysis",
+      "tags": [
+        "composite",
+        "exec-brief-pipeline",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/exec-brief-singleton",
+      "singleton_filename": "execbrief_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/execbrief/singleton/execbrief_agent.py",
+      "singleton_sha256": "0125c431d0f3ed90b4e4a3adcdb09c6b686d37a8be2aa3ca367bfdebe7209c5e",
+      "singleton_lines": 489,
+      "singleton_bytes": 19993,
+      "egg_url": null,
+      "egg_note": "ExecBrief is stateless per call \u2014 no .egg shipped. Output artifacts are written to the workspace dir.",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 1,
+        "source_files_collapsed": 5,
+        "specialists": [
+          "@rapp/brief-scout",
+          "@rapp/brief-analyst",
+          "@rapp/brief-strategist",
+          "@rapp/brief-writer",
+          "@rapp/exec-brief (top composite)"
+        ]
+      },
+      "metrics": {
+        "llm_calls_per_invocation": 4,
+        "wall_time_sec_per_call_p50": 45,
+        "wall_time_sec_per_call_p90": 75,
+        "output_word_cap": 400
+      },
+      "example_call": {
+        "endpoint": "POST /chat",
+        "body": {
+          "user_input": "Create an executive brief about why Microsoft needs a unified agent sharing standard"
+        }
+      },
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "publisher": "@rapp"
     }
   ],
   "publish_your_own": {
