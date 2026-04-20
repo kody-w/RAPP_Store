@@ -1,0 +1,816 @@
+{
+  "schema": "rapp-store/1.0",
+  "name": "RAPPstore \u2014 official",
+  "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
+  "maintainer": "@kody.cloud",
+  "version": "1.0.0",
+  "generated_at": "2026-04-19T00:00:00Z",
+  "homepage": "https://kody-w.github.io/RAPP/store/",
+  "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything \u2014 no install script, no pip, no native deps.",
+  "rapplications": [
+    {
+      "id": "bookfactoryagent",
+      "name": "BookFactory",
+      "version": "0.3.0",
+      "summary": "Five-persona content pipeline (Writer \u2192 Editor [3 specialists] \u2192 CEO [2 specialists] \u2192 Publisher \u2192 Reviewer). One call, one chapter back. Best for: engineering writeups, blog posts, briefing docs, narrative content under 1500 words.",
+      "tagline": "Source material in, publishable chapter out \u2014 8 LLM calls under one POST.",
+      "category": "creative-pipeline",
+      "tags": [
+        "composite",
+        "creative-pipeline",
+        "twin-stack",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/book-factory-singleton",
+      "singleton_filename": "bookfactory_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/singleton/bookfactory_agent.py",
+      "singleton_sha256": "e4cc1cd9212d6f845219966ac7df06ab4a3e0c1346a98b0ed2c147032afdf0a4",
+      "singleton_lines": 543,
+      "singleton_bytes": 24779,
+      "egg_url": null,
+      "egg_note": "No pre-populated state .egg shipped \u2014 BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "source_files_collapsed": 13,
+        "specialists": [
+          "@rapp/persona-writer",
+          "@rapp/editor-strip-scaffolding",
+          "@rapp/editor-cutweak",
+          "@rapp/editor-restructure",
+          "@rapp/editor-factcheck",
+          "@rapp/editor-voicecheck",
+          "@rapp/persona-editor (composite)",
+          "@rapp/ceo-risk",
+          "@rapp/ceo-decision",
+          "@rapp/persona-ceo (composite)",
+          "@rapp/persona-publisher",
+          "@rapp/persona-reviewer",
+          "@rapp/book-factory (top composite)"
+        ]
+      },
+      "metrics": {
+        "cycle_3_corpus_win_rate": 0.625,
+        "cycles_to_converge_engineering_writeups": 1,
+        "best_line_win_rate_vs_one_shot_llm": 0.583,
+        "wall_time_sec_per_call_p50": 75,
+        "wall_time_sec_per_call_p90": 110,
+        "llm_calls_per_invocation": 8
+      },
+      "example_call": {
+        "endpoint": "POST /api/swarm/{guid}/agent",
+        "body": {
+          "name": "BookFactory",
+          "args": {
+            "source": "<your raw source material>",
+            "chapter_title": "Whatever You Want",
+            "author": "@you"
+          }
+        }
+      },
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
+      "shipped_in_commit": "ebb1648",
+      "publisher": "@rarbookworld"
+    },
+    {
+      "id": "bookfactoryagent-demo",
+      "name": "BookFactory (with Kody+Molly demo state)",
+      "version": "0.3.0",
+      "summary": "Five-persona content pipeline (Writer \u2192 Editor [3 specialists] \u2192 CEO [2 specialists] \u2192 Publisher \u2192 Reviewer). One call, one chapter back. Best for: engineering writeups, blog posts, briefing docs, narrative content under 1500 words. \u00b7 This demo edition ships with a pre-packaged .egg containing the Kody+Molly book-factory workspaces from cycle 3, so you can unpack it with `bash rapp_swarm/twin-egg.sh unpack` and immediately see what a real run produces \u2014 source material, draft, edited prose, CEO note, final chapter, reviewer score.",
+      "tagline": "BookFactory + a worked Kody/Molly run packed as one .egg you can unpack and inspect.",
+      "category": "creative-pipeline",
+      "tags": [
+        "composite",
+        "creative-pipeline",
+        "twin-stack",
+        "singleton",
+        "demo",
+        "stateful"
+      ],
+      "manifest_name": "@rapp/book-factory-singleton",
+      "singleton_filename": "bookfactory_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/singleton/bookfactory_agent.py",
+      "singleton_sha256": "e4cc1cd9212d6f845219966ac7df06ab4a3e0c1346a98b0ed2c147032afdf0a4",
+      "singleton_lines": 543,
+      "singleton_bytes": 24779,
+      "egg_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/eggs/bookfactoryagent-demo.egg",
+      "egg_note": "Contains 6 twin workspaces (kody, molly, writer, editor, publisher, reviewer) plus the in-flight book-factory artifacts under .shared/. Unpack with `bash rapp_swarm/twin-egg.sh unpack bookfactoryagent-demo.egg --into ~/.rapp-twins`. Restoration is byte-identical and SHA-256-verified.",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "source_files_collapsed": 13,
+        "specialists": [
+          "@rapp/persona-writer",
+          "@rapp/editor-strip-scaffolding",
+          "@rapp/editor-cutweak",
+          "@rapp/editor-restructure",
+          "@rapp/editor-factcheck",
+          "@rapp/editor-voicecheck",
+          "@rapp/persona-editor (composite)",
+          "@rapp/ceo-risk",
+          "@rapp/ceo-decision",
+          "@rapp/persona-ceo (composite)",
+          "@rapp/persona-publisher",
+          "@rapp/persona-reviewer",
+          "@rapp/book-factory (top composite)"
+        ]
+      },
+      "metrics": {
+        "cycle_3_corpus_win_rate": 0.625,
+        "cycles_to_converge_engineering_writeups": 1,
+        "best_line_win_rate_vs_one_shot_llm": 0.583,
+        "wall_time_sec_per_call_p50": 75,
+        "wall_time_sec_per_call_p90": 110,
+        "llm_calls_per_invocation": 8
+      },
+      "example_call": {
+        "endpoint": "POST /api/swarm/{guid}/agent",
+        "body": {
+          "name": "BookFactory",
+          "args": {
+            "source": "<your raw source material>",
+            "chapter_title": "Whatever You Want",
+            "author": "@you"
+          }
+        }
+      },
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
+      "shipped_in_commit": "ebb1648",
+      "egg_filename": "bookfactoryagent-demo.egg",
+      "egg_sha256": "f2899a0483ad11610b97c2bcf2a8dd7021aa76c8606ebaa0a1bbb5fb6e50e4a5",
+      "egg_bytes": 58769,
+      "install_after_unpack": "Already-hatched swarms come with the .egg. Start any twin: bash rapp_swarm/twin-sim.sh start kody. Then call BookFactory through that twin's brainstem to see a complete worked example.",
+      "publisher": "@rarbookworld"
+    },
+    {
+      "id": "rarbookworld-persona-writer",
+      "name": "Writer Persona",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Senior nonfiction writer. Takes raw source material and returns chapter-style prose with code preserved verbatim.",
+      "tagline": "Senior nonfiction writer. Takes raw source material and returns chapter-style prose with code preserved verbatim.",
+      "category": "creative-pipeline",
+      "tags": [
+        "persona",
+        "creative-pipeline",
+        "writer"
+      ],
+      "manifest_name": "@rarbookworld/persona_writer",
+      "singleton_filename": "persona_writer_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/persona_writer_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/persona_writer_agent.py",
+      "singleton_sha256": "b337dfdcb5f6613e06c3b8013401b5f1dfe63a53e0381bff420eb0810cb3f5e0",
+      "singleton_lines": 113,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-persona-publisher",
+      "name": "Publisher Persona",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Indie-press publisher. Takes edited prose plus a CEO note and outputs publication-ready markdown with YAML frontmatter.",
+      "tagline": "Indie-press publisher. Takes edited prose plus a CEO note and outputs publication-ready markdown with YAML frontmatter.",
+      "category": "creative-pipeline",
+      "tags": [
+        "persona",
+        "creative-pipeline",
+        "publisher"
+      ],
+      "manifest_name": "@rarbookworld/persona_publisher",
+      "singleton_filename": "persona_publisher_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/persona_publisher_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/persona_publisher_agent.py",
+      "singleton_sha256": "2bf8b26c4ce50f51741718f25288bacbe8ef02013e3e7f8a8e7a645f3334813e",
+      "singleton_lines": 96,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-persona-reviewer",
+      "name": "Reviewer Persona",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Cold-read reviewer. Returns a 1-5 score, the strongest single line, and whether they would keep reading.",
+      "tagline": "Cold-read reviewer. Returns a 1-5 score, the strongest single line, and whether they would keep reading.",
+      "category": "creative-pipeline",
+      "tags": [
+        "persona",
+        "creative-pipeline",
+        "reviewer"
+      ],
+      "manifest_name": "@rarbookworld/persona_reviewer",
+      "singleton_filename": "persona_reviewer_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/persona_reviewer_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/persona_reviewer_agent.py",
+      "singleton_sha256": "d236b8fcb88976dd7452ca343ff6cd595b49de06c63c517fbc290e9db03f8225",
+      "singleton_lines": 61,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-editor-cutweak",
+      "name": "Editor: Cut Weakest 20%",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Editor specialist. Returns the same prose with the weakest 20% cut. Preserves fenced code blocks as evidence.",
+      "tagline": "Editor specialist. Returns the same prose with the weakest 20% cut. Preserves fenced code blocks as evidence.",
+      "category": "creative-pipeline",
+      "tags": [
+        "editor-specialist",
+        "creative-pipeline"
+      ],
+      "manifest_name": "@rarbookworld/editor_cutweak",
+      "singleton_filename": "editor_cutweak_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/editor_cutweak_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/editor_cutweak_agent.py",
+      "singleton_sha256": "11cdfe1d6213418027921f9868b702cb34e1bcdd488a0e8acc67ac2cb270cba8",
+      "singleton_lines": 68,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-editor-factcheck",
+      "name": "Editor: Factcheck",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Editor specialist. Surfaces 2-5 claims that need a source and what kind of source would prove or disprove each.",
+      "tagline": "Editor specialist. Surfaces 2-5 claims that need a source and what kind of source would prove or disprove each.",
+      "category": "creative-pipeline",
+      "tags": [
+        "editor-specialist",
+        "creative-pipeline"
+      ],
+      "manifest_name": "@rarbookworld/editor_factcheck",
+      "singleton_filename": "editor_factcheck_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/editor_factcheck_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/editor_factcheck_agent.py",
+      "singleton_sha256": "83a7137ce280cf87d3c26f34329c3acff069556c6a2284f14b7f66a4554e3630",
+      "singleton_lines": 60,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-editor-voicecheck",
+      "name": "Editor: Voice Drift",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Editor specialist. Flags voice drift \u2014 sentences that don't sound like the author's established voice.",
+      "tagline": "Editor specialist. Flags voice drift \u2014 sentences that don't sound like the author's established voice.",
+      "category": "creative-pipeline",
+      "tags": [
+        "editor-specialist",
+        "creative-pipeline"
+      ],
+      "manifest_name": "@rarbookworld/editor_voicecheck",
+      "singleton_filename": "editor_voicecheck_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/editor_voicecheck_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/editor_voicecheck_agent.py",
+      "singleton_sha256": "e03b453ff2268d2e7d28cd7281ba59680e7c6b4cda08b658be32e61b15df4dc4",
+      "singleton_lines": 61,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-editor-strip-scaffolding",
+      "name": "Editor: Strip Scaffolding",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Editor specialist. Removes ## Outline headers, TODO markers, and draft-state labels left by the writer.",
+      "tagline": "Editor specialist. Removes ## Outline headers, TODO markers, and draft-state labels left by the writer.",
+      "category": "creative-pipeline",
+      "tags": [
+        "editor-specialist",
+        "creative-pipeline"
+      ],
+      "manifest_name": "@rarbookworld/editor_strip_scaffolding",
+      "singleton_filename": "editor_strip_scaffolding_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/editor_strip_scaffolding_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/editor_strip_scaffolding_agent.py",
+      "singleton_sha256": "20e539bdd1d8e1a441452320995ee224fafdc79613c21a34ae72bd9703be822e",
+      "singleton_lines": 80,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-editor-restructure",
+      "name": "Editor: Restructure",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Editor specialist. Consolidates repetitive middle sections without rewriting the writer's voice.",
+      "tagline": "Editor specialist. Consolidates repetitive middle sections without rewriting the writer's voice.",
+      "category": "creative-pipeline",
+      "tags": [
+        "editor-specialist",
+        "creative-pipeline"
+      ],
+      "manifest_name": "@rarbookworld/editor_restructure",
+      "singleton_filename": "editor_restructure_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/editor_restructure_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/editor_restructure_agent.py",
+      "singleton_sha256": "85409e56a18477c3aa23cd313a31f9af98ca05a5561fffb9b74bd67dfa7c3112",
+      "singleton_lines": 80,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-ceo-decision",
+      "name": "CEO: Decision",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "CEO specialist. Returns a one-line ship/edit/hold decision with the reasoning behind it.",
+      "tagline": "CEO specialist. Returns a one-line ship/edit/hold decision with the reasoning behind it.",
+      "category": "creative-pipeline",
+      "tags": [
+        "ceo-specialist",
+        "creative-pipeline"
+      ],
+      "manifest_name": "@rarbookworld/ceo_decision",
+      "singleton_filename": "ceo_decision_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/ceo_decision_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/ceo_decision_agent.py",
+      "singleton_sha256": "307b5ed1fc78069d3c1563176dcb7157a46652f6b1c39d4b7a5d306a3ca456a4",
+      "singleton_lines": 61,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-ceo-risk",
+      "name": "CEO: Partner Risk",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "CEO specialist. Lists 1-3 partner-conversation risks that would actually matter in a real meeting.",
+      "tagline": "CEO specialist. Lists 1-3 partner-conversation risks that would actually matter in a real meeting.",
+      "category": "creative-pipeline",
+      "tags": [
+        "ceo-specialist",
+        "creative-pipeline"
+      ],
+      "manifest_name": "@rarbookworld/ceo_risk",
+      "singleton_filename": "ceo_risk_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/ceo_risk_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/ceo_risk_agent.py",
+      "singleton_sha256": "9bff8caad52acf80499779e5d44274978b1d8e267d5bbc50f60236629b3c8733",
+      "singleton_lines": 61,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-persona-editor",
+      "name": "Editor Persona (composite)",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Editor persona. Composite of 5 specialists: strip \u2192 cut \u2192 restructure, plus factcheck + voicecheck for the editor's note.",
+      "tagline": "Editor persona. Composite of 5 specialists: strip \u2192 cut \u2192 restructure, plus factcheck + voicecheck for the editor's note.",
+      "category": "creative-pipeline",
+      "tags": [
+        "persona",
+        "creative-pipeline",
+        "composite"
+      ],
+      "manifest_name": "@rarbookworld/persona_editor",
+      "singleton_filename": "persona_editor_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/persona_editor_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/persona_editor_agent.py",
+      "singleton_sha256": "08c2a2cf42de7bd9c0c0f5a6d2ae137a7d1d47b92734d5ea0508bf674795bd79",
+      "singleton_lines": 75,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "composite"
+      }
+    },
+    {
+      "id": "rarbookworld-persona-ceo",
+      "name": "CEO Persona (composite)",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "CEO persona. Composite of 2 specialists: decision + partner-risk. Returns a strategic-message-discipline review.",
+      "tagline": "CEO persona. Composite of 2 specialists: decision + partner-risk. Returns a strategic-message-discipline review.",
+      "category": "creative-pipeline",
+      "tags": [
+        "persona",
+        "creative-pipeline",
+        "composite"
+      ],
+      "manifest_name": "@rarbookworld/persona_ceo",
+      "singleton_filename": "persona_ceo_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/persona_ceo_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/persona_ceo_agent.py",
+      "singleton_sha256": "534648eed31f3398ef74aba95dded4238d62a91db7c2adcd883c9d49677fdda3",
+      "singleton_lines": 42,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "composite"
+      }
+    },
+    {
+      "id": "rarbookworld-book-factory",
+      "name": "BookFactory (multi-file source)",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Five-persona content pipeline (Writer \u2192 Editor \u2192 CEO \u2192 Publisher \u2192 Reviewer) as a composite of 13 sibling agent.py files.",
+      "tagline": "Five-persona content pipeline (Writer \u2192 Editor \u2192 CEO \u2192 Publisher \u2192 Reviewer) as a composite of 13 sibling agent.py files.",
+      "category": "creative-pipeline",
+      "tags": [
+        "composite",
+        "creative-pipeline",
+        "twin-stack"
+      ],
+      "manifest_name": "@rarbookworld/book_factory",
+      "singleton_filename": "book_factory_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/source/book_factory_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/book_factory_agent.py",
+      "singleton_sha256": "5601a6ea596543fcb6d18d5100d10625cfe00df27350ab1b9e4fe012f46363db",
+      "singleton_lines": 110,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "composite"
+      }
+    },
+    {
+      "id": "momentfactoryagent",
+      "name": "MomentFactory",
+      "version": "0.1.0",
+      "publisher": "@rarbookworld",
+      "summary": "Seven-persona moment-to-Drop pipeline (Sensorium \u2192 SignificanceFilter \u2192 HookWriter \u2192 BodyWriter \u2192 ChannelRouter \u2192 CardForger \u2192 SeedStamper). Turns any raw moment (commit, voice memo, web bookmark, agent run, location, conversation, decision, reading note) into a Rappterbook Drop with built-in significance filtering. The candidate engine for any feed-driven AI-agent platform.",
+      "tagline": "Any moment in. One Drop out \u2014 with the SignificanceFilter's veto built into the pipeline.",
+      "category": "moment-pipeline",
+      "tags": [
+        "composite",
+        "moment-pipeline",
+        "rapplication",
+        "rappterbook-engine",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/moment-factory-singleton",
+      "singleton_filename": "momentfactory_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/singleton/momentfactory_agent.py",
+      "singleton_sha256": "14269c26c386f26cb6d028a35ba9fa495dce8db7410c8718fab6add71872800b",
+      "singleton_lines": 509,
+      "singleton_bytes": 23884,
+      "egg_url": null,
+      "egg_note": "MomentFactory is stateless per call \u2014 no .egg shipped. Pair with a Rappterbook state .egg if you want a worked example.",
+      "produced_by": {
+        "method": "double-jump-loop-vs-rappter-engine",
+        "cycles": 1,
+        "source_files_collapsed": 8,
+        "specialists": [
+          "@rapp/sensorium",
+          "@rapp/significance-filter",
+          "@rapp/hook-writer",
+          "@rapp/body-writer",
+          "@rapp/channel-router",
+          "@rapp/card-forger",
+          "@rapp/seed-stamper",
+          "@rapp/moment-factory (top composite)"
+        ]
+      },
+      "metrics": {
+        "wall_time_sec_per_call_p50": 25,
+        "llm_calls_per_invocation_when_shipped": 6,
+        "llm_calls_per_invocation_when_skipped": 2,
+        "drop_completeness_fields": [
+          "hook",
+          "body",
+          "channel",
+          "card",
+          "seed",
+          "incantation"
+        ],
+        "deterministic_seed": true,
+        "wordlist_size": 256,
+        "incantation_word_count": 7
+      },
+      "example_call": {
+        "endpoint": "POST /api/swarm/{guid}/agent",
+        "body": {
+          "name": "MomentFactory",
+          "args": {
+            "source": "<your raw moment text>",
+            "source_type": "code-commit | voice-memo | web-bookmark | agent-run | location | conversation | decision | reading-note",
+            "significance_threshold": 0.5
+          }
+        }
+      },
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "spec_post": "https://kody-w.github.io/RAPP/blog/104-momentfactory-vs-rappter.md"
+    },
+    {
+      "id": "rarbookworld-sensorium",
+      "name": "Sensorium",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Normalizes a raw moment (code commit, voice memo, bookmark, agent run, location, conversation, decision, reading note) into a structured JSON shape.",
+      "tagline": "Normalizes a raw moment (code commit, voice memo, bookmark, agent run, location, conversation, decision, reading note) into a structured JSON shape.",
+      "category": "creative-pipeline",
+      "tags": [
+        "moment-pipeline",
+        "ingest"
+      ],
+      "manifest_name": "@rarbookworld/sensorium",
+      "singleton_filename": "sensorium_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/sensorium_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/sensorium_agent.py",
+      "singleton_sha256": "3d1549ecbb8845608ac81b6045f89fdde9d27bfa56521589936414078a29990a",
+      "singleton_lines": 76,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-significance-filter",
+      "name": "Significance Filter",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Refuses moments that don't compound. The platform's defining constraint, encoded as one persona with veto power. Default: ship=false.",
+      "tagline": "Refuses moments that don't compound. The platform's defining constraint, encoded as one persona with veto power. Default: ship=false.",
+      "category": "creative-pipeline",
+      "tags": [
+        "moment-pipeline",
+        "filter"
+      ],
+      "manifest_name": "@rarbookworld/significance_filter",
+      "singleton_filename": "significance_filter_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/significance_filter_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/significance_filter_agent.py",
+      "singleton_sha256": "7d57e1155da76edcd127b443c26a6957b7937bc41352b3a652603213bebf579a",
+      "singleton_lines": 84,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-hook-writer",
+      "name": "Hook Writer",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Writes the one sentence that earns a tap on the feed. Single sentence. Concrete over abstract. No clickbait.",
+      "tagline": "Writes the one sentence that earns a tap on the feed. Single sentence. Concrete over abstract. No clickbait.",
+      "category": "creative-pipeline",
+      "tags": [
+        "moment-pipeline",
+        "hook"
+      ],
+      "manifest_name": "@rarbookworld/hook_writer",
+      "singleton_filename": "hook_writer_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/hook_writer_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/hook_writer_agent.py",
+      "singleton_sha256": "9a170e4f0a6455cfd3dc95db259c5993464671401ca8811798ffca9d3a147f45",
+      "singleton_lines": 71,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-body-writer",
+      "name": "Body Writer",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Writes the 3-5 sentence body of a Drop. Expands the hook, never restates. At least one concrete detail from key_facts.",
+      "tagline": "Writes the 3-5 sentence body of a Drop. Expands the hook, never restates. At least one concrete detail from key_facts.",
+      "category": "creative-pipeline",
+      "tags": [
+        "moment-pipeline",
+        "body"
+      ],
+      "manifest_name": "@rarbookworld/body_writer",
+      "singleton_filename": "body_writer_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/body_writer_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/body_writer_agent.py",
+      "singleton_sha256": "69712ddd374e9d66d2dae7623e593e8eefb0f4ee919d13de9438dba3985b8627",
+      "singleton_lines": 76,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-channel-router",
+      "name": "Channel Router",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Picks one Subrappter (r/builders, r/dreams, r/decisions, r/lessons, r/connections, etc.) for a Drop. Auto-classifies, no manual tagging.",
+      "tagline": "Picks one Subrappter (r/builders, r/dreams, r/decisions, r/lessons, r/connections, etc.) for a Drop. Auto-classifies, no manual tagging.",
+      "category": "creative-pipeline",
+      "tags": [
+        "moment-pipeline",
+        "router"
+      ],
+      "manifest_name": "@rarbookworld/channel_router",
+      "singleton_filename": "channel_router_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/channel_router_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/channel_router_agent.py",
+      "singleton_sha256": "eebc138766bf4ec03826d2341bff4021f5ef53210ca1052e1a465b885d95fbd6",
+      "singleton_lines": 94,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-card-forger",
+      "name": "Card Forger",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Mints a RAR-compatible card (name + impact/novelty/compoundability stats + ability + lore + art_seed) from a Drop. Every Drop is a collectible.",
+      "tagline": "Mints a RAR-compatible card (name + impact/novelty/compoundability stats + ability + lore + art_seed) from a Drop. Every Drop is a collectible.",
+      "category": "creative-pipeline",
+      "tags": [
+        "moment-pipeline",
+        "card"
+      ],
+      "manifest_name": "@rarbookworld/card_forger",
+      "singleton_filename": "card_forger_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/card_forger_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/card_forger_agent.py",
+      "singleton_sha256": "fdab2b270722ef69f144dae6b93180090fe76abf4d2181640bb93c3cbcfb9d54",
+      "singleton_lines": 82,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-seed-stamper",
+      "name": "Seed Stamper",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Pure function (no LLM). Returns deterministic 64-bit seed + 7-word incantation from a 256-word wordlist. Speak the words \u2192 reconstruct the Drop offline.",
+      "tagline": "Pure function (no LLM). Returns deterministic 64-bit seed + 7-word incantation from a 256-word wordlist. Speak the words \u2192 reconstruct the Drop offline.",
+      "category": "creative-pipeline",
+      "tags": [
+        "moment-pipeline",
+        "seed",
+        "incantation"
+      ],
+      "manifest_name": "@rarbookworld/seed_stamper",
+      "singleton_filename": "seed_stamper_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/seed_stamper_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/seed_stamper_agent.py",
+      "singleton_sha256": "5c1d26a6661926252cd3b731b0b936817905162ee05698f132c2a5aef1b5a688",
+      "singleton_lines": 65,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "component"
+      }
+    },
+    {
+      "id": "rarbookworld-moment-factory",
+      "name": "MomentFactory (multi-file source)",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Seven-persona moment-to-Drop pipeline as a composite of 8 sibling agent.py files. The candidate engine for any feed-driven AI-agent platform.",
+      "tagline": "Seven-persona moment-to-Drop pipeline as a composite of 8 sibling agent.py files. The candidate engine for any feed-driven AI-agent platform.",
+      "category": "creative-pipeline",
+      "tags": [
+        "composite",
+        "moment-pipeline",
+        "rappterbook-engine"
+      ],
+      "manifest_name": "@rarbookworld/moment_factory",
+      "singleton_filename": "moment_factory_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/source/moment_factory_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/moment_factory_agent.py",
+      "singleton_sha256": "a26a45672b8d0637be46dd89b09148f5956a8fb11c10bf29f4e4cf51b0d9a7a7",
+      "singleton_lines": 149,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "composite"
+      }
+    },
+    {
+      "id": "rarbookworld-momentfactory",
+      "name": "MomentFactory (converged singleton)",
+      "version": "0.3.0",
+      "publisher": "@rarbookworld",
+      "summary": "Seven-persona moment-to-Drop pipeline collapsed into a single sacred file. Hatches alone with zero sibling deps. The candidate engine for Rappterbook.",
+      "tagline": "Seven-persona moment-to-Drop pipeline collapsed into a single sacred file. Hatches alone with zero sibling deps. The candidate engine for Rappterbook.",
+      "category": "creative-pipeline",
+      "tags": [
+        "composite",
+        "moment-pipeline",
+        "rappterbook-engine",
+        "singleton",
+        "rapplication"
+      ],
+      "manifest_name": "@rarbookworld/momentfactory",
+      "singleton_filename": "momentfactory_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/momentfactory/singleton/momentfactory_agent.py",
+      "rar_url": "https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rarbookworld/momentfactory_agent.py",
+      "singleton_sha256": "14269c26c386f26cb6d028a35ba9fa495dce8db7410c8718fab6add71872800b",
+      "singleton_lines": 508,
+      "egg_url": null,
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "produced_by": {
+        "method": "double-jump-loop",
+        "cycles": 3,
+        "role": "composite"
+      }
+    }
+  ],
+  "publish_your_own": {
+    "summary": "Author a rapplication using the multi-file source pattern (see blog/89). Run the double-jump loop until convergence (typically 1-3 cycles per content shape). Collapse to a singleton via tools/build-rapplication.py. Submit a PR adding an entry to rapp_store/index.json.",
+    "schema": "rapp-application/1.0",
+    "required_fields": [
+      "id",
+      "name",
+      "version",
+      "summary",
+      "manifest_name",
+      "singleton_url"
+    ],
+    "see_also": [
+      "blog/98-the-rapplication.md",
+      "blog/99-the-rappstore.md",
+      "blog/101-publish-your-first-rapplication.md"
+    ]
+  }
+}

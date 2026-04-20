@@ -1,0 +1,18 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "momentfactoryagent",
+  "name": "MomentFactory",
+  "version": "0.1.0",
+  "publisher": "@rarbookworld",
+  "manifest_name": "@rapp/moment-factory-singleton",
+  "summary": "Seven-persona moment-to-Drop pipeline (Sensorium → SignificanceFilter → HookWriter → BodyWriter → ChannelRouter → CardForger → SeedStamper). Candidate engine for Rappterbook.",
+  "category": "moment-pipeline",
+  "tags": ["composite", "moment-pipeline", "rapplication", "rappterbook-engine", "singleton"],
+  "singleton": "singleton/momentfactory_agent.py",
+  "source_dir": "source/",
+  "build_command": "python3 tools/build.py",
+  "test_command": "bash tests/test.sh",
+  "license": "BSD-style",
+  "homepage": "https://kody-w.github.io/RAPP/store/",
+  "spec_post": "blog/104-momentfactory-vs-rappter.md"
+}

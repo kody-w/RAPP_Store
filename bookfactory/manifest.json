@@ -1,0 +1,18 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "bookfactoryagent",
+  "name": "BookFactory",
+  "version": "0.3.0",
+  "publisher": "@rarbookworld",
+  "manifest_name": "@rapp/book-factory-singleton",
+  "summary": "Five-persona content pipeline (Writer → Editor → CEO → Publisher → Reviewer). One call, one chapter back.",
+  "category": "creative-pipeline",
+  "tags": ["composite", "creative-pipeline", "twin-stack", "singleton", "rapplication"],
+  "singleton": "singleton/bookfactory_agent.py",
+  "source_dir": "source/",
+  "build_command": "python3 tools/build.py",
+  "test_command": "bash tests/test.sh",
+  "license": "BSD-style",
+  "homepage": "https://kody-w.github.io/RAPP/store/",
+  "spec_post": "blog/89-double-jump-loop.md"
+}

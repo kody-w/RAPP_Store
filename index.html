@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAPPstore — converged single-file agents you can pull into your brainstem</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: #0d1117; color: #e6edf3;
+    line-height: 1.5; min-height: 100vh;
+  }
+  a { color: #58a6ff; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+  header {
+    border-bottom: 1px solid #21262d; padding-bottom: 22px; margin-bottom: 32px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  header .icon { font-size: 36px; }
+  header h1 { font-size: 24px; font-weight: 700; }
+  header h1 .badge {
+    margin-left: 10px; font-size: 9px; letter-spacing: 1.5px;
+    color: #58a6ff; vertical-align: middle;
+    border: 1px solid #1f6feb; padding: 3px 8px; border-radius: 999px;
+    text-transform: uppercase; font-weight: 700;
+  }
+  header h1 .sub { display: block; font-size: 12px; color: #8b949e;
+    font-family: "SF Mono", monospace; margin-top: 4px; letter-spacing: .5px; }
+  header .controls { margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #8b949e; }
+
+  .help {
+    background: #161b22; border: 1px solid #21262d; border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 28px; font-size: 13px; color: #c9d1d9;
+  }
+  .help h2 { font-size: 13px; color: #8b949e; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+  .help code {
+    background: #0d1117; border: 1px solid #30363d; padding: 2px 8px;
+    border-radius: 5px; font-size: 11px; font-family: "SF Mono", monospace; color: #58a6ff;
+  }
+  .help pre {
+    background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    padding: 10px 12px; margin-top: 10px; overflow-x: auto;
+    font-family: "SF Mono", monospace; font-size: 11px;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .card {
+    background: #161b22; border: 1px solid #21262d; border-radius: 12px;
+    padding: 22px 24px; transition: border-color .15s;
+  }
+  .card:hover { border-color: #58a6ff; }
+  .card .head {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;
+  }
+  .card .name { font-size: 18px; font-weight: 700; }
+  .card .version { color: #8b949e; font-family: "SF Mono", monospace; font-size: 11px; }
+  .card .tagline { color: #c9d1d9; font-style: italic; margin-bottom: 14px; }
+  .card .summary { font-size: 13px; color: #8b949e; margin-bottom: 14px; }
+  .card .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pill {
+    background: #0d1117; border: 1px solid #30363d; border-radius: 999px;
+    padding: 2px 10px; font-size: 11px; color: #8b949e; font-family: "SF Mono", monospace;
+  }
+  .pill.cat { color: #58a6ff; border-color: #1f6feb; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .stat {
+    background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 8px 12px;
+  }
+  .stat .label { font-size: 9px; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
+  .stat .val { font-size: 14px; font-weight: 600; font-family: "SF Mono", monospace; margin-top: 2px; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .btn {
+    background: #21262d; border: 1px solid #30363d; color: #e6edf3;
+    padding: 9px 16px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; text-decoration: none; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: #58a6ff; color: #58a6ff; }
+  .btn.primary { background: #238636; border-color: #2ea043; color: #fff; }
+  .btn.primary:hover { background: #2ea043; color: #fff; border-color: #3fb950; }
+  .btn.secondary { background: #161b22; border-color: #21262d; color: #c9d1d9; }
+
+  details {
+    margin-top: 14px; background: #0d1117; border: 1px solid #21262d; border-radius: 8px;
+    padding: 10px 14px;
+  }
+  details summary {
+    cursor: pointer; font-size: 12px; color: #8b949e; user-select: none;
+  }
+  details[open] summary { color: #58a6ff; }
+  details .body { margin-top: 10px; font-size: 12px; color: #c9d1d9; }
+  details code { background: transparent; color: #58a6ff; }
+  details pre {
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    padding: 10px 12px; overflow-x: auto;
+    font-family: "SF Mono", monospace; font-size: 11px; line-height: 1.5;
+  }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #161b22; color: #e6edf3; border: 1px solid #2ea043;
+    padding: 10px 18px; border-radius: 8px; font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4); z-index: 200;
+    opacity: 0; transition: opacity .25s;
+  }
+  .toast.show { opacity: 1; }
+
+  .footer {
+    margin-top: 40px; padding-top: 20px; border-top: 1px solid #21262d;
+    color: #8b949e; font-size: 12px; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<main>
+
+<header>
+  <div class="icon">📦</div>
+  <div>
+    <h1>RAPPstore <span class="badge">official</span>
+      <span class="sub">converged single-file agents · pull into your brainstem · run locally</span>
+    </h1>
+  </div>
+  <div class="controls">
+    <a href="../index.html">← RAPP</a>
+    <a href="../blog/index.md">blog</a>
+    <a href="https://github.com/kody-w/RAPP" target="_blank">source ↗</a>
+  </div>
+</header>
+
+<div class="help">
+  <h2>What is a rapplication?</h2>
+  A rapplication (RAPP application) is a <strong>converged single-file agent.py</strong> — one self-contained Python file
+  that contains an entire AI workflow. Drop it in your local brainstem's <code>agents/</code> directory and it works.
+  No <code>pip install</code>. No native dependencies. Just <code>BasicAgent</code> and an LLM key in your environment.
+  <br><br>
+  Each rapplication was produced by the <a href="../blog/89-double-jump-loop.md">double-jump loop</a>: claude vs framework,
+  score head-to-head, encode the diagnosis as <code>agent.py</code> changes, re-run until convergence. Then collapse the
+  multi-file ensemble into one shippable singleton.
+  <br><br>
+  <strong>Install path:</strong>
+  <pre>curl -fsSL &lt;singleton_url&gt; > ~/your-brainstem/agents/&lt;name&gt;.py
+# now POST /api/swarm/deploy with a bundle that includes it
+# OR if your brainstem watches agents/, just hit the endpoint</pre>
+</div>
+
+<div class="grid" id="grid">
+  <div class="card"><div class="summary">Loading rapplications…</div></div>
+</div>
+
+<div class="footer">
+  RAPPstore catalog format: <code>rapp-store/1.0</code> ·
+  Fork your own catalog by copying <code>rapp_store/index.json</code> ·
+  See <a href="../blog/99-the-rappstore.md">blog/99</a> for the spec
+</div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+function $(s) { return document.querySelector(s); }
+function el(t, a={}, k=[]) {
+  const e = document.createElement(t);
+  for (const [k2,v] of Object.entries(a)) {
+    if (k2==='class') e.className=v;
+    else if (k2==='text') e.textContent=v;
+    else if (k2==='html') e.innerHTML=v;
+    else if (k2.startsWith('on')) e.addEventListener(k2.slice(2), v);
+    else e.setAttribute(k2, v);
+  }
+  for (const c of (Array.isArray(k)?k:[k])) {
+    if (c==null) continue;
+    e.appendChild(typeof c==='string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+async function copy(text) {
+  await navigator.clipboard.writeText(text);
+  toast('Copied to clipboard');
+}
+
+(async function boot() {
+  let catalog;
+  try {
+    const r = await fetch('./index.json', { cache: 'no-cache' });
+    catalog = await r.json();
+  } catch (e) {
+    $('#grid').innerHTML = `<div class="card"><div class="summary">Failed to load catalog: ${e.message}</div></div>`;
+    return;
+  }
+  const grid = $('#grid');
+  grid.innerHTML = '';
+  for (const r of (catalog.rapplications || [])) {
+    const installCmd = `curl -fsSL ${r.singleton_url} -o agents/${r.singleton_filename}`;
+    const card = el('div', { class: 'card' }, [
+      el('div', { class: 'head' }, [
+        el('div', { class: 'name', text: r.name }),
+        el('div', { class: 'version', text: 'v' + r.version }),
+      ]),
+      el('div', { class: 'tagline', text: r.tagline || '' }),
+      el('div', { class: 'pills' }, [
+        el('span', { class: 'pill cat', text: r.category || '' }),
+        ...(r.tags || []).map(t => el('span', { class: 'pill', text: t })),
+      ]),
+      el('div', { class: 'summary', text: r.summary || '' }),
+      el('div', { class: 'stats' }, [
+        el('div', { class: 'stat' }, [
+          el('div', { class: 'label', text: 'lines' }),
+          el('div', { class: 'val', text: r.singleton_lines }),
+        ]),
+        el('div', { class: 'stat' }, [
+          el('div', { class: 'label', text: 'bytes' }),
+          el('div', { class: 'val', text: r.singleton_bytes.toLocaleString() }),
+        ]),
+        el('div', { class: 'stat' }, [
+          el('div', { class: 'label', text: 'LLM calls' }),
+          el('div', { class: 'val', text: r.metrics?.llm_calls_per_invocation || '?' }),
+        ]),
+        el('div', { class: 'stat' }, [
+          el('div', { class: 'label', text: 'p50 wall' }),
+          el('div', { class: 'val', text: (r.metrics?.wall_time_sec_per_call_p50 || '?') + 's' }),
+        ]),
+      ]),
+      el('div', { class: 'actions' }, [
+        el('a', { class: 'btn primary', href: r.singleton_url, download: r.singleton_filename }, ['⬇ Download singleton']),
+        el('button', { class: 'btn', onclick: () => copy(installCmd) }, ['📋 Copy install command']),
+        r.spec_post ? el('a', { class: 'btn secondary', href: r.spec_post, target: '_blank' }, ['📄 Read the spec']) : null,
+      ]),
+      el('details', {}, [
+        el('summary', { text: `Specialists collapsed into this singleton (${(r.produced_by?.specialists || []).length})` }),
+        el('div', { class: 'body' }, [
+          el('div', { text: r.produced_by?.method ? `Produced by: ${r.produced_by.method} · ${r.produced_by.cycles} cycles · ${r.produced_by.source_files_collapsed} source files collapsed` : '' }),
+          el('pre', { text: (r.produced_by?.specialists || []).join('\n') }),
+        ]),
+      ]),
+      el('details', {}, [
+        el('summary', { text: 'Example call' }),
+        el('div', { class: 'body' }, [
+          el('div', { text: r.example_call?.endpoint || '' }),
+          el('pre', { text: JSON.stringify(r.example_call?.body, null, 2) }),
+        ]),
+      ]),
+      el('details', {}, [
+        el('summary', { text: `SHA-256 · sha=${(r.singleton_sha256 || '').slice(0, 16)}…` }),
+        el('div', { class: 'body' }, [
+          el('pre', { text: r.singleton_sha256 || '(not pinned yet)' }),
+        ]),
+      ]),
+    ]);
+    grid.appendChild(card);
+  }
+})();
+</script>
+
+</body>
+</html>
