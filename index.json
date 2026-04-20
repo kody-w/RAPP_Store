@@ -94,7 +94,7 @@
       "singleton_sha256": "e4cc1cd9212d6f845219966ac7df06ab4a3e0c1346a98b0ed2c147032afdf0a4",
       "singleton_lines": 543,
       "singleton_bytes": 24779,
-      "egg_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/eggs/bookfactoryagent-demo.egg",
+      "egg_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/eggs/bookfactoryagent-demo.egg",
       "egg_note": "Contains 6 twin workspaces (kody, molly, writer, editor, publisher, reviewer) plus the in-flight book-factory artifacts under .shared/. Unpack with `bash rapp_swarm/twin-egg.sh unpack bookfactoryagent-demo.egg --into ~/.rapp-twins`. Restoration is byte-identical and SHA-256-verified.",
       "produced_by": {
         "method": "double-jump-loop",
