@@ -14,8 +14,11 @@ from agents.brief_scout_agent import BriefScoutAgent
 from agents.brief_analyst_agent import BriefAnalystAgent
 from agents.brief_strategist_agent import BriefStrategistAgent
 from agents.brief_writer_agent import BriefWriterAgent
+import importlib.util
 import json
 import os
+import re
+import time
 
 
 __manifest__ = {
@@ -34,6 +37,7 @@ __manifest__ = {
         "@rapp/brief-analyst",
         "@rapp/brief-strategist",
         "@rapp/brief-writer",
+        "@rapp/pitch_deck",
     ],
     "example_call": {
         "args": {"topic": "Why our org needs a unified agent sharing standard"}
@@ -113,18 +117,139 @@ class ExecBriefAgent(BasicAgent):
         _save("04-brief.md", writer_raw)
         brief = _extract(writer_raw, "brief")
 
-        print("[ExecBrief] Pipeline complete — 4 agents, 1 brief.")
+        # ── Step 5: DeckForge — the presentation-ready deliverable ───────
+        print("[ExecBrief] Step 5/5: DeckForge building pitch deck...")
+        deck = _build_pitch_deck(topic, brief, research, analysis, strategy, ws)
+
+        print("[ExecBrief] Pipeline complete — 5 agents, 1 brief, 1 deck.")
+
+        summary_parts = ["### Executive Brief", "", brief]
+        if deck.get("url"):
+            summary_parts += [
+                "",
+                "---",
+                "",
+                "### Presentation-ready pitch deck",
+                "",
+                f"**[Click to open your pitch deck in a new tab →]({deck['url']})**",
+                "",
+                "Light/dark theme (`T`) · Exec + rehearse modes (`R`) · "
+                "Arrow keys or swipe to navigate. Rehearse mode adds the "
+                "email draft, 3-minute video script, and run commands.",
+            ]
 
         return json.dumps({
             "status": "success",
             "brief": brief,
+            "deck_url": deck.get("url"),
+            "deck_path": deck.get("path"),
             "pipeline": {
-                "steps": 4,
+                "steps": 5,
                 "agents": [
                     "BriefScout", "BriefAnalyst",
-                    "BriefStrategist", "BriefWriter",
+                    "BriefStrategist", "BriefWriter", "DeckForge",
                 ],
             },
             "workspace": ws,
-            "data_slush": {"topic": topic, "brief_ready": True},
+            "summary": "\n".join(summary_parts),
+            "presentation_hint": (
+                "Render the summary field verbatim to the user — keep the "
+                "markdown link to the deck so the chat UI shows it as a "
+                "clickable 'Open in new tab' button."
+            ),
+            "data_slush": {
+                "topic": topic,
+                "brief_ready": True,
+                "deck_ready": bool(deck.get("url")),
+                "deck_url": deck.get("url"),
+            },
         })
+
+
+# ─── DeckForge: turn the brief into a presentation-ready HTML deck ───────
+# Uses @rapp/pitch_deck if available. Graceful degradation if not.
+
+def _build_pitch_deck(topic, brief, research, analysis, strategy, workspace):
+    """Generate an HTML pitch deck and return {url, path} for the chat CTA."""
+    web_dir = _find_brainstem_web_dir()
+    slug = re.sub(r"[^a-z0-9]+", "-", (topic or "brief").lower()).strip("-")[:40] or "brief"
+    filename = f"execbrief-{slug}-{int(time.time())}.html"
+
+    if web_dir:
+        pitches_dir = os.path.join(web_dir, "pitches")
+        path = os.path.join(pitches_dir, filename)
+        url = f"/web/pitches/{filename}"
+    else:
+        # No brainstem web dir — fall back to workspace with file:// URL
+        pitches_dir = workspace
+        path = os.path.join(pitches_dir, filename)
+        url = f"file://{path}"
+    os.makedirs(pitches_dir, exist_ok=True)
+
+    pitch_deck = _load_pitch_deck_agent()
+    if pitch_deck is None:
+        print("[DeckForge] @rapp/pitch_deck not available — skipping deck")
+        return {}
+
+    try:
+        thesis = (brief or "").strip()[:800]
+        result_raw = pitch_deck.perform(
+            topic=topic,
+            thesis=thesis,
+            audience="executive leadership",
+            product_name=(topic.split(":")[0].strip() or "Executive Brief")[:40],
+            output_path=path,
+        )
+        try:
+            result = json.loads(result_raw) if isinstance(result_raw, str) else result_raw
+        except (json.JSONDecodeError, TypeError):
+            result = {}
+        if result.get("status") == "success" and os.path.exists(path):
+            return {"url": url, "path": path}
+    except Exception as e:
+        print(f"[DeckForge] generation failed: {e}")
+    return {}
+
+
+def _find_brainstem_web_dir():
+    """Walk up from this file looking for a brainstem web/ directory —
+    the place whose contents brainstem serves at /web/<path>."""
+    cur = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(6):
+        candidate = os.path.join(cur, "web")
+        # A real brainstem web dir contains index.html or mobile/ or onboard/
+        if os.path.isdir(candidate) and any(
+            os.path.exists(os.path.join(candidate, m))
+            for m in ("onboard", "mobile", "index.html")
+        ):
+            return candidate
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return None
+
+
+def _load_pitch_deck_agent():
+    """Locate and instantiate @rapp/pitch_deck dynamically so we don't hard-require it."""
+    candidates = []
+    here = os.path.dirname(os.path.abspath(__file__))
+    # Most likely: pitch_deck_agent.py lives next to us in agents/
+    for rel in ("pitch_deck_agent.py", "../pitch_deck_agent.py"):
+        candidates.append(os.path.normpath(os.path.join(here, rel)))
+    # Also search brainstem/agents/
+    web_dir = _find_brainstem_web_dir()
+    if web_dir:
+        candidates.append(os.path.join(os.path.dirname(web_dir), "agents", "pitch_deck_agent.py"))
+
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                spec = importlib.util.spec_from_file_location("pitch_deck_agent_dyn", path)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                return mod.PitchDeckAgent()
+            except Exception as e:
+                print(f"[DeckForge] failed to load {path}: {e}")
+                continue
+    return None

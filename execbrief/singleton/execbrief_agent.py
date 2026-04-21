@@ -32,8 +32,11 @@ try:
     from agents.basic_agent import BasicAgent
 except ImportError:
     from basic_agent import BasicAgent
+import importlib.util
 import json
 import os
+import re
+import time
 import urllib.request
 import urllib.error
 
@@ -405,25 +408,139 @@ class ExecBrief(BasicAgent):
         _save("04-brief.md", writer_raw)
         brief = _extract(writer_raw, "brief")
 
-        print("[ExecBrief] Pipeline complete — 4 agents, 1 brief.")
+        # ── Step 5: DeckForge — turn the brief into a presentation ───────
+        print("[ExecBrief] Step 5/5: DeckForge building pitch deck...")
+        deck = _build_pitch_deck(topic, brief, research, analysis, strategy, ws)
+
+        print("[ExecBrief] Pipeline complete — 5 agents, 1 brief"
+              + (", 1 deck." if deck.get("url") else "."))
+
+        summary_parts = ["### Executive Brief", "", brief]
+        if deck.get("url"):
+            summary_parts += [
+                "",
+                "---",
+                "",
+                "### Presentation-ready pitch deck",
+                "",
+                f"**[Click to open your pitch deck in a new tab →]({deck['url']})**",
+                "",
+                "Light/dark theme (`T`) · Exec + rehearse modes (`R`) · "
+                "Arrow keys or swipe to navigate. Rehearse mode adds the "
+                "email draft, 3-minute video script, and run commands.",
+            ]
 
         return json.dumps({
             "status": "success",
             "brief": brief,
+            "deck_url": deck.get("url"),
+            "deck_path": deck.get("path"),
             "pipeline": {
-                "steps": 4,
+                "steps": 5,
                 "agents": [
                     "BriefScout", "BriefAnalyst",
-                    "BriefStrategist", "BriefWriter",
+                    "BriefStrategist", "BriefWriter", "DeckForge",
                 ],
             },
             "workspace": ws,
-            "data_slush": {"topic": topic, "brief_ready": True},
+            "summary": "\n".join(summary_parts),
+            "presentation_hint": (
+                "Render the summary field verbatim to the user — keep the "
+                "markdown link to the deck so the chat UI shows it as a "
+                "clickable 'Open in new tab' button."
+            ),
+            "data_slush": {
+                "topic": topic,
+                "brief_ready": True,
+                "deck_ready": bool(deck.get("url")),
+                "deck_url": deck.get("url"),
+            },
         })
 
 
 class ExecBriefAgent(ExecBrief):
     pass
+
+
+# ─── DeckForge: deliverable builder (optional — uses @rapp/pitch_deck) ───
+
+def _build_pitch_deck(topic, brief, research, analysis, strategy, workspace):
+    """Generate an HTML pitch deck and return {url, path} for the chat CTA.
+    Relies on the optional @rapp/pitch_deck agent being present in the
+    brainstem's agents/ dir. Skips silently if not."""
+    web_dir = _find_brainstem_web_dir()
+    slug = re.sub(r"[^a-z0-9]+", "-", (topic or "brief").lower()).strip("-")[:40] or "brief"
+    filename = f"execbrief-{slug}-{int(time.time())}.html"
+    if web_dir:
+        pitches_dir = os.path.join(web_dir, "pitches")
+        path = os.path.join(pitches_dir, filename)
+        url = f"/web/pitches/{filename}"
+    else:
+        pitches_dir = workspace
+        path = os.path.join(pitches_dir, filename)
+        url = f"file://{path}"
+    os.makedirs(pitches_dir, exist_ok=True)
+
+    pitch_deck = _load_pitch_deck_agent()
+    if pitch_deck is None:
+        print("[DeckForge] @rapp/pitch_deck not installed — skipping deck")
+        return {}
+
+    try:
+        thesis = (brief or "").strip()[:800]
+        raw = pitch_deck.perform(
+            topic=topic,
+            thesis=thesis,
+            audience="executive leadership",
+            product_name=(topic.split(":")[0].strip() or "Executive Brief")[:40],
+            output_path=path,
+        )
+        try:
+            result = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            result = {}
+        if result.get("status") == "success" and os.path.exists(path):
+            return {"url": url, "path": path}
+    except Exception as e:
+        print(f"[DeckForge] generation failed: {e}")
+    return {}
+
+
+def _find_brainstem_web_dir():
+    cur = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(6):
+        candidate = os.path.join(cur, "web")
+        if os.path.isdir(candidate) and any(
+            os.path.exists(os.path.join(candidate, m))
+            for m in ("onboard", "mobile", "index.html")
+        ):
+            return candidate
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return None
+
+
+def _load_pitch_deck_agent():
+    candidates = []
+    here = os.path.dirname(os.path.abspath(__file__))
+    for rel in ("pitch_deck_agent.py", "../pitch_deck_agent.py"):
+        candidates.append(os.path.normpath(os.path.join(here, rel)))
+    web_dir = _find_brainstem_web_dir()
+    if web_dir:
+        candidates.append(os.path.join(os.path.dirname(web_dir), "agents", "pitch_deck_agent.py"))
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                spec = importlib.util.spec_from_file_location("pitch_deck_agent_dyn", p)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                return mod.PitchDeckAgent()
+            except Exception as e:
+                print(f"[DeckForge] failed to load {p}: {e}")
+                continue
+    return None
 
 
 # ─── Inlined LLM dispatch (one copy for the whole singleton) ────────────
