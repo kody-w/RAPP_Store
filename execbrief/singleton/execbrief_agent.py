@@ -37,6 +37,17 @@ import json
 import os
 import re
 import time
+
+# Best-effort index-card import. If the brainstem bound a turn to this
+# thread, card() writes live progress that the UI polls. If the helper
+# is missing (older brainstem) or no turn is bound, card() is a no-op.
+try:
+    from utils.index_card import current as _card
+except Exception:
+    def _card():
+        class _N:
+            def __getattr__(self, _): return lambda *a, **k: self
+        return _N()
 import urllib.request
 import urllib.error
 
@@ -385,35 +396,103 @@ class ExecBrief(BasicAgent):
 
         print(f'[ExecBrief] Starting pipeline: "{topic}"')
 
+        # Live index card — one surface the UI polls for the whole run.
+        # Each stage lights up as its agent works, then freezes into the
+        # report. DeckForge only flips to "done" if it produced a URL.
+        c = _card()
+        c.start(
+            title=f"Executive Brief: {topic}",
+            subtitle="5-agent pipeline",
+            stages=[
+                ("scout",      "Scout"),
+                ("analyst",    "Analyst"),
+                ("strategist", "Strategist"),
+                ("writer",     "Writer"),
+                ("deckforge",  "DeckForge"),
+            ],
+        )
+
+        c.stage("scout", status="running", note="gathering intelligence")
         print("[ExecBrief] Step 1/4: Scout gathering intelligence...")
-        scout_raw = _InternalBriefScout().perform(topic=topic)
-        _save("01-scout.md", scout_raw)
-        research = _extract(scout_raw, "research")
+        try:
+            scout_raw = _InternalBriefScout().perform(topic=topic)
+            _save("01-scout.md", scout_raw)
+            research = _extract(scout_raw, "research")
+            c.stage("scout", status="done", note="intelligence gathered")
+        except Exception as e:
+            c.stage("scout", status="failed", note=str(e)[:80])
+            c.fail(f"Scout failed: {e}")
+            raise
 
+        c.stage("analyst", status="running", note="extracting insights")
         print("[ExecBrief] Step 2/4: Analyst extracting insights...")
-        analyst_raw = _InternalBriefAnalyst().perform(research=research)
-        _save("02-analyst.md", analyst_raw)
-        analysis = _extract(analyst_raw, "analysis")
+        try:
+            analyst_raw = _InternalBriefAnalyst().perform(research=research)
+            _save("02-analyst.md", analyst_raw)
+            analysis = _extract(analyst_raw, "analysis")
+            c.stage("analyst", status="done", note="insights extracted")
+        except Exception as e:
+            c.stage("analyst", status="failed", note=str(e)[:80])
+            c.fail(f"Analyst failed: {e}")
+            raise
 
+        c.stage("strategist", status="running", note="forming recommendations")
         print("[ExecBrief] Step 3/4: Strategist forming recommendations...")
-        strategist_raw = _InternalBriefStrategist().perform(
-            analysis=analysis, topic=topic)
-        _save("03-strategist.md", strategist_raw)
-        strategy = _extract(strategist_raw, "strategy")
+        try:
+            strategist_raw = _InternalBriefStrategist().perform(
+                analysis=analysis, topic=topic)
+            _save("03-strategist.md", strategist_raw)
+            strategy = _extract(strategist_raw, "strategy")
+            c.stage("strategist", status="done", note="recommendations formed")
+        except Exception as e:
+            c.stage("strategist", status="failed", note=str(e)[:80])
+            c.fail(f"Strategist failed: {e}")
+            raise
 
+        c.stage("writer", status="running", note="composing brief")
         print("[ExecBrief] Step 4/4: Writer composing executive brief...")
-        writer_raw = _InternalBriefWriter().perform(
-            topic=topic, research=research,
-            analysis=analysis, strategy=strategy)
-        _save("04-brief.md", writer_raw)
-        brief = _extract(writer_raw, "brief")
+        try:
+            writer_raw = _InternalBriefWriter().perform(
+                topic=topic, research=research,
+                analysis=analysis, strategy=strategy)
+            _save("04-brief.md", writer_raw)
+            brief = _extract(writer_raw, "brief")
+            c.stage("writer", status="done", note="brief ready")
+        except Exception as e:
+            c.stage("writer", status="failed", note=str(e)[:80])
+            c.fail(f"Writer failed: {e}")
+            raise
 
         # ── Step 5: DeckForge — turn the brief into a presentation ───────
+        c.stage("deckforge", status="running", note="building pitch deck")
         print("[ExecBrief] Step 5/5: DeckForge building pitch deck...")
         deck = _build_pitch_deck(topic, brief, research, analysis, strategy, ws)
+        if deck.get("url"):
+            c.stage("deckforge", status="done", note="deck ready")
+        else:
+            c.stage("deckforge", status="failed", note="deck not built")
 
         print("[ExecBrief] Pipeline complete — 5 agents, 1 brief"
               + (", 1 deck." if deck.get("url") else "."))
+
+        # Freeze the card into a report: artifacts + metrics, then finish.
+        c.metric("agents", 5)
+        c.metric("topic", topic)
+        if deck.get("url"):
+            c.metric("deck", deck["url"])
+        c.artifact(
+            kind="brief",
+            title=f"Executive Brief: {topic}",
+            body_md=brief if isinstance(brief, str) else json.dumps(brief, indent=2),
+        )
+        if deck.get("url"):
+            c.artifact(
+                kind="deck",
+                title="Pitch deck",
+                url=deck["url"],
+                meta={"path": deck.get("path")},
+            )
+        c.finish()
 
         summary_parts = ["### Executive Brief", "", brief]
         if deck.get("url"):
