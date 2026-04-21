@@ -1,0 +1,14 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "pitchdeckagent",
+  "name": "PitchDeck",
+  "version": "1.0.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/pitch_deck",
+  "summary": "Generates a polished HTML executive pitch deck from a topic and thesis — single self-contained HTML file with exec/rehearse modes, light/dark theme, keyboard/swipe navigation.",
+  "category": "productivity",
+  "tags": ["pitch", "deck", "slides", "narrative", "html", "executive", "singleton", "rapplication"],
+  "singleton": "singleton/pitch_deck_agent.py",
+  "license": "BSD-style",
+  "homepage": "https://kody-w.github.io/RAPP/store/"
+}

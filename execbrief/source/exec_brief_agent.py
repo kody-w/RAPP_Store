@@ -35,9 +35,9 @@ except Exception:
 __manifest__ = {
     "schema": "rapp-agent/1.0",
     "name": "@rapp/exec-brief",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "display_name": "Executive Brief",
-    "description": "Four-agent pipeline that produces polished executive briefs on any topic.",
+    "description": "Five-stage pipeline (Scout, Analyst, Strategist, Writer, DeckForge) with live index-card progress. Produces a polished brief plus an optional pitch deck.",
     "author": "@rapp",
     "tags": ["composite", "exec-brief-pipeline"],
     "category": "analysis",

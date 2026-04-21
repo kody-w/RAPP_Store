@@ -798,23 +798,25 @@
     {
       "id": "execbriefagent",
       "name": "ExecBrief",
-      "version": "1.0.0",
-      "summary": "Four-persona executive brief pipeline (Scout \u2192 Analyst \u2192 Strategist \u2192 Writer). One topic in, one polished sub-400-word brief out. Best for: strategic analyses, leadership pitches, decision briefs, stakeholder summaries.",
-      "tagline": "Any topic in, one executive brief out \u2014 4 LLM calls under one POST.",
+      "version": "1.2.0",
+      "summary": "Five-stage executive brief pipeline (Scout \u2192 Analyst \u2192 Strategist \u2192 Writer \u2192 DeckForge) with live index-card progress. Each stage animates in the UI as it runs, then freezes into a report card with the brief and pitch deck as clickable artifacts. DeckForge is optional \u2014 requires @rapp/pitch_deck to be installed.",
+      "tagline": "Any topic in, one brief and a pitch deck out \u2014 5 stages, one live index card.",
       "category": "analysis",
       "tags": [
         "composite",
         "exec-brief-pipeline",
-        "singleton"
+        "singleton",
+        "index-card"
       ],
       "manifest_name": "@rapp/exec-brief-singleton",
       "singleton_filename": "execbrief_agent.py",
       "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/execbrief/singleton/execbrief_agent.py",
-      "singleton_sha256": "0125c431d0f3ed90b4e4a3adcdb09c6b686d37a8be2aa3ca367bfdebe7209c5e",
-      "singleton_lines": 489,
-      "singleton_bytes": 19993,
+      "singleton_sha256": "e692899562dcfa80458e07fbe4400b48c866ed6b1621f31d96858f844b775530",
+      "singleton_lines": 685,
+      "singleton_bytes": 27777,
+      "optional_dependencies": ["@rapp/pitch_deck"],
       "egg_url": null,
-      "egg_note": "ExecBrief is stateless per call \u2014 no .egg shipped. Output artifacts are written to the workspace dir.",
+      "egg_note": "ExecBrief is stateless per call \u2014 no .egg shipped. Output artifacts are written to the workspace dir. DeckForge stage calls @rapp/pitch_deck when installed; gracefully degrades to brief-only when not.",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 1,
@@ -824,7 +826,8 @@
           "@rapp/brief-analyst",
           "@rapp/brief-strategist",
           "@rapp/brief-writer",
-          "@rapp/exec-brief (top composite)"
+          "@rapp/exec-brief (top composite)",
+          "@rapp/pitch_deck (optional, DeckForge stage)"
         ]
       },
       "metrics": {
@@ -837,6 +840,45 @@
         "endpoint": "POST /chat",
         "body": {
           "user_input": "Create an executive brief about why Microsoft needs a unified agent sharing standard"
+        }
+      },
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "publisher": "@rapp"
+    },
+    {
+      "id": "pitchdeckagent",
+      "name": "PitchDeck",
+      "version": "1.0.0",
+      "summary": "Generates a polished HTML executive pitch deck from a topic and thesis. Output: a single self-contained HTML file with exec/rehearse modes, light/dark theme, keyboard/swipe nav, email-preview and CTA components.",
+      "tagline": "Topic in, boardroom-ready deck out \u2014 one self-contained HTML file.",
+      "category": "productivity",
+      "tags": [
+        "pitch",
+        "deck",
+        "slides",
+        "narrative",
+        "html",
+        "executive",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/pitch_deck",
+      "singleton_filename": "pitch_deck_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/pitch_deck/singleton/pitch_deck_agent.py",
+      "singleton_sha256": "a14c004dcd1f300ea8a8cc93985358aa8b879b61242c6cac495ec8056389d086",
+      "singleton_lines": 1087,
+      "singleton_bytes": 57355,
+      "egg_url": null,
+      "egg_note": "PitchDeck writes decks to the pitches/ workspace dir under the brainstem. Each call produces one self-contained HTML file.",
+      "metrics": {
+        "llm_calls_per_invocation": 1,
+        "wall_time_sec_per_call_p50": 20,
+        "wall_time_sec_per_call_p90": 40,
+        "output_format": "HTML (self-contained, single file)"
+      },
+      "example_call": {
+        "endpoint": "POST /chat",
+        "body": {
+          "user_input": "Generate a pitch deck for our internal agent-sharing proposal aimed at engineering leadership"
         }
       },
       "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",

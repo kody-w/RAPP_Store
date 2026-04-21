@@ -55,7 +55,7 @@ import urllib.error
 __manifest__ = {
     "schema": "rapp-agent/1.0",
     "name": "@rapp/exec-brief-singleton",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "display_name": "Executive Brief",
     "description": "Four-agent pipeline that produces polished executive briefs on any topic.",
     "author": "@rapp",
