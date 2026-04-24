@@ -1,0 +1,14 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "kanban",
+  "name": "Kanban",
+  "version": "1.0.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/kanban",
+  "summary": "Task board you talk to. Create, move, and query tasks through any LLM. Optional HTTP service for web UIs.",
+  "category": "workspace",
+  "tags": ["workspace", "tasks", "agent-first", "rapplication"],
+  "agent": "kanban_agent.py",
+  "service": "kanban_service.py",
+  "license": "BSD-style"
+}

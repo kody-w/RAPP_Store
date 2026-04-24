@@ -1,0 +1,14 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "dashboard",
+  "name": "Dashboard",
+  "version": "1.0.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/dashboard",
+  "summary": "Track and query metrics through conversation with any LLM. Optional HTTP service for charting UIs and external data ingestion.",
+  "category": "analytics",
+  "tags": ["analytics", "metrics", "agent-first", "rapplication"],
+  "agent": "dashboard_agent.py",
+  "service": "dashboard_service.py",
+  "license": "BSD-style"
+}

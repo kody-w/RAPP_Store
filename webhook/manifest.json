@@ -1,0 +1,14 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "webhook",
+  "name": "Webhook",
+  "version": "1.0.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/webhook",
+  "summary": "Query incoming events from external systems through any LLM. Optional HTTP service receives webhooks from GitHub, Slack, etc.",
+  "category": "integration",
+  "tags": ["integration", "webhook", "events", "agent-first", "rapplication"],
+  "agent": "webhook_agent.py",
+  "service": "webhook_service.py",
+  "license": "BSD-style"
+}

@@ -1,19 +1,19 @@
 {
   "schema": "rapp-store/1.0",
-  "name": "RAPPstore \u2014 official",
+  "name": "RAPPstore — official",
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.0.0",
   "generated_at": "2026-04-19T00:00:00Z",
   "homepage": "https://kody-w.github.io/RAPP/store/",
-  "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything \u2014 no install script, no pip, no native deps.",
+  "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
     {
       "id": "bookfactoryagent",
       "name": "BookFactory",
       "version": "0.3.0",
-      "summary": "Five-persona content pipeline (Writer \u2192 Editor [3 specialists] \u2192 CEO [2 specialists] \u2192 Publisher \u2192 Reviewer). One call, one chapter back. Best for: engineering writeups, blog posts, briefing docs, narrative content under 1500 words.",
-      "tagline": "Source material in, publishable chapter out \u2014 8 LLM calls under one POST.",
+      "summary": "Five-persona content pipeline (Writer → Editor [3 specialists] → CEO [2 specialists] → Publisher → Reviewer). One call, one chapter back. Best for: engineering writeups, blog posts, briefing docs, narrative content under 1500 words.",
+      "tagline": "Source material in, publishable chapter out — 8 LLM calls under one POST.",
       "category": "creative-pipeline",
       "tags": [
         "composite",
@@ -28,7 +28,7 @@
       "singleton_lines": 543,
       "singleton_bytes": 24779,
       "egg_url": null,
-      "egg_note": "No pre-populated state .egg shipped \u2014 BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
+      "egg_note": "No pre-populated state .egg shipped — BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -68,7 +68,7 @@
           }
         }
       },
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
       "shipped_in_commit": "ebb1648",
       "publisher": "@rarbookworld"
@@ -77,7 +77,7 @@
       "id": "bookfactoryagent-demo",
       "name": "BookFactory (with Kody+Molly demo state)",
       "version": "0.3.0",
-      "summary": "Five-persona content pipeline (Writer \u2192 Editor [3 specialists] \u2192 CEO [2 specialists] \u2192 Publisher \u2192 Reviewer). One call, one chapter back. Best for: engineering writeups, blog posts, briefing docs, narrative content under 1500 words. \u00b7 This demo edition ships with a pre-packaged .egg containing the Kody+Molly book-factory workspaces from cycle 3, so you can unpack it with `bash rapp_swarm/twin-egg.sh unpack` and immediately see what a real run produces \u2014 source material, draft, edited prose, CEO note, final chapter, reviewer score.",
+      "summary": "Five-persona content pipeline (Writer → Editor [3 specialists] → CEO [2 specialists] → Publisher → Reviewer). One call, one chapter back. Best for: engineering writeups, blog posts, briefing docs, narrative content under 1500 words. · This demo edition ships with a pre-packaged .egg containing the Kody+Molly book-factory workspaces from cycle 3, so you can unpack it with `bash rapp_swarm/twin-egg.sh unpack` and immediately see what a real run produces — source material, draft, edited prose, CEO note, final chapter, reviewer score.",
       "tagline": "BookFactory + a worked Kody/Molly run packed as one .egg you can unpack and inspect.",
       "category": "creative-pipeline",
       "tags": [
@@ -135,7 +135,7 @@
           }
         }
       },
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
       "shipped_in_commit": "ebb1648",
       "egg_filename": "bookfactoryagent-demo.egg",
@@ -164,7 +164,7 @@
       "singleton_sha256": "b337dfdcb5f6613e06c3b8013401b5f1dfe63a53e0381bff420eb0810cb3f5e0",
       "singleton_lines": 113,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -191,7 +191,7 @@
       "singleton_sha256": "2bf8b26c4ce50f51741718f25288bacbe8ef02013e3e7f8a8e7a645f3334813e",
       "singleton_lines": 96,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -218,7 +218,7 @@
       "singleton_sha256": "d236b8fcb88976dd7452ca343ff6cd595b49de06c63c517fbc290e9db03f8225",
       "singleton_lines": 61,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -244,7 +244,7 @@
       "singleton_sha256": "11cdfe1d6213418027921f9868b702cb34e1bcdd488a0e8acc67ac2cb270cba8",
       "singleton_lines": 68,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -270,7 +270,7 @@
       "singleton_sha256": "83a7137ce280cf87d3c26f34329c3acff069556c6a2284f14b7f66a4554e3630",
       "singleton_lines": 60,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -282,8 +282,8 @@
       "name": "Editor: Voice Drift",
       "version": "0.3.0",
       "publisher": "@rarbookworld",
-      "summary": "Editor specialist. Flags voice drift \u2014 sentences that don't sound like the author's established voice.",
-      "tagline": "Editor specialist. Flags voice drift \u2014 sentences that don't sound like the author's established voice.",
+      "summary": "Editor specialist. Flags voice drift — sentences that don't sound like the author's established voice.",
+      "tagline": "Editor specialist. Flags voice drift — sentences that don't sound like the author's established voice.",
       "category": "creative-pipeline",
       "tags": [
         "editor-specialist",
@@ -296,7 +296,7 @@
       "singleton_sha256": "e03b453ff2268d2e7d28cd7281ba59680e7c6b4cda08b658be32e61b15df4dc4",
       "singleton_lines": 61,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -322,7 +322,7 @@
       "singleton_sha256": "20e539bdd1d8e1a441452320995ee224fafdc79613c21a34ae72bd9703be822e",
       "singleton_lines": 80,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -348,7 +348,7 @@
       "singleton_sha256": "85409e56a18477c3aa23cd313a31f9af98ca05a5561fffb9b74bd67dfa7c3112",
       "singleton_lines": 80,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -374,7 +374,7 @@
       "singleton_sha256": "307b5ed1fc78069d3c1563176dcb7157a46652f6b1c39d4b7a5d306a3ca456a4",
       "singleton_lines": 61,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -400,7 +400,7 @@
       "singleton_sha256": "9bff8caad52acf80499779e5d44274978b1d8e267d5bbc50f60236629b3c8733",
       "singleton_lines": 61,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -412,8 +412,8 @@
       "name": "Editor Persona (composite)",
       "version": "0.3.0",
       "publisher": "@rarbookworld",
-      "summary": "Editor persona. Composite of 5 specialists: strip \u2192 cut \u2192 restructure, plus factcheck + voicecheck for the editor's note.",
-      "tagline": "Editor persona. Composite of 5 specialists: strip \u2192 cut \u2192 restructure, plus factcheck + voicecheck for the editor's note.",
+      "summary": "Editor persona. Composite of 5 specialists: strip → cut → restructure, plus factcheck + voicecheck for the editor's note.",
+      "tagline": "Editor persona. Composite of 5 specialists: strip → cut → restructure, plus factcheck + voicecheck for the editor's note.",
       "category": "creative-pipeline",
       "tags": [
         "persona",
@@ -427,7 +427,7 @@
       "singleton_sha256": "08c2a2cf42de7bd9c0c0f5a6d2ae137a7d1d47b92734d5ea0508bf674795bd79",
       "singleton_lines": 75,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -454,7 +454,7 @@
       "singleton_sha256": "534648eed31f3398ef74aba95dded4238d62a91db7c2adcd883c9d49677fdda3",
       "singleton_lines": 42,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -466,8 +466,8 @@
       "name": "BookFactory (multi-file source)",
       "version": "0.3.0",
       "publisher": "@rarbookworld",
-      "summary": "Five-persona content pipeline (Writer \u2192 Editor \u2192 CEO \u2192 Publisher \u2192 Reviewer) as a composite of 13 sibling agent.py files.",
-      "tagline": "Five-persona content pipeline (Writer \u2192 Editor \u2192 CEO \u2192 Publisher \u2192 Reviewer) as a composite of 13 sibling agent.py files.",
+      "summary": "Five-persona content pipeline (Writer → Editor → CEO → Publisher → Reviewer) as a composite of 13 sibling agent.py files.",
+      "tagline": "Five-persona content pipeline (Writer → Editor → CEO → Publisher → Reviewer) as a composite of 13 sibling agent.py files.",
       "category": "creative-pipeline",
       "tags": [
         "composite",
@@ -481,7 +481,7 @@
       "singleton_sha256": "5601a6ea596543fcb6d18d5100d10625cfe00df27350ab1b9e4fe012f46363db",
       "singleton_lines": 110,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -493,8 +493,8 @@
       "name": "MomentFactory",
       "version": "0.1.0",
       "publisher": "@rarbookworld",
-      "summary": "Seven-persona moment-to-Drop pipeline (Sensorium \u2192 SignificanceFilter \u2192 HookWriter \u2192 BodyWriter \u2192 ChannelRouter \u2192 CardForger \u2192 SeedStamper). Turns any raw moment (commit, voice memo, web bookmark, agent run, location, conversation, decision, reading note) into a Rappterbook Drop with built-in significance filtering. The candidate engine for any feed-driven AI-agent platform.",
-      "tagline": "Any moment in. One Drop out \u2014 with the SignificanceFilter's veto built into the pipeline.",
+      "summary": "Seven-persona moment-to-Drop pipeline (Sensorium → SignificanceFilter → HookWriter → BodyWriter → ChannelRouter → CardForger → SeedStamper). Turns any raw moment (commit, voice memo, web bookmark, agent run, location, conversation, decision, reading note) into a Rappterbook Drop with built-in significance filtering. The candidate engine for any feed-driven AI-agent platform.",
+      "tagline": "Any moment in. One Drop out — with the SignificanceFilter's veto built into the pipeline.",
       "category": "moment-pipeline",
       "tags": [
         "composite",
@@ -510,7 +510,7 @@
       "singleton_lines": 509,
       "singleton_bytes": 23884,
       "egg_url": null,
-      "egg_note": "MomentFactory is stateless per call \u2014 no .egg shipped. Pair with a Rappterbook state .egg if you want a worked example.",
+      "egg_note": "MomentFactory is stateless per call — no .egg shipped. Pair with a Rappterbook state .egg if you want a worked example.",
       "produced_by": {
         "method": "double-jump-loop-vs-rappter-engine",
         "cycles": 1,
@@ -553,7 +553,7 @@
           }
         }
       },
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "spec_post": "https://kody-w.github.io/RAPP/blog/104-momentfactory-vs-rappter.md"
     },
     {
@@ -575,7 +575,7 @@
       "singleton_sha256": "3d1549ecbb8845608ac81b6045f89fdde9d27bfa56521589936414078a29990a",
       "singleton_lines": 76,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -601,7 +601,7 @@
       "singleton_sha256": "7d57e1155da76edcd127b443c26a6957b7937bc41352b3a652603213bebf579a",
       "singleton_lines": 84,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -627,7 +627,7 @@
       "singleton_sha256": "9a170e4f0a6455cfd3dc95db259c5993464671401ca8811798ffca9d3a147f45",
       "singleton_lines": 71,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -653,7 +653,7 @@
       "singleton_sha256": "69712ddd374e9d66d2dae7623e593e8eefb0f4ee919d13de9438dba3985b8627",
       "singleton_lines": 76,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -679,7 +679,7 @@
       "singleton_sha256": "eebc138766bf4ec03826d2341bff4021f5ef53210ca1052e1a465b885d95fbd6",
       "singleton_lines": 94,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -705,7 +705,7 @@
       "singleton_sha256": "fdab2b270722ef69f144dae6b93180090fe76abf4d2181640bb93c3cbcfb9d54",
       "singleton_lines": 82,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -717,8 +717,8 @@
       "name": "Seed Stamper",
       "version": "0.3.0",
       "publisher": "@rarbookworld",
-      "summary": "Pure function (no LLM). Returns deterministic 64-bit seed + 7-word incantation from a 256-word wordlist. Speak the words \u2192 reconstruct the Drop offline.",
-      "tagline": "Pure function (no LLM). Returns deterministic 64-bit seed + 7-word incantation from a 256-word wordlist. Speak the words \u2192 reconstruct the Drop offline.",
+      "summary": "Pure function (no LLM). Returns deterministic 64-bit seed + 7-word incantation from a 256-word wordlist. Speak the words → reconstruct the Drop offline.",
+      "tagline": "Pure function (no LLM). Returns deterministic 64-bit seed + 7-word incantation from a 256-word wordlist. Speak the words → reconstruct the Drop offline.",
       "category": "creative-pipeline",
       "tags": [
         "moment-pipeline",
@@ -732,7 +732,7 @@
       "singleton_sha256": "5c1d26a6661926252cd3b731b0b936817905162ee05698f132c2a5aef1b5a688",
       "singleton_lines": 65,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -759,7 +759,7 @@
       "singleton_sha256": "a26a45672b8d0637be46dd89b09148f5956a8fb11c10bf29f4e4cf51b0d9a7a7",
       "singleton_lines": 149,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -788,7 +788,7 @@
       "singleton_sha256": "14269c26c386f26cb6d028a35ba9fa495dce8db7410c8718fab6add71872800b",
       "singleton_lines": 508,
       "egg_url": null,
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -799,8 +799,8 @@
       "id": "execbriefagent",
       "name": "ExecBrief",
       "version": "1.2.0",
-      "summary": "Five-stage executive brief pipeline (Scout \u2192 Analyst \u2192 Strategist \u2192 Writer \u2192 DeckForge) with live index-card progress. Each stage animates in the UI as it runs, then freezes into a report card with the brief and pitch deck as clickable artifacts. DeckForge is optional \u2014 requires @rapp/pitch_deck to be installed.",
-      "tagline": "Any topic in, one brief and a pitch deck out \u2014 5 stages, one live index card.",
+      "summary": "Five-stage executive brief pipeline (Scout → Analyst → Strategist → Writer → DeckForge) with live index-card progress. Each stage animates in the UI as it runs, then freezes into a report card with the brief and pitch deck as clickable artifacts. DeckForge is optional — requires @rapp/pitch_deck to be installed.",
+      "tagline": "Any topic in, one brief and a pitch deck out — 5 stages, one live index card.",
       "category": "analysis",
       "tags": [
         "composite",
@@ -814,9 +814,11 @@
       "singleton_sha256": "e692899562dcfa80458e07fbe4400b48c866ed6b1621f31d96858f844b775530",
       "singleton_lines": 685,
       "singleton_bytes": 27777,
-      "optional_dependencies": ["@rapp/pitch_deck"],
+      "optional_dependencies": [
+        "@rapp/pitch_deck"
+      ],
       "egg_url": null,
-      "egg_note": "ExecBrief is stateless per call \u2014 no .egg shipped. Output artifacts are written to the workspace dir. DeckForge stage calls @rapp/pitch_deck when installed; gracefully degrades to brief-only when not.",
+      "egg_note": "ExecBrief is stateless per call — no .egg shipped. Output artifacts are written to the workspace dir. DeckForge stage calls @rapp/pitch_deck when installed; gracefully degrades to brief-only when not.",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 1,
@@ -842,7 +844,7 @@
           "user_input": "Create an executive brief about why Microsoft needs a unified agent sharing standard"
         }
       },
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "publisher": "@rapp"
     },
     {
@@ -850,7 +852,7 @@
       "name": "PitchDeck",
       "version": "1.0.0",
       "summary": "Generates a polished HTML executive pitch deck from a topic and thesis. Output: a single self-contained HTML file with exec/rehearse modes, light/dark theme, keyboard/swipe nav, email-preview and CTA components.",
-      "tagline": "Topic in, boardroom-ready deck out \u2014 one self-contained HTML file.",
+      "tagline": "Topic in, boardroom-ready deck out — one self-contained HTML file.",
       "category": "productivity",
       "tags": [
         "pitch",
@@ -881,8 +883,95 @@
           "user_input": "Generate a pitch deck for our internal agent-sharing proposal aimed at engineering leadership"
         }
       },
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "publisher": "@rapp"
+    },
+    {
+      "id": "kanban",
+      "name": "Kanban",
+      "version": "1.0.0",
+      "summary": "Task board you talk to. Create, move, and query tasks through any LLM.",
+      "category": "workspace",
+      "tags": [
+        "workspace",
+        "tasks",
+        "agent-first",
+        "rapplication"
+      ],
+      "manifest_name": "@rapp/kanban",
+      "singleton_filename": "kanban_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/kanban/kanban_agent.py",
+      "service_filename": "kanban_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/kanban/kanban_service.py",
+      "produced_by": {
+        "method": "agent-first",
+        "source_files_collapsed": 2
+      }
+    },
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "version": "1.0.0",
+      "summary": "Query incoming events from external systems through any LLM.",
+      "category": "integration",
+      "tags": [
+        "integration",
+        "webhook",
+        "events",
+        "agent-first",
+        "rapplication"
+      ],
+      "manifest_name": "@rapp/webhook",
+      "singleton_filename": "webhook_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/webhook/webhook_agent.py",
+      "service_filename": "webhook_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/webhook/webhook_service.py",
+      "produced_by": {
+        "method": "agent-first",
+        "source_files_collapsed": 2
+      }
+    },
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "version": "1.0.0",
+      "summary": "Track and query metrics through conversation with any LLM.",
+      "category": "analytics",
+      "tags": [
+        "analytics",
+        "metrics",
+        "agent-first",
+        "rapplication"
+      ],
+      "manifest_name": "@rapp/dashboard",
+      "singleton_filename": "dashboard_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/dashboard/dashboard_agent.py",
+      "service_filename": "dashboard_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/dashboard/dashboard_service.py",
+      "produced_by": {
+        "method": "agent-first",
+        "source_files_collapsed": 2
+      }
+    },
+    {
+      "id": "vibe_builder",
+      "name": "VibeBuilder",
+      "version": "1.0.0",
+      "summary": "Build a complete rapplication (agent + service) from natural language.",
+      "category": "platform",
+      "tags": [
+        "meta",
+        "builder",
+        "agent-first",
+        "rapplication"
+      ],
+      "manifest_name": "@rapp/vibe_builder",
+      "singleton_filename": "vibe_builder_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/vibe_builder/vibe_builder_agent.py",
+      "produced_by": {
+        "method": "agent-first",
+        "source_files_collapsed": 1
+      }
     }
   ],
   "publish_your_own": {

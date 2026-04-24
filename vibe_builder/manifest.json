@@ -1,0 +1,13 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "vibe_builder",
+  "name": "VibeBuilder",
+  "version": "1.0.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/vibe_builder",
+  "summary": "Build a complete rapplication (agent + service) from a natural language description. Meta-agent that generates other rapplications.",
+  "category": "platform",
+  "tags": ["meta", "builder", "agent-first", "rapplication"],
+  "agent": "vibe_builder_agent.py",
+  "license": "BSD-style"
+}
