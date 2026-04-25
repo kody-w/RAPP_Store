@@ -9,5 +9,11 @@
   "category": "platform",
   "tags": ["meta", "builder", "agent-first", "rapplication"],
   "agent": "vibe_builder_agent.py",
-  "license": "BSD-style"
+  "license": "BSD-style",
+  "latest_version": "1.0.0",
+  "available_versions": ["1.0.0"],
+  "version_layout": {
+    "canonical": "rapp_store/vibe_builder/versions/<version>/",
+    "latest_alias": "rapp_store/vibe_builder/<file> (a copy of the canonical files at versions/<latest_version>/)"
+  }
 }

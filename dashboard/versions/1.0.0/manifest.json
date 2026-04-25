@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-version/1.0",
+  "id": "dashboard",
+  "version": "1.0.0",
+  "released": "2026-04-25",
+  "agent": {
+    "filename": "dashboard_agent.py",
+    "sha256": "9af82d0ab2b9a9428c0d84734eb8f8727d0ecae607c655417977ff2fa8c9b3fb"
+  },
+  "service": {
+    "filename": "dashboard_service.py",
+    "sha256": "1953708f21ac898214e3eba312763b6f3969884ebf4215be0bdff14900819e21"
+  },
+  "changelog": "Initial versioned release. Track and query metrics through conversation with any LLM. Service exposes the same data over HTTP for charting UIs and external ingestion.",
+  "license": "BSD-style"
+}

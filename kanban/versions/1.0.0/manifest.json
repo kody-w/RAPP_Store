@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-version/1.0",
+  "id": "kanban",
+  "version": "1.0.0",
+  "released": "2026-04-25",
+  "agent": {
+    "filename": "kanban_agent.py",
+    "sha256": "c3a8e008a42894f9bf135656ed88c485f03f3e25235409c00a9738c87b82bb8d"
+  },
+  "service": {
+    "filename": "kanban_service.py",
+    "sha256": "88a54545b6164f25c0a5bcec0be33e3e755a6ea6e233e80514bf2e0c00413e12"
+  },
+  "changelog": "Initial versioned release. Task board you talk to — create, move, query tasks through any LLM. Service exposes the same data over HTTP for drag-and-drop UIs.",
+  "license": "BSD-style"
+}

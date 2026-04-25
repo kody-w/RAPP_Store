@@ -10,5 +10,11 @@
   "tags": ["integration", "webhook", "events", "agent-first", "rapplication"],
   "agent": "webhook_agent.py",
   "service": "webhook_service.py",
-  "license": "BSD-style"
+  "license": "BSD-style",
+  "latest_version": "1.0.0",
+  "available_versions": ["1.0.0"],
+  "version_layout": {
+    "canonical": "rapp_store/webhook/versions/<version>/",
+    "latest_alias": "rapp_store/webhook/<file> (a copy of the canonical files at versions/<latest_version>/)"
+  }
 }

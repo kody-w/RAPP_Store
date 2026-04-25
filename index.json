@@ -946,6 +946,8 @@
       "id": "kanban",
       "name": "Kanban",
       "version": "1.0.0",
+      "latest_version": "1.0.0",
+      "available_versions": ["1.0.0"],
       "summary": "Task board you talk to. Create, move, and query tasks through any LLM.",
       "category": "workspace",
       "tags": [
@@ -968,6 +970,8 @@
       "id": "webhook",
       "name": "Webhook",
       "version": "1.0.0",
+      "latest_version": "1.0.0",
+      "available_versions": ["1.0.0"],
       "summary": "Query incoming events from external systems through any LLM.",
       "category": "integration",
       "tags": [
@@ -991,6 +995,8 @@
       "id": "dashboard",
       "name": "Dashboard",
       "version": "1.0.0",
+      "latest_version": "1.0.0",
+      "available_versions": ["1.0.0"],
       "summary": "Track and query metrics through conversation with any LLM.",
       "category": "analytics",
       "tags": [
@@ -1013,6 +1019,8 @@
       "id": "vibe_builder",
       "name": "VibeBuilder",
       "version": "1.0.0",
+      "latest_version": "1.0.0",
+      "available_versions": ["1.0.0"],
       "summary": "Build a complete rapplication (agent + service) from natural language.",
       "category": "platform",
       "tags": [

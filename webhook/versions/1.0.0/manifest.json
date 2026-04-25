@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-version/1.0",
+  "id": "webhook",
+  "version": "1.0.0",
+  "released": "2026-04-25",
+  "agent": {
+    "filename": "webhook_agent.py",
+    "sha256": "e8261a7ce005e18e9db52b1705a15510c86e5bed6c1a375110eb10b39b44bf5b"
+  },
+  "service": {
+    "filename": "webhook_service.py",
+    "sha256": "8614e582ddc6cbaf5eaa06e0dd1d2a1424acd1cc36534f14df8260e62f7ab4f5"
+  },
+  "changelog": "Initial versioned release. Query incoming events from external systems through any LLM. Service receives webhooks and queues them for the agent to surface in conversation.",
+  "license": "BSD-style"
+}

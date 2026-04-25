@@ -10,5 +10,11 @@
   "tags": ["analytics", "metrics", "agent-first", "rapplication"],
   "agent": "dashboard_agent.py",
   "service": "dashboard_service.py",
-  "license": "BSD-style"
+  "license": "BSD-style",
+  "latest_version": "1.0.0",
+  "available_versions": ["1.0.0"],
+  "version_layout": {
+    "canonical": "rapp_store/dashboard/versions/<version>/",
+    "latest_alias": "rapp_store/dashboard/<file> (a copy of the canonical files at versions/<latest_version>/)"
+  }
 }
