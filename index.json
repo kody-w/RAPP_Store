@@ -811,7 +811,7 @@
       "manifest_name": "@rapp/exec-brief-singleton",
       "singleton_filename": "execbrief_agent.py",
       "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/execbrief/singleton/execbrief_agent.py",
-      "singleton_sha256": "e692899562dcfa80458e07fbe4400b48c866ed6b1621f31d96858f844b775530",
+      "singleton_sha256": "f940e462faf943f3ceff94509d338ee9984dab275e646ef6789637a99d6f39b6",
       "singleton_lines": 685,
       "singleton_bytes": 27777,
       "optional_dependencies": [
@@ -866,7 +866,7 @@
       "manifest_name": "@rapp/pitch_deck",
       "singleton_filename": "pitch_deck_agent.py",
       "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/pitch_deck/singleton/pitch_deck_agent.py",
-      "singleton_sha256": "a14c004dcd1f300ea8a8cc93985358aa8b879b61242c6cac495ec8056389d086",
+      "singleton_sha256": "7534659cfe4f14e95113012e243f73a21324741067e209e4406c7597e3da1962",
       "singleton_lines": 1087,
       "singleton_bytes": 57355,
       "egg_url": null,
