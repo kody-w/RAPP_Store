@@ -290,7 +290,7 @@ def _default_content(inputs):
             ],
             "punchline": '"I just sent you a file. You dropped it in a browser. It works. That\'s what sharing should feel like."',
         },
-        "run_commands": "# Fresh install (if needed)\n$ curl -fsSL https://kody-w.github.io/RAPP/install.sh | bash\n\n# Install from the store\nInstall ExecBrief from the store\n\n# Run the demo\nCreate an executive brief about why we need a unified sharing standard\n\n# Converge to a singleton\nUse SwarmFactory to converge the current agents into a single file",
+        "run_commands": "# Fresh install (if needed)\n$ curl -fsSL https://kody-w.github.io/RAPP/installer/install.sh | bash\n\n# Install from the store\nInstall ExecBrief from the store\n\n# Run the demo\nCreate an executive brief about why we need a unified sharing standard\n\n# Converge to a singleton\nUse SwarmFactory to converge the current agents into a single file",
         "cta": {
             "title_prefix": "Everything is ",
             "title_grad": "deployed & live.",
@@ -299,7 +299,7 @@ def _default_content(inputs):
             "links": [
                 {"label": "🚀 Home", "url": "https://kody-w.github.io/RAPP/", "style": "primary"},
                 {"label": "🏪 Store", "url": "https://kody-w.github.io/RAPP/store/", "style": "outline"},
-                {"label": "📄 Spec", "url": "https://github.com/kody-w/RAPP/blob/main/SPEC.md", "style": "outline"},
+                {"label": "📄 Spec", "url": "https://github.com/kody-w/RAPP/blob/main/docs/SPEC.md", "style": "outline"},
                 {"label": "⌨️ GitHub", "url": "https://github.com/kody-w/RAPP", "style": "green"},
             ],
         },
