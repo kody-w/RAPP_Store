@@ -887,6 +887,58 @@
       "publisher": "@rapp"
     },
     {
+      "id": "binder",
+      "name": "Binder",
+      "version": "1.0.0",
+      "summary": "The brainstem's package manager. Browse the RAPPstore catalog, install or uninstall rapplications. Bootstrapped by start.sh on first launch so the brainstem itself ships clean.",
+      "category": "platform",
+      "tags": [
+        "package-manager",
+        "store",
+        "platform",
+        "agent-first",
+        "rapplication"
+      ],
+      "manifest_name": "@rapp/binder",
+      "singleton_filename": "binder_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/binder/binder_agent.py",
+      "singleton_sha256": "64db8ca1d7e707b242c2b1fc011d4846ba15bbbd262ab955099c92210c4b8d11",
+      "service_filename": "binder_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/binder/binder_service.py",
+      "service_sha256": "d393fbf17c9daa2887cadb035a20c4ee5862f660c8816750af5fc75e3db6d1f3",
+      "produced_by": {
+        "method": "agent-first",
+        "source_files_collapsed": 2
+      },
+      "publisher": "@rapp"
+    },
+    {
+      "id": "swarms",
+      "name": "Swarms",
+      "version": "1.0.0",
+      "summary": "Group your agents into named swarms (stack or converged) and toggle which swarms are active per turn. Surfaces as the swarm bar in the chat UI.",
+      "category": "platform",
+      "tags": [
+        "organization",
+        "agents",
+        "platform",
+        "agent-first",
+        "rapplication"
+      ],
+      "manifest_name": "@rapp/swarms",
+      "singleton_filename": "swarms_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/swarms/swarms_agent.py",
+      "singleton_sha256": "a735fa8d9b65e127c114fc296d4cb37469308747ec8e8a33cb59efa1656ce67e",
+      "service_filename": "swarms_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/swarms/swarms_service.py",
+      "service_sha256": "b80fae37fc64c054811da8a98f7c8454b7bdbac9c50fd92c6680ef875c230cfe",
+      "produced_by": {
+        "method": "agent-first",
+        "source_files_collapsed": 2
+      },
+      "publisher": "@rapp"
+    },
+    {
       "id": "kanban",
       "name": "Kanban",
       "version": "1.0.0",

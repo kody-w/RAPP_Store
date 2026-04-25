@@ -1,0 +1,14 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "binder",
+  "name": "Binder",
+  "version": "1.0.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/binder",
+  "summary": "The brainstem's package manager. Browse the RAPPstore catalog, install or uninstall rapplications. Ships as the bootstrap service so the brainstem itself stays clean.",
+  "category": "platform",
+  "tags": ["package-manager", "store", "platform", "rapplication"],
+  "agent": "binder_agent.py",
+  "service": "binder_service.py",
+  "license": "BSD-style"
+}
