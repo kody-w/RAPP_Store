@@ -71,43 +71,25 @@ class PersonaWriterAgent(BasicAgent):
         return _llm_call(SOUL, prompt)
 
 
-# ─── Inlined LLM dispatch (Azure OpenAI / OpenAI / fallback) ───────────
-# Lives in this file by design: makes the agent.py truly single-file
-# portable. Same shape exists at the bottom of every persona agent.
+# ─── LLM dispatch — delegates to utils.llm shim ────────────────────────
+# Tier 1 (brainstem) registers a Copilot session getter at startup so
+# this routes through the same engine that's powering the host process.
+# Tier 2 (swarm) vendors the same utils/llm.py and falls through to
+# AZURE_OPENAI_* / OPENAI_API_KEY / Anthropic. No per-rapp LLM config.
 
 def _llm_call(soul: str, user_prompt: str) -> str:
     messages = [{"role": "system", "content": soul},
                 {"role": "user", "content": user_prompt}]
-    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
-    api_key  = os.environ.get("AZURE_OPENAI_API_KEY", "")
-    deployment = (os.environ.get("AZURE_OPENAI_DEPLOYMENT")
-                  or os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", ""))
-    if endpoint and api_key:
-        is_v1 = "/openai/v1/" in endpoint
-        url = endpoint
-        if "/chat/completions" not in url:
-            url = url.rstrip("/") + f"/openai/deployments/{deployment}/chat/completions?api-version=2025-01-01-preview"
-        elif not is_v1 and "?" not in url:
-            url += "?api-version=2025-01-01-preview"
-        return _post(url, {"messages": messages, "model": deployment},
-                      {"Content-Type": "application/json", "api-key": api_key})
-    if os.environ.get("OPENAI_API_KEY"):
-        return _post("https://api.openai.com/v1/chat/completions",
-                      {"model": os.environ.get("OPENAI_MODEL", "gpt-4o"), "messages": messages},
-                      {"Content-Type": "application/json",
-                       "Authorization": "Bearer " + os.environ["OPENAI_API_KEY"]})
-    return "(no LLM configured — set AZURE_OPENAI_* or OPENAI_API_KEY)"
-
-
-def _post(url, body, headers):
-    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"),
-                                  headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            j = json.loads(resp.read().decode("utf-8"))
-        choices = j.get("choices") or []
-        return (choices[0]["message"].get("content") or "") if choices else ""
-    except urllib.error.HTTPError as e:
-        return f"(LLM HTTP {e.code}: {e.read().decode('utf-8')[:200]})"
-    except urllib.error.URLError as e:
-        return f"(LLM network error: {e})"
+        from utils.llm import call_llm
+        return call_llm(messages)
+    except Exception as e:
+        return f"(LLM dispatch error: {e})"
+
+
+def _post(*args, **kwargs):
+    # Retained as a no-op for build.py, which extracts _llm_call AND
+    # _post from this file as the canonical singleton helpers. The
+    # singleton no longer needs _post (utils.llm owns all HTTP), but
+    # keeping a stub avoids touching the build script in this change.
+    return ""
