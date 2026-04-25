@@ -1,17 +1,19 @@
 """
-swarm_factory_agent.py — Build, install, and manage RAPP swarms.
+swarm_factory_agent.py — Build, install, generate, and manage RAPP swarms.
 
 Actions:
-  build   — Converge local agents into a single shareable .py singleton
-  list    — Show available swarms in the RAPP Store
-  install — Pull a swarm from the RAPP Store into your agents/ dir
+  generate  — Design a brand-new single-file agent from scratch and persist it
+  build     — Converge existing local agents into a single shareable .py singleton
+  list      — Show available swarms in the RAPP Store
+  install   — Pull a swarm from the RAPP Store into your agents/ dir
   uninstall — Remove an installed swarm
 
 Usage:
-  "Package my agents as a swarm called SalesBot"
-  "What swarms are available in the RAPP Store?"
-  "Install the BookFactory swarm"
-  "Uninstall BookFactory"
+  "Build me an agent that fetches today's NYT front page and summarizes it" → generate
+  "Package my agents as a swarm called SalesBot"                            → build
+  "What swarms are available in the RAPP Store?"                            → list
+  "Install the BookFactory swarm"                                           → install
+  "Uninstall BookFactory"                                                   → uninstall
 """
 
 from agents.basic_agent import BasicAgent
@@ -49,33 +51,70 @@ class SwarmFactoryAgent(BasicAgent):
         self.metadata = {
             "name": "SwarmFactory",
             "description": (
-                "Build, install, list, and uninstall RAPP swarms. "
-                "Actions: 'build' converges local agents into a shareable singleton .py file. "
-                "'list' shows available swarms in the RAPP Store. "
-                "'install' pulls a swarm from the store into agents/. "
-                "'uninstall' removes an installed swarm. "
-                "Call this when the user wants to package/export agents, browse the store, "
-                "or install/remove a swarm."
+                "Build, generate, install, list, and uninstall RAPP swarms.\n\n"
+                "Actions:\n"
+                " • 'generate' — Design a BRAND-NEW single-file agent from scratch. "
+                "YOU (the LLM) compose the full Python source for the new agent based "
+                "on what the user asked for, then call this tool with that code in "
+                "the 'agent_code' parameter. The agent must extend BasicAgent and "
+                "expose perform(**kwargs) plus a metadata dict. After persistence the "
+                "new agent loads automatically on the next request — no restart needed.\n"
+                " • 'build' — Converge EXISTING local agents into a shareable singleton .py.\n"
+                " • 'list' — Show available swarms in the RAPP Store.\n"
+                " • 'install' — Pull a swarm from the store into agents/.\n"
+                " • 'uninstall' — Remove an installed swarm.\n\n"
+                "When the user asks for something the loaded tools can't do (e.g. "
+                "'summarize NYT front page', 'roll a custom dice formula', 'lookup a "
+                "Pokemon stat block'), use 'generate' to ship a new agent that does it. "
+                "Don't substitute an existing tool that almost-but-not-quite fits.\n\n"
+                "Required agent template for 'generate' (fill in the bracketed parts):\n"
+                "    from agents.basic_agent import BasicAgent\n"
+                "    import json\n\n"
+                "    __manifest__ = {\n"
+                "        \"schema\": \"rapp-agent/1.0\",\n"
+                "        \"name\": \"@user/<slug>\",\n"
+                "        \"display_name\": \"<PascalCase>\",\n"
+                "        \"description\": \"<one-line>\",\n"
+                "        \"version\": \"0.1.0\",\n"
+                "        \"tags\": [\"generated\"],\n"
+                "        \"category\": \"general\",\n"
+                "    }\n\n"
+                "    class <PascalCase>Agent(BasicAgent):\n"
+                "        def __init__(self):\n"
+                "            self.name = \"<PascalCase>\"\n"
+                "            self.metadata = {\n"
+                "                \"name\": \"<PascalCase>\",\n"
+                "                \"description\": \"<one-line so the LLM knows when to call it>\",\n"
+                "                \"parameters\": {\"type\": \"object\", \"properties\": {...}, \"required\": [...]},\n"
+                "            }\n"
+                "            super().__init__(self.name, self.metadata)\n\n"
+                "        def perform(self, **kwargs):\n"
+                "            # ...do the work...\n"
+                "            return json.dumps({\"status\": \"ok\", \"result\": ...})"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["build", "list", "install", "uninstall"],
-                        "description": "What to do: build (package local agents), list (browse RAPP Store), install (pull from store), uninstall (remove swarm)"
+                        "enum": ["generate", "build", "list", "install", "uninstall"],
+                        "description": "generate (design+persist a new agent), build (package locals into a singleton), list (browse store), install (pull from store), uninstall (remove)"
                     },
                     "swarm_name": {
                         "type": "string",
-                        "description": "For build: PascalCase name for the swarm. For install/uninstall: the swarm id or name (e.g. 'bookfactory', 'BookFactory')"
+                        "description": "PascalCase name for the new agent/swarm (generate, build) OR the swarm id/name (install, uninstall). Example: 'NytSummarizer'"
                     },
                     "description": {
                         "type": "string",
-                        "description": "For build: one-line description of what this swarm does"
+                        "description": "One-line description of what this agent/swarm does. Used in the agent's manifest and in the LLM-facing description so the LLM knows when to call it."
+                    },
+                    "agent_code": {
+                        "type": "string",
+                        "description": "REQUIRED for 'generate'. Full Python source for the new agent, top to bottom — imports, __manifest__ dict, the BasicAgent subclass with __init__/metadata/perform. Will be syntax-checked and contract-checked before persistence."
                     },
                     "exclude": {
                         "type": "string",
-                        "description": "For build: comma-separated agent names to exclude. Built-in memory/factory agents are excluded automatically."
+                        "description": "For 'build' only: comma-separated agent names to exclude. Built-in memory/factory agents are excluded automatically."
                     }
                 },
                 "required": ["action"]
@@ -153,6 +192,90 @@ class SwarmFactoryAgent(BasicAgent):
             "message": f"Installed '{entry.get('display_name') or entry.get('name') or entry.get('id')}' → agents/{fname} ({len(body)} bytes). It will load on the next request.",
         })
 
+    def _generate_swarm(self, swarm_name, description, agent_code):
+        # Validation gauntlet — refuse to write a file that won't load
+        # cleanly. Every failure here returns a structured error the LLM
+        # can read and retry with corrections, instead of "your agent
+        # silently doesn't show up after restart" (the worst UX).
+        if not swarm_name or not isinstance(swarm_name, str):
+            return json.dumps({"status": "error",
+                "message": "Provide swarm_name (PascalCase, e.g. 'NytSummarizer')."})
+        if not agent_code or not isinstance(agent_code, str):
+            return json.dumps({"status": "error",
+                "message": "Provide agent_code — the full Python source for the new agent."})
+
+        # Syntax check first — cheapest fail.
+        try:
+            tree = ast.parse(agent_code)
+        except SyntaxError as e:
+            return json.dumps({"status": "error",
+                "message": f"agent_code has a SyntaxError on line {e.lineno}: {e.msg}",
+                "lineno": e.lineno, "offset": e.offset})
+
+        # Contract check: must define at least one class and a perform()
+        # method on it. We don't enforce the BasicAgent base class via AST
+        # because the import path could be aliased; the brainstem's loader
+        # is the final word on whether it's a valid agent.
+        classes = [n for n in tree.body if isinstance(n, ast.ClassDef)]
+        if not classes:
+            return json.dumps({"status": "error",
+                "message": "agent_code defines no classes. The agent must be a class extending BasicAgent."})
+        has_perform = any(
+            isinstance(m, ast.FunctionDef) and m.name == "perform"
+            for c in classes for m in c.body
+        )
+        if not has_perform:
+            return json.dumps({"status": "error",
+                "message": "No class defines perform(**kwargs). The brainstem won't know how to call this agent."})
+        has_manifest = any(
+            isinstance(n, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "__manifest__" for t in n.targets)
+            for n in tree.body
+        )
+
+        # Auto-inject the BasicAgent import if the LLM forgot it. The agent
+        # contract says the class must extend BasicAgent, and the brainstem
+        # loader expects this exact import path, so it's a safe fix-up.
+        if "from agents.basic_agent import BasicAgent" not in agent_code:
+            agent_code = "from agents.basic_agent import BasicAgent\n" + agent_code
+
+        # Filename derives from the swarm_name slug — same convention as
+        # the rest of the binder so it shows up in /agents/full and the UI
+        # binder grid without special-casing. Refuse to overwrite an
+        # existing file: the LLM should pick a fresh name on collision,
+        # not silently clobber the user's work.
+        slug = re.sub(r'[^a-z0-9]', '', swarm_name.lower())
+        if not slug:
+            return json.dumps({"status": "error",
+                "message": "swarm_name produced an empty slug after stripping non-alphanumerics. Use letters/digits."})
+        agents_dir = os.environ.get("AGENTS_PATH",
+                        os.path.join(os.path.dirname(os.path.abspath(__file__))))
+        os.makedirs(agents_dir, exist_ok=True)
+        fname = f"{slug}_agent.py"
+        dest = os.path.join(agents_dir, fname)
+        if os.path.exists(dest):
+            return json.dumps({"status": "error",
+                "message": f"agents/{fname} already exists. Pick a different swarm_name or call uninstall first."})
+
+        with open(dest, "w") as f:
+            f.write(agent_code)
+
+        return json.dumps({
+            "status": "ok",
+            "action": "generate",
+            "swarm_name": swarm_name,
+            "filename": fname,
+            "destination": dest,
+            "bytes": len(agent_code),
+            "lines": agent_code.count("\n") + 1,
+            "has_manifest": has_manifest,
+            "message": (
+                f"Generated agents/{fname} ({len(agent_code)} bytes). "
+                f"It loads automatically on the next request — no restart needed. "
+                f"Try calling it from chat to confirm."
+            ),
+        })
+
     def _uninstall_swarm(self, swarm_name):
         if not swarm_name:
             return json.dumps({"status": "error",
@@ -176,7 +299,10 @@ class SwarmFactoryAgent(BasicAgent):
         return json.dumps({"status": "error",
                            "message": f"No installed agent matching '{swarm_name}' found."})
 
-    def perform(self, action="build", swarm_name="MySwarm", description="", exclude="", **kwargs):
+    def perform(self, action="build", swarm_name="MySwarm", description="", exclude="",
+                agent_code="", **kwargs):
+        if action == "generate":
+            return self._generate_swarm(swarm_name, description, agent_code)
         if action == "list":
             return self._list_swarms()
         if action == "install":
@@ -400,13 +526,13 @@ class SwarmFactoryAgent(BasicAgent):
         out += '# ─── PUBLIC ENTRYPOINT ──────────────────────────────────────────────────\n\n'
         out += f'class {public_name}({top_internal}):\n'
         out += f'    def __init__(self):\n'
-        out += f'        super().__init__()\n'
         out += f'        self.name = "{public_name}"\n'
         out += f'        self.metadata = {{\n'
         out += f'            "name": "{public_name}",\n'
         out += f'            "description": "{description or public_name + " swarm"}",\n'
         out += f'            "parameters": {json.dumps(top_info.get("metadata", {}).get("parameters", {"type": "object", "properties": {}, "required": []}))}\n'
-        out += f'        }}\n\n\n'
+        out += f'        }}\n'
+        out += f'        super().__init__(self.name, self.metadata)\n\n\n'
 
         out += f'class {public_name}Agent({public_name}):\n'
         out += f'    pass\n\n\n'
