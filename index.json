@@ -890,6 +890,8 @@
       "id": "binder",
       "name": "Binder",
       "version": "1.0.0",
+      "latest_version": "1.0.0",
+      "available_versions": ["1.0.0"],
       "summary": "The brainstem's package manager. Browse the RAPPstore catalog, install or uninstall rapplications. Bootstrapped by start.sh on first launch so the brainstem itself ships clean.",
       "category": "platform",
       "tags": [
@@ -902,10 +904,10 @@
       "manifest_name": "@rapp/binder",
       "singleton_filename": "binder_agent.py",
       "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/binder/binder_agent.py",
-      "singleton_sha256": "64db8ca1d7e707b242c2b1fc011d4846ba15bbbd262ab955099c92210c4b8d11",
+      "singleton_sha256": "8751861575d207920fe98c53d5ab6d832fd2326f1f92fe7fe1ce2c625689ff9c",
       "service_filename": "binder_service.py",
       "service_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/binder/binder_service.py",
-      "service_sha256": "d393fbf17c9daa2887cadb035a20c4ee5862f660c8816750af5fc75e3db6d1f3",
+      "service_sha256": "a68e44bc2ef0085dfe1598fa224b655b24e91d329128cff2a7328f12a560714d",
       "produced_by": {
         "method": "agent-first",
         "source_files_collapsed": 2
@@ -916,6 +918,8 @@
       "id": "swarms",
       "name": "Swarms",
       "version": "1.0.0",
+      "latest_version": "1.0.0",
+      "available_versions": ["1.0.0"],
       "summary": "Group your agents into named swarms (stack or converged) and toggle which swarms are active per turn. Surfaces as the swarm bar in the chat UI.",
       "category": "platform",
       "tags": [

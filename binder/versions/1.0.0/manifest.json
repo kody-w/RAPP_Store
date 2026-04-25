@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-version/1.0",
+  "id": "binder",
+  "version": "1.0.0",
+  "released": "2026-04-25",
+  "agent": {
+    "filename": "binder_agent.py",
+    "sha256": "8751861575d207920fe98c53d5ab6d832fd2326f1f92fe7fe1ce2c625689ff9c"
+  },
+  "service": {
+    "filename": "binder_service.py",
+    "sha256": "a68e44bc2ef0085dfe1598fa224b655b24e91d329128cff2a7328f12a560714d"
+  },
+  "changelog": "Initial release. Package manager for the brainstem. Installs both agents/*.py and services/*.py from the RAPPstore catalog. Bootstrapped by start.sh on first launch. Honors RAPPSTORE_URL env var so distros and mirrors are first-class. Optional version param on install for edge clients pinning to a specific release.",
+  "license": "BSD-style"
+}

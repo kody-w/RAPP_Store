@@ -2,7 +2,6 @@
   "schema": "rapp-application/1.0",
   "id": "swarms",
   "name": "Swarms",
-  "version": "1.0.0",
   "publisher": "@rapp",
   "manifest_name": "@rapp/swarms",
   "summary": "Group your agents into named swarms (stack or converged) and toggle which swarms are active per turn. Surfaces as the swarm bar in the chat UI.",
@@ -10,5 +9,11 @@
   "tags": ["organization", "agents", "platform", "rapplication"],
   "agent": "swarms_agent.py",
   "service": "swarms_service.py",
-  "license": "BSD-style"
+  "license": "BSD-style",
+  "latest_version": "1.0.0",
+  "available_versions": ["1.0.0"],
+  "version_layout": {
+    "canonical": "rapp_store/swarms/versions/<version>/",
+    "latest_alias": "rapp_store/swarms/<file> (a copy of the canonical files at versions/<latest_version>/)"
+  }
 }

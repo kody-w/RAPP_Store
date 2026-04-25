@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-version/1.0",
+  "id": "swarms",
+  "version": "1.0.0",
+  "released": "2026-04-25",
+  "agent": {
+    "filename": "swarms_agent.py",
+    "sha256": "a735fa8d9b65e127c114fc296d4cb37469308747ec8e8a33cb59efa1656ce67e"
+  },
+  "service": {
+    "filename": "swarms_service.py",
+    "sha256": "b80fae37fc64c054811da8a98f7c8454b7bdbac9c50fd92c6680ef875c230cfe"
+  },
+  "changelog": "Initial release. CRUD for named agent swarms (stack or converged) plus per-turn activation. Surfaces as the swarm bar in the chat UI when installed.",
+  "license": "BSD-style"
+}
