@@ -1135,6 +1135,73 @@
       "singleton_lines": 532
     }
   ],
+  "senses": [
+    {
+      "id": "haiku",
+      "name": "haiku",
+      "slot": "HAIKU",
+      "delimiter": "|||HAIKU|||",
+      "summary": "Translates the response into a 5/7/5 haiku. Same meaning, different mode.",
+      "filename": "haiku_sense.py",
+      "install_path": "rapp_brainstem/senses/haiku_sense.py",
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/senses/haiku_sense.py",
+      "sha256": "d3e1819ed91f539a7b555b4f320f2cd04dd2b786bf1571a3680b91a6ae23861d",
+      "lines": 22,
+      "bytes": 900
+    },
+    {
+      "id": "tldr",
+      "name": "tldr",
+      "slot": "TLDR",
+      "delimiter": "|||TLDR|||",
+      "summary": "Compresses the response to a single load-bearing sentence.",
+      "filename": "tldr_sense.py",
+      "install_path": "rapp_brainstem/senses/tldr_sense.py",
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/senses/tldr_sense.py",
+      "sha256": "7b98fbcd52816ef6554a4bc2aaa9634391a7f09c14dc687cc8d11524f587a3cc",
+      "lines": 22,
+      "bytes": 894
+    },
+    {
+      "id": "emoji",
+      "name": "emoji",
+      "slot": "EMOJI",
+      "delimiter": "|||EMOJI|||",
+      "summary": "Translates the response into a 3-7 emoji narrative \u2014 a tone fingerprint.",
+      "filename": "emoji_sense.py",
+      "install_path": "rapp_brainstem/senses/emoji_sense.py",
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/senses/emoji_sense.py",
+      "sha256": "5cbb3728f0d1b5de53e2702c5089c4e4866da8fe71542e00c5fa8087ed0f1f9d",
+      "lines": 23,
+      "bytes": 957
+    },
+    {
+      "id": "eli5",
+      "name": "eli5",
+      "slot": "ELI5",
+      "delimiter": "|||ELI5|||",
+      "summary": "Re-explains the response so a five-year-old could follow it.",
+      "filename": "eli5_sense.py",
+      "install_path": "rapp_brainstem/senses/eli5_sense.py",
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/senses/eli5_sense.py",
+      "sha256": "1c8af51f5db77b1c81792508c00bc4fce8a7c0c50fc0efeb145da83e9eae9028",
+      "lines": 23,
+      "bytes": 995
+    },
+    {
+      "id": "headline",
+      "name": "headline",
+      "slot": "HEADLINE",
+      "delimiter": "|||HEADLINE|||",
+      "summary": "Compresses the response into a punchy news-ticker headline.",
+      "filename": "headline_sense.py",
+      "install_path": "rapp_brainstem/senses/headline_sense.py",
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/senses/headline_sense.py",
+      "sha256": "782fddb07ce0058748a708bf4bccecfd1b0d9f473da7e4905297f37e0c8690b8",
+      "lines": 21,
+      "bytes": 885
+    }
+  ],
   "publish_your_own": {
     "summary": "Author a rapplication using the multi-file source pattern (see blog/89). Run the double-jump loop until convergence (typically 1-3 cycles per content shape). Collapse to a singleton via tools/build-rapplication.py. Submit a PR adding an entry to rapp_store/index.json.",
     "schema": "rapp-application/1.0",
@@ -1151,5 +1218,6 @@
       "blog/99-the-rappstore.md",
       "blog/101-publish-your-first-rapplication.md"
     ]
-  }
+  },
+  "install_protocol_senses": "Drop the *_sense.py file into your local brainstem at rapp_brainstem/senses/. Auto-discovered each chat request, no restart. Senses are TRANSLATIONS of the main response into different modes of expression (Constitution Article XXIV)."
 }
