@@ -9,6 +9,50 @@
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything \u2014 no install script, no pip, no native deps.",
   "rapplications": [
     {
+      "id": "twinworkshop",
+      "name": "Twin Workshop",
+      "version": "0.1.0",
+      "summary": "Workshop a personal twin in 60 minutes. Asks what you want to delegate, designs the agent in front of you, validates against your test input, hands you the .py. Runs everywhere a brainstem does.",
+      "tagline": "The full workshop loop, performed by the platform on itself, with the customer in the room.",
+      "category": "creative-pipeline",
+      "tags": [
+        "composite",
+        "killer-app",
+        "rapplication",
+        "has-ui",
+        "workshop"
+      ],
+      "manifest_name": "@rapp/twin-workshop-singleton",
+      "singleton_filename": "twin_workshop_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/twin_workshop/singleton/twin_workshop_agent.py",
+      "singleton_sha256": "d12076a8a41db9d3c240a388e0e8492626c408c9f8efa21fe46d51948ed518e8",
+      "singleton_lines": 436,
+      "singleton_bytes": 20069,
+      "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/twin_workshop/ui/index.html",
+      "ui_filename": "index.html",
+      "egg_url": null,
+      "egg_note": "Stateless per workshop session \u2014 no shipped state.",
+      "produced_by": {
+        "method": "hand-built-then-converged",
+        "source_files_collapsed": 1,
+        "specialists": [
+          "@rapp/twin-intake",
+          "@rapp/twin-clarify",
+          "@rapp/twin-designer",
+          "@rapp/twin-validator",
+          "@rapp/twin-shipper"
+        ]
+      },
+      "example_call": {
+        "args": {
+          "stage": "intake",
+          "description": "I want an agent that answers prospect emails the way I would."
+        }
+      },
+      "license": "BSD-style",
+      "publisher": "@rapp"
+    },
+    {
       "id": "bookfactoryagent",
       "name": "BookFactory",
       "version": "0.3.0",
