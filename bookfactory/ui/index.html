@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BookFactory</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #21262d;
+    --border-hover: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --green-bg: #238636;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column;
+  }
+  header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  header .title {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 15px;
+  }
+  header .title .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 8px rgba(63, 185, 80, .6);
+  }
+  header .meta { font-size: 11px; color: var(--muted); font-family: "SF Mono", monospace; }
+  header .actions { display: flex; gap: 8px; }
+  .btn {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; font: inherit; font-size: 12px;
+    cursor: pointer; transition: border-color .12s, color .12s, background .12s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary {
+    background: var(--green-bg); border-color: var(--green); color: white;
+  }
+  .btn.primary:hover { background: var(--green); border-color: var(--green); }
+  .btn.primary:disabled { opacity: .55; cursor: not-allowed; pointer-events: none; }
+
+  main {
+    flex: 1; display: grid; grid-template-columns: minmax(320px, 420px) 1fr;
+    overflow: hidden;
+  }
+  .pane {
+    overflow-y: auto; padding: 18px 20px;
+    border-right: 1px solid var(--border);
+  }
+  .pane.right { border-right: none; background: #0a0d12; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+       color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; margin-top: 14px; }
+  input[type="text"], textarea {
+    width: 100%; background: #0d1117; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; font: inherit; font-size: 13px;
+    transition: border-color .12s;
+  }
+  input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { min-height: 220px; resize: vertical; font-family: "SF Mono", monospace; }
+
+  .submit-row {
+    margin-top: 18px; display: flex; gap: 10px; align-items: center;
+  }
+  .submit-row .btn { padding: 9px 16px; font-size: 13px; font-weight: 600; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .status-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; margin-top: 12px; border-radius: 6px;
+    background: rgba(88, 166, 255, .08); border: 1px solid rgba(88, 166, 255, .25);
+    font-size: 12px;
+  }
+  .status-row .spinner {
+    width: 12px; height: 12px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  .status-row.error { background: rgba(248, 81, 73, .08); border-color: rgba(248, 81, 73, .35); color: #ffb4b0; }
+  .status-row.done  { background: rgba(63, 185, 80, .08); border-color: rgba(63, 185, 80, .35); color: #b7e6bf; }
+  .status-row.hidden { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result-empty {
+    color: var(--muted); font-size: 13px; padding: 30px 14px;
+    text-align: center; line-height: 1.6;
+  }
+  .result-empty .big { font-size: 28px; margin-bottom: 6px; }
+
+  .stage {
+    margin-bottom: 16px; padding: 12px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .stage-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; font-size: 12px;
+  }
+  .stage-head .name { font-weight: 600; color: var(--text); }
+  .stage-head .name .num {
+    display: inline-flex; width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(88, 166, 255, .2); color: var(--accent);
+    align-items: center; justify-content: center; font-size: 10px;
+    margin-right: 6px; font-weight: 700;
+  }
+  .stage-head .status { font-size: 10px; color: var(--muted); }
+  .stage-body {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; font-family: "SF Mono", monospace; font-size: 12px;
+    white-space: pre-wrap; word-wrap: break-word;
+    max-height: 280px; overflow-y: auto; line-height: 1.5;
+  }
+
+  .final-chapter {
+    background: var(--panel); border: 1px solid var(--green-bg); border-radius: 8px;
+    padding: 18px 20px; margin-bottom: 14px;
+  }
+  .final-chapter h3 {
+    color: var(--green); font-size: 14px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .final-chapter .body {
+    white-space: pre-wrap; line-height: 1.7; font-size: 14px; color: var(--text);
+  }
+
+  /* Brainstem unreachable banner */
+  .reach-banner {
+    padding: 10px 20px; background: rgba(248, 81, 73, .1);
+    border-bottom: 1px solid rgba(248, 81, 73, .3);
+    color: #ffb4b0; font-size: 12px; display: none;
+  }
+  .reach-banner.show { display: block; }
+
+  @media (max-width: 720px) {
+    main { grid-template-columns: 1fr; }
+    .pane { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title"><span class="dot"></span>BookFactory <span class="meta">5-persona pipeline</span></div>
+  <div class="actions">
+    <button class="btn" id="fs-btn" title="Toggle fullscreen">⛶ Fullscreen</button>
+  </div>
+</header>
+
+<div class="reach-banner" id="reach-banner">
+  Brainstem unreachable. Make sure RAPP Brainstem is running on
+  <code id="reach-host">localhost:7071</code>.
+</div>
+
+<main>
+  <section class="pane">
+    <h2>Source</h2>
+    <label for="src">Raw source material</label>
+    <textarea id="src" placeholder="Paste notes, an outline, an interview transcript, raw research dumps — anything the writer can shape into a chapter."></textarea>
+
+    <label for="title">Chapter title</label>
+    <input type="text" id="title" placeholder="e.g. Why we shipped the slow build">
+
+    <label for="author">Author byline</label>
+    <input type="text" id="author" value="@you">
+
+    <div class="submit-row">
+      <button class="btn primary" id="run-btn">Run pipeline</button>
+      <span class="hint">5 personas · ~75–110s p50/p90</span>
+    </div>
+
+    <div class="status-row hidden" id="status">
+      <span class="spinner"></span>
+      <span class="msg">Working…</span>
+    </div>
+  </section>
+
+  <section class="pane right" id="result-pane">
+    <div class="result-empty" id="empty">
+      <div class="big">📖</div>
+      <div>Source material in, publishable chapter out.</div>
+      <div style="margin-top:6px;font-size:11px">Writer → Editor → CEO → Publisher → Reviewer.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // The iframe is mounted by the brainstem at /api/binder/ui/<id>/.
+  // The brainstem is the same origin, so /chat is reachable directly.
+  const BRAINSTEM = '';  // same-origin
+  const AGENT_NAME = 'BookFactory';
+
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => document.querySelectorAll(sel);
+
+  // Fullscreen — request on the iframe's parent container if available
+  // (so the chrome doesn't go too), else on document.documentElement.
+  $('#fs-btn').addEventListener('click', async () => {
+    const target = document.documentElement;
+    if (!document.fullscreenElement) {
+      try { await target.requestFullscreen(); }
+      catch (e) { console.warn('fullscreen denied:', e); }
+    } else {
+      try { await document.exitFullscreen(); } catch (e) { /* */ }
+    }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    $('#fs-btn').textContent = document.fullscreenElement ? '⛶ Exit fullscreen' : '⛶ Fullscreen';
+  });
+
+  function setStatus(msg, kind) {
+    const row = $('#status');
+    row.classList.remove('hidden', 'error', 'done');
+    if (kind) row.classList.add(kind);
+    row.querySelector('.msg').textContent = msg;
+    if (kind === 'error' || kind === 'done') {
+      row.querySelector('.spinner').style.display = 'none';
+    } else {
+      row.querySelector('.spinner').style.display = 'inline-block';
+    }
+  }
+
+  function hideStatus() {
+    $('#status').classList.add('hidden');
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => (
+      {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+    ));
+  }
+
+  function renderResult(payload) {
+    const pane = $('#result-pane');
+    pane.innerHTML = '';
+
+    // The agent returns text shaped as:
+    //   "Book factory complete. Workspace: ...\n---\nFINAL CHAPTER:\n\n<chapter>\n---\nREVIEWER:\n\n<review>\n"
+    // Plus the agent_logs array carries each persona's intermediate output.
+    const text = payload.text || '';
+    const finalMatch = text.match(/FINAL CHAPTER:\s*\n+([\s\S]*?)\n---\nREVIEWER:/);
+    const reviewerMatch = text.match(/REVIEWER:\s*\n+([\s\S]*?)$/);
+    const final = finalMatch ? finalMatch[1].trim() : text.trim();
+    const review = reviewerMatch ? reviewerMatch[1].trim() : '';
+
+    const chapter = document.createElement('div');
+    chapter.className = 'final-chapter';
+    chapter.innerHTML = `
+      <h3>📖 Final chapter</h3>
+      <div class="body">${escapeHtml(final)}</div>
+    `;
+    pane.appendChild(chapter);
+
+    if (review) {
+      const r = document.createElement('div');
+      r.className = 'stage';
+      r.innerHTML = `
+        <div class="stage-head"><div class="name"><span class="num">R</span>Reviewer</div></div>
+        <div class="stage-body">${escapeHtml(review)}</div>
+      `;
+      pane.appendChild(r);
+    }
+
+    if (Array.isArray(payload.agent_logs) && payload.agent_logs.length) {
+      const personas = document.createElement('h2');
+      personas.style.marginTop = '12px';
+      personas.textContent = 'Pipeline trace';
+      pane.appendChild(personas);
+      payload.agent_logs.forEach((log, i) => {
+        const stage = document.createElement('div');
+        stage.className = 'stage';
+        const out = typeof log.output === 'string'
+          ? log.output
+          : JSON.stringify(log.output, null, 2);
+        stage.innerHTML = `
+          <div class="stage-head">
+            <div class="name"><span class="num">${i + 1}</span>${escapeHtml(log.name || 'agent')}</div>
+            <div class="status">${out ? out.length + ' chars' : ''}</div>
+          </div>
+          <div class="stage-body">${escapeHtml(out.slice(0, 4000))}${out.length > 4000 ? '\n… (truncated)' : ''}</div>
+        `;
+        pane.appendChild(stage);
+      });
+    }
+  }
+
+  $('#run-btn').addEventListener('click', async () => {
+    const source = $('#src').value.trim();
+    const title = $('#title').value.trim() || 'Untitled chapter';
+    const author = $('#author').value.trim() || '@you';
+    if (!source) {
+      setStatus('Add source material first.', 'error');
+      return;
+    }
+    $('#run-btn').disabled = true;
+    setStatus('Calling BookFactory… (this takes ~75s, 8 LLM calls)');
+    $('#empty').remove?.();
+
+    try {
+      // Use the brainstem's /chat envelope so the agent runs through the
+      // same orchestration the chat UI uses (tool-calling, agent_logs,
+      // memory injection). We phrase the prompt to make the LLM call
+      // BookFactory deterministically.
+      const userInput = (
+        `Run the BookFactory agent with these arguments and return only ` +
+        `the final result, no commentary:\n` +
+        `  source: ${JSON.stringify(source)}\n` +
+        `  chapter_title: ${JSON.stringify(title)}\n` +
+        `  author: ${JSON.stringify(author)}`
+      );
+      const r = await fetch(BRAINSTEM + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_input: userInput,
+          conversation_history: [],
+          session_id: 'bookfactory-ui-' + Date.now(),
+        }),
+      });
+      if (!r.ok) throw new Error(`brainstem returned HTTP ${r.status}`);
+      const data = await r.json();
+
+      // The agent's actual output is in agent_logs[*].output where
+      // name === "BookFactory". The text key is the assistant's wrap-up.
+      const bf = (data.agent_logs || []).find(l =>
+        (l.name || '').toLowerCase() === 'bookfactory'
+      );
+      const text = (bf && bf.output) ? bf.output : (data.text || data.message || '');
+
+      renderResult({ text, agent_logs: data.agent_logs || [] });
+      setStatus('Done.', 'done');
+      setTimeout(hideStatus, 2000);
+    } catch (e) {
+      console.error(e);
+      setStatus('Failed: ' + e.message, 'error');
+      $('#reach-banner').classList.add('show');
+      $('#reach-host').textContent = location.host || 'localhost:7071';
+    } finally {
+      $('#run-btn').disabled = false;
+    }
+  });
+
+  // Health probe on load — banner up if the brainstem isn't reachable.
+  fetch(BRAINSTEM + '/version', { cache: 'no-cache' })
+    .then(r => { if (!r.ok) throw new Error(); })
+    .catch(() => {
+      $('#reach-banner').classList.add('show');
+      $('#reach-host').textContent = location.host || 'localhost:7071';
+    });
+</script>
+
+</body>
+</html>

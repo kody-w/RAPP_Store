@@ -19,7 +19,8 @@
         "composite",
         "creative-pipeline",
         "twin-stack",
-        "singleton"
+        "singleton",
+        "has-ui"
       ],
       "manifest_name": "@rapp/book-factory-singleton",
       "singleton_filename": "bookfactory_agent.py",
@@ -71,7 +72,9 @@
       "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
       "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
       "shipped_in_commit": "ebb1648",
-      "publisher": "@rarbookworld"
+      "publisher": "@rarbookworld",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP/main/rapp_store/bookfactory/ui/index.html",
+      "ui_filename": "index.html"
     },
     {
       "id": "bookfactoryagent-demo",
