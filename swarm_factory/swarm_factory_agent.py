@@ -55,45 +55,32 @@ class SwarmFactoryAgent(BasicAgent):
                 "A SWARM is a multi-persona pipeline collapsed into ONE shareable "
                 "agent file — like BookFactory (Writer→Editor→CEO→Publisher→Reviewer "
                 "all inlined as _Internal* classes behind one public entrypoint). "
-                "Not just a single agent. The point of a swarm is that each persona "
-                "has its own SOUL/system prompt and the public composite calls them "
-                "in sequence to do something the LLM couldn't do in one shot.\n\n"
+                "The point of a swarm is that each persona has its own SOUL/system "
+                "prompt and the public composite calls them in sequence to do "
+                "something no single agent could do in one shot.\n\n"
+                "ROLE BOUNDARY (read this before choosing a tool):\n"
+                " • Single one-shot agent (fetch xkcd, roll dice, lookup a stock "
+                "price) → use the LearnNew tool with action='create'. Do NOT use "
+                "SwarmFactory for these.\n"
+                " • Multi-persona converged singleton (research→write→critique, "
+                "plan→draft→review, write→edit→publish) → SwarmFactory.generate. "
+                "This is the BookFactory pattern.\n"
+                " • Already have a multi-file source tree of agents and want them "
+                "collapsed into one shippable file → SwarmFactory.build.\n\n"
                 "Actions:\n"
                 " • 'generate' — Design a BRAND-NEW converged swarm from scratch. "
                 "YOU (the LLM) compose the full Python source — multiple internal "
-                "persona classes plus ONE public composite — then call this tool "
-                "with that code in 'agent_code'. After persistence the swarm hot-"
-                "loads on the next request, no restart.\n"
+                "persona classes (each with its own SOUL) plus ONE public composite "
+                "that orchestrates them — then call this tool with that code in "
+                "'agent_code'. The result is a single file that hot-loads on the "
+                "next request. If the request is for a single-persona agent, "
+                "REFUSE this action and route the user to LearnNew.create.\n"
                 " • 'build' — Converge EXISTING local agents (multi-file source "
                 "tree under agents/) into a shareable singleton .py.\n"
                 " • 'list' — Show available swarms in the RAPP Store.\n"
                 " • 'install' — Pull a swarm from the store into agents/.\n"
                 " • 'uninstall' — Remove an installed swarm.\n\n"
-                "When the user asks for something the loaded tools can't do (e.g. "
-                "'write a chapter from these notes', 'plan and review a marketing "
-                "campaign', 'research+summarize+critique a topic'), reach for "
-                "'generate' and design the right pipeline. Don't substitute a "
-                "single existing tool that almost-but-not-quite fits.\n\n"
-                "Use SHAPE A (single-persona) only for trivial one-shot tools "
-                "(fetch xkcd, roll dice). Use SHAPE B (converged swarm) for "
-                "anything that benefits from multiple perspectives, sequential "
-                "refinement, or specialist roles.\n\n"
-                "─── SHAPE A: single-persona agent ────────────────────────────\n"
-                "    from agents.basic_agent import BasicAgent\n"
-                "    import json\n\n"
-                "    __manifest__ = {\"schema\": \"rapp-agent/1.0\",\n"
-                "                     \"name\": \"@user/<slug>\",\n"
-                "                     \"display_name\": \"<PascalCase>\"}\n\n"
-                "    class <PascalCase>Agent(BasicAgent):\n"
-                "        def __init__(self):\n"
-                "            self.name = \"<PascalCase>\"\n"
-                "            self.metadata = {\"name\": \"<PascalCase>\",\n"
-                "                             \"description\": \"<when to call>\",\n"
-                "                             \"parameters\": {...}}\n"
-                "            super().__init__(self.name, self.metadata)\n"
-                "        def perform(self, **kwargs):\n"
-                "            return json.dumps({\"status\": \"ok\", ...})\n\n"
-                "─── SHAPE B: converged swarm (this is the interesting one) ───\n"
+                "Required shape for 'generate' — a converged swarm singleton:\n"
                 "    from agents.basic_agent import BasicAgent\n"
                 "    import json, os, urllib.request, urllib.error\n\n"
                 "    __manifest__ = {\"schema\": \"rapp-agent/1.0\",\n"
@@ -289,6 +276,26 @@ class SwarmFactoryAgent(BasicAgent):
         if not classes:
             return json.dumps({"status": "error",
                 "message": "agent_code defines no classes. The agent must be a class extending BasicAgent."})
+
+        # Role boundary: SwarmFactory.generate is for CONVERGED SWARMS
+        # (multi-persona composites — BookFactory pattern). Single-class
+        # one-shot agents (fetch xkcd, roll dice) belong to LearnNew.create.
+        # Refuse here so the LLM gets a clear pointer to the right tool
+        # instead of silently producing a non-swarm via the swarm-shaped
+        # path. The "swarm" name actually means something this way.
+        if len(classes) < 2:
+            return json.dumps({"status": "error",
+                "message": (
+                    "agent_code has only one class — that's a single-persona "
+                    "agent, not a swarm. SwarmFactory.generate is for converged "
+                    "multi-persona pipelines (BookFactory pattern: Writer→Editor"
+                    "→CEO→Publisher→Reviewer all inlined). For a single one-shot "
+                    "agent, call the LearnNew tool with action='create' instead."
+                ),
+                "hint": "If this really IS a multi-persona swarm, split the work "
+                        "into _Internal<Role> classes (one per persona) plus one "
+                        "public BasicAgent composite that orchestrates them.",
+                "class_count": len(classes)})
         has_perform = any(
             isinstance(m, ast.FunctionDef) and m.name == "perform"
             for c in classes for m in c.body
