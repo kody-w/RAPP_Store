@@ -48,6 +48,19 @@ OFFICIAL_PUBLISHERS = frozenset({"@rapp", "@rarbookworld"})
 
 ACCEPTED_QUALITY_TIERS = frozenset({"official", "verified", "community", "experimental"})
 
+# Per Proposal 0001 step G: lock the category enum. Adding a new category
+# requires a follow-up proposal. Keeping the set small keeps the catalog
+# browsable; new use cases pick the closest existing category.
+ACCEPTED_CATEGORIES = frozenset({
+    "productivity",   # tools that make individual work faster (pitch_deck, exec_brief)
+    "creative",       # content + media pipelines (bookfactory, twin_workshop)
+    "analysis",       # surveys, audits, scoring (spine_dag, dashboard read paths)
+    "data",           # ingestion, transform, query
+    "integration",    # external system glue (webhook)
+    "platform",       # binder, swarms, vibe_builder — meta tools
+    "workspace",      # personal task / state mgmt (kanban)
+})
+
 ACCEPTED_BASIC_AGENT_IMPORTS = (
     "from agents.basic_agent import BasicAgent",
     "from basic_agent import BasicAgent",
@@ -616,8 +629,15 @@ def _validate_manifest(m: dict) -> list[str]:
     if not isinstance(m.get("summary"), str) or not m.get("summary"):
         errs.append("E_BAD_SUMMARY: summary is required")
 
-    if not isinstance(m.get("category"), str) or not m.get("category"):
+    cat_v = m.get("category")
+    if not isinstance(cat_v, str) or not cat_v:
         errs.append("E_BAD_CATEGORY: category is required")
+    elif cat_v not in ACCEPTED_CATEGORIES:
+        errs.append(
+            f"E_UNKNOWN_CATEGORY: '{cat_v}' is not in the locked enum "
+            f"{sorted(ACCEPTED_CATEGORIES)}. Pick the closest, or open a "
+            f"proposal to add a new category."
+        )
 
     tags = m.get("tags")
     if not isinstance(tags, list) or not tags:

@@ -121,6 +121,21 @@ class TestManifestRules:
         assert not result.ok
         assert any("E_DIR_NAME_MISMATCH" in e for e in result.errors)
 
+    def test_category_must_be_in_enum(self, make_rapp_dir):
+        rapp = make_rapp_dir(category="creative-pipeline")  # old, no longer accepted
+        result = lib_rapp.validate_dir(rapp)
+        assert not result.ok
+        assert any("E_UNKNOWN_CATEGORY" in e for e in result.errors)
+
+    @pytest.mark.parametrize("cat", [
+        "productivity", "creative", "analysis", "data",
+        "integration", "platform", "workspace",
+    ])
+    def test_locked_categories_accepted(self, make_rapp_dir, cat):
+        rapp = make_rapp_dir(category=cat)
+        result = lib_rapp.validate_dir(rapp)
+        assert result.ok, (cat, result.errors)
+
 
 # ── Singleton AST contract ────────────────────────────────────────────────
 

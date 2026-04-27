@@ -59,7 +59,7 @@ The submission unit is **the `<id>/` directory zipped**. The `.zip` filename SHO
 | `version` | string | yes | Semver `MAJOR.MINOR.PATCH`. On resubmit must be strictly greater than the catalog's current version. |
 | `publisher` | string | yes | `@<github-username>` for community submissions, `@rapp` reserved for official rapps. |
 | `summary` | string | yes | One paragraph. |
-| `category` | string | yes | Free-form; existing values: `creative-pipeline`, `analysis`, `analytics`, `platform`, `moment-pipeline`. |
+| `category` | string | yes | Locked enum: `productivity`, `creative`, `analysis`, `data`, `integration`, `platform`, `workspace`. New categories require a proposal. |
 | `tags` | string[] | yes | At least `"rapplication"`. |
 | `agent` | string | yes if no `service` | Relative path to the singleton, e.g. `singleton/<id>_agent.py`. |
 | `service` | string | yes if no `agent` | Relative path to the service module, e.g. `service/<id>_service.py`. |
