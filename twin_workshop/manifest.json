@@ -1,0 +1,17 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "twin_workshop",
+  "name": "TwinWorkshop",
+  "version": "0.1.0",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/twin-workshop-singleton",
+  "summary": "Workshop a personal twin in 60 minutes. The platform performs the full workshop loop on itself, with the customer in the room: intake what they want to delegate, clarify the contract, design the agent live, validate against their test input, hand them the .py. Five stages, one rapplication.",
+  "tagline": "The full workshop loop, performed by the platform on itself, with the customer in the room.",
+  "category": "creative",
+  "tags": ["composite", "killer-app", "rapplication", "has-ui", "workshop"],
+  "agent": "singleton/twin_workshop_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style",
+  "quality_tier": "official",
+  "homepage": "https://github.com/kody-w/rapp_store"
+}
