@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAPPstore vBrainstem — chat with the catalog</title>
+<meta name="description" content="Browser-native chat over the RAPP store. Sign in with GitHub, load any rapplication, talk to it.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --surface3: #30363d;
+    --border: #30363d;
+    --border-hover: #484f58;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --text-muted: #656d76;
+    --accent: #58a6ff;
+    --accent-bg: rgba(88,166,255,.1);
+    --green: #3fb950;
+    --green-bg: rgba(63,185,80,.12);
+    --orange: #d29922;
+    --orange-bg: rgba(210,153,34,.12);
+    --red: #f85149;
+    --red-bg: rgba(248,81,73,.12);
+    --purple: #bc8cff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  code, .mono { font-family: "SF Mono", "Fira Code", Consolas, monospace; font-size: 12px; }
+
+  /* Header */
+  header.bs {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px;
+    flex-shrink: 0;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--green), var(--accent));
+    display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 800;
+  }
+  .logo .sub { font-size: 11px; color: var(--text-dim); font-weight: 500; }
+  .header-spacer { flex: 1; }
+  .header-link { font-size: 12px; color: var(--text-dim); }
+  .header-link:hover { color: var(--accent); }
+
+  /* GitHub auth pill */
+  .gh-pill {
+    display: flex; align-items: center; gap: 7px; padding: 5px 12px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+    font-size: 12px; cursor: pointer; color: var(--text);
+  }
+  .gh-pill:hover { border-color: var(--border-hover); }
+  .gh-pill .gh-avatar {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--surface3);
+    background-size: cover; background-position: center;
+  }
+  .gh-pill .gh-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .gh-pill .gh-dot.on { background: var(--green); }
+  .gh-pill .gh-dot.off { background: var(--red); }
+
+  /* Layout */
+  .layout { flex: 1; display: grid; grid-template-columns: 280px 1fr; overflow: hidden; }
+
+  /* Sidebar */
+  aside.catalog {
+    background: var(--surface); border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 14px 12px;
+  }
+  aside.catalog h2 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--text-dim); margin: 4px 8px 10px;
+  }
+  aside.catalog .rapp-card {
+    display: block; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); margin-bottom: 8px;
+    cursor: pointer; transition: border-color .15s, background .15s;
+    background: var(--surface);
+  }
+  aside.catalog .rapp-card:hover { border-color: var(--accent); background: var(--surface2); }
+  aside.catalog .rapp-card.active {
+    border-color: var(--accent); background: var(--accent-bg);
+  }
+  aside.catalog .rapp-name { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  aside.catalog .rapp-meta {
+    font-size: 10px; color: var(--text-dim); margin-bottom: 5px;
+    font-family: "SF Mono", monospace;
+  }
+  aside.catalog .rapp-summary { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+  aside.catalog .rapp-card .pill {
+    display: inline-block; padding: 1px 6px; border-radius: 999px;
+    font-size: 9px; background: var(--surface3); color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .5px; font-weight: 700;
+    margin-right: 4px; margin-bottom: 4px;
+  }
+  aside.catalog .rapp-card .pill.has-ui { background: var(--accent-bg); color: var(--accent); }
+  aside.catalog .rapp-card .pill.has-svc { background: var(--green-bg); color: var(--green); }
+  aside.catalog .rapp-card .pill.has-eggs { background: rgba(188,140,255,.12); color: var(--purple); }
+
+  /* Main pane */
+  main.chat { display: flex; flex-direction: column; overflow: hidden; }
+  .loaded-bar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 18px; display: flex; align-items: center; gap: 12px;
+    font-size: 12px; flex-shrink: 0;
+  }
+  .loaded-bar .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px; font-size: 10px;
+    background: var(--surface2); color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .5px; font-weight: 700;
+  }
+  .loaded-bar .pill.loaded { background: var(--green-bg); color: var(--green); }
+  .loaded-bar .agent-name { font-weight: 700; }
+  .loaded-bar .agent-tools { color: var(--text-dim); font-size: 11px; }
+  .loaded-bar .right { margin-left: auto; }
+  .btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .btn:hover { border-color: var(--border-hover); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { background: var(--red-bg); color: var(--red); }
+
+  /* Messages */
+  .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 800px; align-self: flex-start; }
+  .msg.user { align-self: flex-end; }
+  .msg .role {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-muted); margin-bottom: 4px; font-weight: 700;
+  }
+  .msg.user .role { text-align: right; color: var(--accent); }
+  .msg .body {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 12px 16px; border-radius: 12px; line-height: 1.55; font-size: 14px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.user .body { background: var(--accent-bg); border-color: var(--accent); }
+  .msg.tool .body {
+    background: #0a0e13; border-color: var(--surface3);
+    font-family: "SF Mono", monospace; font-size: 11px; color: var(--text-dim);
+  }
+  .msg.tool .role { color: var(--orange); }
+  .msg.error .body { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+  .msg pre {
+    background: var(--bg); border: 1px solid var(--surface3);
+    border-radius: 6px; padding: 10px; overflow-x: auto;
+    font-family: "SF Mono", monospace; font-size: 12px;
+  }
+  .msg code { background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+
+  .activity {
+    align-self: flex-start; max-width: 800px;
+    font-size: 11px; color: var(--text-dim); padding: 6px 12px;
+    background: var(--surface); border-left: 2px solid var(--orange);
+    border-radius: 0 6px 6px 0;
+    font-family: "SF Mono", monospace;
+  }
+
+  /* Input */
+  .composer {
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 14px 18px; display: flex; gap: 10px; flex-shrink: 0;
+  }
+  .composer textarea {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 14px; border-radius: 10px;
+    font-family: inherit; font-size: 14px; line-height: 1.5;
+    resize: none; min-height: 44px; max-height: 200px;
+  }
+  .composer textarea:focus { outline: none; border-color: var(--accent); }
+  .composer .send {
+    background: var(--accent); border: none; color: #fff;
+    padding: 0 20px; border-radius: 10px; cursor: pointer;
+    font-weight: 600; font-size: 13px;
+  }
+  .composer .send:disabled { background: var(--surface3); cursor: not-allowed; }
+
+  /* Welcome / empty state */
+  .welcome { text-align: center; padding: 40px; color: var(--text-dim); max-width: 600px; margin: auto; }
+  .welcome h1 { font-size: 22px; color: var(--text); margin-bottom: 12px; }
+  .welcome p { font-size: 14px; line-height: 1.6; margin-bottom: 14px; }
+  .welcome .step {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 14px 18px; border-radius: 10px; margin: 10px 0;
+    text-align: left; font-size: 13px;
+  }
+  .welcome .step .num {
+    display: inline-block; width: 22px; height: 22px; line-height: 22px;
+    background: var(--accent); color: #fff; border-radius: 50%;
+    text-align: center; margin-right: 10px; font-weight: 700; font-size: 11px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 18px; font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5); z-index: 1000;
+    opacity: 0; transition: opacity .25s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.ok { border-color: var(--green); }
+  .toast.err { border-color: var(--red); }
+
+  /* Settings modal */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; max-width: 480px; width: 90%;
+  }
+  .modal h3 { margin-bottom: 14px; }
+  .modal label { display: block; margin-bottom: 14px; font-size: 12px; color: var(--text-dim); }
+  .modal label span { display: block; margin-bottom: 6px; font-weight: 700; color: var(--text); }
+  .modal input, .modal select {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 12px; border-radius: 6px;
+    font-family: inherit; font-size: 13px;
+  }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .auth-info { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 10px 0 16px; }
+</style>
+</head>
+<body>
+
+<header class="bs">
+  <div class="logo">
+    <div class="logo-mark">VB</div>
+    <div>
+      RAPPstore vBrainstem
+      <div class="sub">resident chat — load any rapplication, talk to it</div>
+    </div>
+  </div>
+  <div class="header-spacer"></div>
+  <a class="header-link" href="./">← catalog</a>
+  <a class="header-link" href="https://github.com/kody-w/RAPP_Store" target="_blank">source ↗</a>
+  <a class="header-link" href="https://github.com/kody-w/RAR" target="_blank">RAR (bare agents) ↗</a>
+  <button class="btn" id="settingsBtn">⚙ Settings</button>
+  <div class="gh-pill" id="ghPill">
+    <span class="gh-dot off"></span>
+    <span id="ghLabel">Sign in with GitHub</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="catalog">
+    <h2>Catalog</h2>
+    <div id="rappList">
+      <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
+    </div>
+  </aside>
+
+  <main class="chat">
+    <div class="loaded-bar" id="loadedBar">
+      <span class="pill" id="loadedPill">no agent loaded</span>
+      <span class="agent-name" id="loadedName">—</span>
+      <span class="agent-tools" id="loadedTools"></span>
+      <div class="right">
+        <button class="btn" id="unloadBtn" style="display:none;">Unload</button>
+      </div>
+    </div>
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <h1>Talk to the catalog</h1>
+        <p>This is the resident vBrainstem for <a href="https://github.com/kody-w/RAPP_Store">kody-w/RAPP_Store</a>. Pick a rapplication from the sidebar, load it, and chat with it. Pure browser — your code, your token, your conversation.</p>
+        <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default).</div>
+        <div class="step"><span class="num">2</span><strong>Pick a rapp.</strong> Sidebar lists everything in <code>index.json</code>. Click one.</div>
+        <div class="step"><span class="num">3</span><strong>Chat.</strong> The model has the rapp's <code>perform()</code> as a tool — it'll call into Pyodide to run the actual Python code when needed.</div>
+      </div>
+    </div>
+    <div class="composer">
+      <textarea id="input" placeholder="Sign in with GitHub, then load a rapp from the sidebar to start." rows="1" disabled></textarea>
+      <button class="send" id="sendBtn" disabled>Send</button>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <h3>vBrainstem settings</h3>
+    <div class="auth-info" id="authStatus">Sign in with GitHub to enable chat. The vBrainstem uses GitHub Models (which ships with your account) — no separate API key required.</div>
+    <label><span>Model</span>
+      <select id="modelSelect">
+        <option value="gpt-4o-mini">gpt-4o-mini (fast, free)</option>
+        <option value="gpt-4o">gpt-4o</option>
+        <option value="o1-mini">o1-mini</option>
+        <option value="Mistral-Large-2411">Mistral Large</option>
+        <option value="Phi-3.5-MoE-instruct">Phi-3.5 MoE</option>
+      </select>
+    </label>
+    <label><span>BYO key (optional — overrides GitHub Models)</span>
+      <input id="byoKey" placeholder="sk-... (OpenAI) — leave blank to use GitHub Models" />
+    </label>
+    <label><span>BYO endpoint (optional, OpenAI-compatible base URL)</span>
+      <input id="byoEndpoint" placeholder="https://api.openai.com/v1/chat/completions" />
+    </label>
+    <div class="actions">
+      <button class="btn" id="settingsClose">Close</button>
+      <button class="btn primary" id="settingsSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── Constants ──────────────────────────────────────────────────────────
+
+const CATALOG_URL = './index.json';
+const RAW_BASE = 'https://raw.githubusercontent.com/kody-w/rapp_store/main/';
+
+// GitHub Models endpoint (newer URL — OpenAI-compatible, browser CORS works)
+const GH_MODELS_URL = 'https://models.github.ai/inference/chat/completions';
+
+// OAuth: reuses RAR's worker for the code → access_token exchange
+// (the client_secret can't ship in the page; the worker holds it)
+const AUTH_CLIENT_ID = 'Ov23liuueQBIUggrH8NG';  // same OAuth app as RAR vBrainstem
+const AUTH_WORKER_URL = 'https://rappterbook-auth.kwildfeuer.workers.dev';
+
+const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
+
+// ─── State ──────────────────────────────────────────────────────────────
+
+const state = {
+  catalog: null,
+  rapps: [],
+  selectedRapp: null,
+  loadedAgent: null,           // { source, manifest, agentClass, metadata, filename }
+  conversation: [],            // [{role, content, ...}]
+  ghToken: localStorage.getItem('vbs_gh_token') || null,
+  ghUser: null,
+  pyodide: null,
+  pyodideLoading: null,
+  settings: {
+    model: localStorage.getItem('vbs_model') || 'gpt-4o-mini',
+    byoKey: localStorage.getItem('vbs_byo_key') || '',
+    byoEndpoint: localStorage.getItem('vbs_byo_endpoint') || '',
+  },
+};
+
+// ─── DOM helpers ────────────────────────────────────────────────────────
+
+const $ = s => document.querySelector(s);
+function toast(msg, kind = '') {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 3500);
+}
+function el(tag, attrs = {}, kids = []) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of (Array.isArray(kids) ? kids : [kids])) {
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+// ─── GitHub auth (OAuth web flow) ───────────────────────────────────────
+
+async function handleAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return;
+  const cleanUrl = window.location.href.split('?')[0] + (window.location.hash || '');
+  window.history.replaceState({}, '', cleanUrl);
+  try {
+    const r = await fetch(AUTH_WORKER_URL + '/api/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const d = await r.json();
+    if (d.access_token) {
+      state.ghToken = d.access_token;
+      localStorage.setItem('vbs_gh_token', state.ghToken);
+      await fetchGHUser();
+      toast('Signed in. Pick a rapp from the sidebar.', 'ok');
+    } else {
+      toast('Sign-in failed: ' + (d.error || 'no token'), 'err');
+    }
+  } catch (e) {
+    toast('Sign-in error: ' + e.message, 'err');
+  }
+  updateGHPill();
+}
+
+function startSignIn() {
+  const redirect = window.location.origin + window.location.pathname;
+  const url = `https://github.com/login/oauth/authorize?client_id=${AUTH_CLIENT_ID}` +
+              `&scope=read:user&redirect_uri=${encodeURIComponent(redirect)}`;
+  window.location.href = url;
+}
+
+function signOut() {
+  state.ghToken = null;
+  state.ghUser = null;
+  localStorage.removeItem('vbs_gh_token');
+  updateGHPill();
+  toast('Signed out');
+}
+
+async function fetchGHUser() {
+  if (!state.ghToken) return;
+  try {
+    const r = await fetch('https://api.github.com/user', {
+      headers: { Authorization: 'Bearer ' + state.ghToken, Accept: 'application/vnd.github+json' },
+    });
+    if (r.ok) state.ghUser = await r.json();
+    else if (r.status === 401) signOut();
+  } catch {}
+}
+
+function updateGHPill() {
+  const dot = $('#ghPill .gh-dot');
+  const label = $('#ghLabel');
+  if (state.ghToken && state.ghUser) {
+    dot.className = 'gh-dot on';
+    label.textContent = state.ghUser.login;
+    $('#authStatus').innerHTML = `Signed in as <code>${state.ghUser.login}</code>. LLM dispatch goes to GitHub Models.`;
+  } else if (state.ghToken) {
+    dot.className = 'gh-dot on';
+    label.textContent = 'GitHub';
+    $('#authStatus').innerHTML = 'Signed in. (Fetching user…)';
+  } else {
+    dot.className = 'gh-dot off';
+    label.textContent = 'Sign in with GitHub';
+    $('#authStatus').innerHTML = 'Sign in with GitHub to enable chat. Uses GitHub Models — no separate API key needed.';
+  }
+  updateInputState();
+}
+
+$('#ghPill').addEventListener('click', () => {
+  if (state.ghToken) {
+    if (confirm('Sign out of GitHub?')) signOut();
+  } else {
+    startSignIn();
+  }
+});
+
+// ─── Catalog loading + rendering ────────────────────────────────────────
+
+async function loadCatalog() {
+  try {
+    const r = await fetch(CATALOG_URL, { cache: 'no-store' });
+    state.catalog = await r.json();
+    state.rapps = state.catalog.rapplications || [];
+    renderCatalog();
+  } catch (e) {
+    $('#rappList').innerHTML =
+      `<div style="color: var(--red); font-size: 12px;">Failed to load catalog: ${e.message}</div>`;
+  }
+}
+
+function renderCatalog() {
+  const list = $('#rappList');
+  list.innerHTML = '';
+  for (const r of state.rapps) {
+    const card = el('div', {
+      class: 'rapp-card',
+      'data-id': r.id,
+      onclick: () => selectRapp(r),
+    }, [
+      el('div', { class: 'rapp-name', text: r.name || r.id }),
+      el('div', { class: 'rapp-meta', text: `v${r.version} · ${r.category || ''}` }),
+      el('div', { class: 'rapp-summary', text: (r.summary || '').slice(0, 140) }),
+      el('div', {}, [
+        r.singleton_url ? el('span', { class: 'pill has-svc', text: 'agent' }) : null,
+        r.ui_url ? el('span', { class: 'pill has-ui', text: 'ui' }) : null,
+        r.service_url ? el('span', { class: 'pill has-svc', text: 'service' }) : null,
+        r.egg_url ? el('span', { class: 'pill has-eggs', text: 'eggs' }) : null,
+      ]),
+    ]);
+    list.appendChild(card);
+  }
+}
+
+function selectRapp(r) {
+  state.selectedRapp = r;
+  document.querySelectorAll('.rapp-card').forEach(c => c.classList.toggle(
+    'active', c.getAttribute('data-id') === r.id));
+  if (!r.singleton_url) {
+    addMessage('error', `**${r.name}** has no \`singleton_url\` — likely a service-only rapp (binder, dashboard, etc.) that needs a running brainstem to host its HTTP service. The vBrainstem can chat with agents, not host services.`);
+    return;
+  }
+  loadAgent(r);
+}
+
+// ─── Agent loading ──────────────────────────────────────────────────────
+
+async function loadAgent(rapp) {
+  $('#loadedPill').className = 'pill';
+  $('#loadedPill').textContent = 'loading…';
+  $('#loadedName').textContent = rapp.name || rapp.id;
+  $('#loadedTools').textContent = '';
+  try {
+    const r = await fetch(rapp.singleton_url, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`fetch ${r.status}`);
+    const source = await r.text();
+    if (rapp.singleton_sha256) {
+      const computed = await sha256(source);
+      if (computed !== rapp.singleton_sha256) {
+        addMessage('error',
+          `**SHA256 mismatch on ${rapp.singleton_url}** — declared \`${rapp.singleton_sha256.slice(0,16)}…\` but computed \`${computed.slice(0,16)}…\`. Loading anyway, but this is a sign the catalog entry is stale.`);
+      }
+    }
+    const parsed = parseAgent(source, rapp);
+    state.loadedAgent = {
+      ...parsed,
+      source,
+      filename: rapp.singleton_filename || (rapp.id + '_agent.py'),
+      rapp,
+    };
+    state.conversation = []; // fresh chat per loaded agent
+    clearMessages();
+    $('#loadedPill').className = 'pill loaded';
+    $('#loadedPill').textContent = 'loaded';
+    $('#loadedName').textContent = rapp.name;
+    $('#loadedTools').textContent = parsed.metadata?.name
+      ? `tool: ${parsed.metadata.name}` : `class: ${parsed.agentClass}`;
+    $('#unloadBtn').style.display = '';
+    addMessage('system',
+      `**Loaded ${rapp.name}** v${rapp.version} (${rapp.singleton_lines || '?'} lines). ` +
+      `The model can call its \`${parsed.metadata?.name || parsed.agentClass}\` tool. Ask it something.`);
+    updateInputState();
+  } catch (e) {
+    addMessage('error', `Failed to load ${rapp.name}: ${e.message}`);
+    $('#loadedPill').className = 'pill';
+    $('#loadedPill').textContent = 'load failed';
+  }
+}
+
+function unloadAgent() {
+  state.loadedAgent = null;
+  state.conversation = [];
+  clearMessages();
+  $('#loadedPill').className = 'pill';
+  $('#loadedPill').textContent = 'no agent loaded';
+  $('#loadedName').textContent = '—';
+  $('#loadedTools').textContent = '';
+  $('#unloadBtn').style.display = 'none';
+  document.querySelectorAll('.rapp-card').forEach(c => c.classList.remove('active'));
+  state.selectedRapp = null;
+  updateInputState();
+}
+$('#unloadBtn').addEventListener('click', unloadAgent);
+
+async function sha256(s) {
+  const buf = new TextEncoder().encode(s);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* Parse the agent source for: __manifest__, public *Agent class, its metadata
+ * dict (the OpenAI tool schema). Pulled out via regex — runtime evaluation
+ * happens in Pyodide. */
+function parseAgent(source, rapp) {
+  const manifest = extractDictLiteral(source, '__manifest__');
+  // Find public class ending in Agent (skip _Internal*, BasicAgent)
+  const classRe = /^class\s+([A-Z]\w*Agent)\s*\(([^)]*)\)/gm;
+  let agentClass = null;
+  let m;
+  while ((m = classRe.exec(source))) {
+    if (m[1] === 'BasicAgent') continue;
+    if (m[1].startsWith('_Internal')) continue;
+    agentClass = m[1];
+    break;
+  }
+  // Try to extract self.metadata = {...} for tool schema
+  const metaIdx = source.indexOf('self.metadata');
+  let metadata = null;
+  if (metaIdx !== -1) {
+    metadata = extractDictAfter(source, metaIdx);
+  }
+  return { manifest, agentClass, metadata };
+}
+
+/* Find `<name> = { ... }` and parse the {...} as JSON-ish.
+ * Tolerates trailing commas + Python None/True/False. */
+function extractDictLiteral(source, name) {
+  const re = new RegExp(`(?:^|\\n)\\s*${name}\\s*=\\s*\\{`);
+  const m = re.exec(source);
+  if (!m) return null;
+  const start = source.indexOf('{', m.index);
+  return parseDictAt(source, start);
+}
+function extractDictAfter(source, idx) {
+  const start = source.indexOf('{', idx);
+  if (start === -1) return null;
+  return parseDictAt(source, start);
+}
+function parseDictAt(source, start) {
+  let depth = 0, i = start, inStr = false, q = '';
+  for (; i < source.length; i++) {
+    const c = source[i];
+    if (inStr) {
+      if (c === '\\') { i++; continue; }
+      if (c === q) inStr = false;
+      continue;
+    }
+    if (c === '"' || c === "'") { inStr = true; q = c; continue; }
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
+  }
+  let body = source.slice(start, i);
+  body = body
+    .replace(/'/g, '"')
+    .replace(/,(\s*[}\]])/g, '$1')
+    .replace(/\bTrue\b/g, 'true')
+    .replace(/\bFalse\b/g, 'false')
+    .replace(/\bNone\b/g, 'null');
+  try { return JSON.parse(body); } catch { return null; }
+}
+
+// ─── LLM dispatch ───────────────────────────────────────────────────────
+
+function activeChatUrl() {
+  return state.settings.byoEndpoint || GH_MODELS_URL;
+}
+function activeChatToken() {
+  return state.settings.byoKey || state.ghToken || '';
+}
+
+function buildSystemPrompt() {
+  const r = state.selectedRapp;
+  const meta = state.loadedAgent?.metadata || {};
+  const intro = r ? `You are the resident vBrainstem of the RAPP store. The user has loaded the rapplication **${r.name}** (id: \`${r.id}\`, version ${r.version}, category: ${r.category}). Summary: ${r.summary || ''}` :
+                     `You are the resident vBrainstem of the RAPP store. No rapplication is loaded yet — guide the user to pick one from the sidebar.`;
+
+  const toolBlurb = meta.name
+    ? `\n\nWhen the user's request matches the loaded rapp's purpose, **call the \`${meta.name}\` tool** to actually run its perform() method via Pyodide. Don't paraphrase what the tool would return — call it and let the rapp speak. Pass arguments matching its schema:\n\n\`\`\`json\n${JSON.stringify(meta.parameters || {}, null, 2)}\n\`\`\``
+    : '';
+
+  return `${intro}${toolBlurb}
+
+You can speak about the catalog itself (the seven rapps in kody-w/RAPP_Store), Constitution Article XXVII (RAR holds files; the rapp store holds bundles), how to install a rapplication into a local brainstem, or how to interpret the loaded agent's output.
+
+Be concise. Return the agent's actual output verbatim when it's the answer; explain only when explaining adds something the raw output doesn't.`;
+}
+
+function buildTools() {
+  const a = state.loadedAgent;
+  if (!a || !a.metadata || !a.metadata.name) return [];
+  return [{
+    type: 'function',
+    function: {
+      name: a.metadata.name,
+      description: a.metadata.description || `Run ${a.rapp.name}`,
+      parameters: a.metadata.parameters || { type: 'object', properties: {} },
+    },
+  }];
+}
+
+async function chat(userMsg) {
+  if (!state.ghToken && !state.settings.byoKey) {
+    toast('Sign in first', 'err');
+    return;
+  }
+  state.conversation.push({ role: 'user', content: userMsg });
+  addMessage('user', userMsg);
+
+  const systemMsg = buildSystemPrompt();
+  const tools = buildTools();
+  const messages = [{ role: 'system', content: systemMsg }, ...state.conversation];
+
+  let safety = 6;
+  while (safety-- > 0) {
+    const body = {
+      model: state.settings.model,
+      messages,
+      ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
+      temperature: 0.7,
+      max_tokens: 2048,
+    };
+    let data;
+    try {
+      const r = await fetch(activeChatUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + activeChatToken(),
+        },
+        body: JSON.stringify(body),
+      });
+      if (r.status === 401) {
+        signOut();
+        addMessage('error', 'Token expired or invalid. Sign in again.');
+        return;
+      }
+      if (!r.ok) {
+        const t = await r.text();
+        addMessage('error', `LLM error ${r.status}: ${t.slice(0, 400)}`);
+        return;
+      }
+      data = await r.json();
+    } catch (e) {
+      addMessage('error', `Network error: ${e.message}`);
+      return;
+    }
+    const choice = data.choices && data.choices[0];
+    if (!choice) {
+      addMessage('error', 'Empty response from LLM.');
+      return;
+    }
+    const msg = choice.message;
+    messages.push(msg);
+
+    if (msg.tool_calls && msg.tool_calls.length) {
+      for (const tc of msg.tool_calls) {
+        const fname = tc.function.name;
+        let args = {};
+        try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
+        addActivity(`→ calling \`${fname}\`(${formatArgsBrief(args)})`);
+        let toolResult = '';
+        try {
+          toolResult = await runLoadedAgent(args);
+          addActivity(`← \`${fname}\` returned ${toolResult.length} chars`);
+        } catch (e) {
+          toolResult = JSON.stringify({ error: e.message });
+          addActivity(`✗ \`${fname}\` error: ${e.message}`);
+        }
+        messages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          name: fname,
+          content: toolResult,
+        });
+      }
+      continue; // loop again — let the model use the tool output
+    }
+
+    // Final text
+    const text = msg.content || '';
+    state.conversation.push({ role: 'assistant', content: text });
+    addMessage('assistant', text);
+    return;
+  }
+  addMessage('error', '_(stopped after 6 tool-call rounds)_');
+}
+
+function formatArgsBrief(args) {
+  if (!args || typeof args !== 'object') return '';
+  const k = Object.keys(args);
+  if (!k.length) return '';
+  return k.slice(0, 3).map(key => {
+    const v = args[key];
+    const s = typeof v === 'string' ? `"${v.slice(0, 30)}${v.length > 30 ? '…' : ''}"` : JSON.stringify(v);
+    return `${key}=${s}`;
+  }).join(', ');
+}
+
+// ─── Pyodide agent execution ────────────────────────────────────────────
+
+const BASIC_AGENT_SHIM = `"""Minimal BasicAgent shim for the vBrainstem (no Azure deps)."""
+class BasicAgent:
+    def __init__(self, name=None, metadata=None, *args, **kwargs):
+        self.name = name or self.__class__.__name__
+        self.metadata = metadata or getattr(self, 'metadata', {})
+    def perform(self, **kwargs):
+        raise NotImplementedError
+`;
+
+const UTILS_LLM_SHIM = `"""utils.llm shim — agents calling \`from utils.llm import call_llm\` go through here.
+The vBrainstem stamps _VB_CHAT_URL / _VB_CHAT_TOKEN / _VB_DEFAULT_MODEL into os.environ
+before each agent call so the shim picks up provider switches without a Pyodide reload."""
+import json, os
+from urllib.request import Request, urlopen
+
+def call_llm(messages, model=None, temperature=0.7, max_tokens=2048):
+    url = os.environ.get('_VB_CHAT_URL', '')
+    tok = os.environ.get('_VB_CHAT_TOKEN', '')
+    mdl = model or os.environ.get('_VB_DEFAULT_MODEL', 'gpt-4o-mini')
+    if not url or not tok:
+        return '(LLM dispatch unavailable — no token)'
+    body = json.dumps({'model': mdl, 'messages': messages,
+                       'temperature': temperature, 'max_tokens': max_tokens}).encode()
+    req = Request(url, data=body, headers={
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + tok,
+    })
+    try:
+        with urlopen(req, timeout=60) as r:
+            d = json.loads(r.read())
+            return d['choices'][0]['message']['content']
+    except Exception as e:
+        return '(LLM error: ' + str(e) + ')'
+`;
+
+async function loadPyodide() {
+  if (state.pyodide) return state.pyodide;
+  if (state.pyodideLoading) return state.pyodideLoading;
+  addActivity('loading Pyodide (~10MB, one-time)…');
+  state.pyodideLoading = (async () => {
+    const s = document.createElement('script');
+    s.src = PYODIDE_URL;
+    document.head.appendChild(s);
+    await new Promise(r => s.onload = r);
+    state.pyodide = await window.loadPyodide();
+    // Mount BasicAgent + utils.llm shims
+    state.pyodide.FS.mkdirTree('/agents');
+    state.pyodide.FS.writeFile('/agents/basic_agent.py', BASIC_AGENT_SHIM);
+    state.pyodide.FS.writeFile('/agents/__init__.py', '');
+    state.pyodide.FS.mkdirTree('/utils');
+    state.pyodide.FS.writeFile('/utils/__init__.py', '');
+    state.pyodide.FS.writeFile('/utils/llm.py', UTILS_LLM_SHIM);
+    // openrappter shim (some agents use that import)
+    state.pyodide.FS.mkdirTree('/openrappter/agents');
+    state.pyodide.FS.writeFile('/openrappter/__init__.py', '');
+    state.pyodide.FS.writeFile('/openrappter/agents/__init__.py', '');
+    state.pyodide.FS.writeFile('/openrappter/agents/basic_agent.py', BASIC_AGENT_SHIM);
+    await state.pyodide.runPythonAsync(`import sys; sys.path.insert(0, '/')`);
+    addActivity('Pyodide ready.');
+    return state.pyodide;
+  })();
+  return state.pyodideLoading;
+}
+
+async function runLoadedAgent(kwargs) {
+  const a = state.loadedAgent;
+  if (!a) throw new Error('no agent loaded');
+  await loadPyodide();
+  const py = state.pyodide;
+  // Write agent source fresh (in case it changed)
+  py.FS.writeFile('/agents/' + a.filename, a.source);
+  // Stamp LLM coords for utils.llm shim
+  py.globals.set('_VB_CHAT_URL_JS', activeChatUrl());
+  py.globals.set('_VB_CHAT_TOKEN_JS', activeChatToken());
+  py.globals.set('_VB_DEFAULT_MODEL_JS', state.settings.model);
+  py.runPython(`
+import os
+os.environ['_VB_CHAT_URL'] = _VB_CHAT_URL_JS
+os.environ['_VB_CHAT_TOKEN'] = _VB_CHAT_TOKEN_JS
+os.environ['_VB_DEFAULT_MODEL'] = _VB_DEFAULT_MODEL_JS
+import importlib, sys
+sys.path.insert(0, '/agents')
+`);
+  const modName = a.filename.replace(/\.py$/, '');
+  const argsJson = JSON.stringify(kwargs);
+  const className = a.agentClass;
+  if (!className) throw new Error('no agent class found');
+  const script = `
+import importlib, json
+mod = importlib.import_module('${modName}') if '${modName}' not in __import__('sys').modules else __import__('sys').modules['${modName}']
+importlib.reload(mod)
+cls = getattr(mod, '${className}')
+inst = cls()
+out = inst.perform(**json.loads('${argsJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'))
+out_str = out if isinstance(out, str) else json.dumps(out, default=str)
+out_str
+`;
+  const out = await py.runPythonAsync(script);
+  return String(out);
+}
+
+// ─── Chat UI rendering ──────────────────────────────────────────────────
+
+function clearMessages() {
+  $('#messages').innerHTML = '';
+  $('#welcome')?.remove();
+}
+function addMessage(role, content) {
+  if ($('#welcome')) $('#welcome').remove();
+  const wrap = el('div', { class: 'msg ' + role });
+  const roleLabel = { user: 'you', assistant: 'vBrainstem', system: 'system', tool: 'tool', error: 'error' }[role] || role;
+  wrap.appendChild(el('div', { class: 'role', text: roleLabel }));
+  const body = el('div', { class: 'body' });
+  body.innerHTML = renderMarkdown(content);
+  wrap.appendChild(body);
+  $('#messages').appendChild(wrap);
+  scrollToBottom();
+}
+function addActivity(text) {
+  if ($('#welcome')) $('#welcome').remove();
+  $('#messages').appendChild(el('div', { class: 'activity', text }));
+  scrollToBottom();
+}
+function scrollToBottom() {
+  const m = $('#messages');
+  m.scrollTop = m.scrollHeight;
+}
+
+/* Tiny markdown subset: bold, italic, code, code blocks, line breaks, links. */
+function renderMarkdown(s) {
+  s = String(s || '');
+  s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // code blocks first
+  s = s.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) =>
+    `<pre><code class="lang-${lang}">${code}</code></pre>`);
+  // inline code
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // bold
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // italic
+  s = s.replace(/(?:^|[^\*])\*([^*\n]+)\*/g, '$&').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  // links [text](url)
+  s = s.replace(/\[([^\]]+)\]\((https?:[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  // newlines
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+
+// ─── Composer ───────────────────────────────────────────────────────────
+
+const input = $('#input');
+const sendBtn = $('#sendBtn');
+
+function updateInputState() {
+  const ready = (state.ghToken || state.settings.byoKey) && state.loadedAgent;
+  input.disabled = !ready;
+  sendBtn.disabled = !ready;
+  input.placeholder = !state.ghToken && !state.settings.byoKey
+    ? 'Sign in with GitHub first…'
+    : !state.loadedAgent
+      ? 'Pick a rapp from the sidebar to load it…'
+      : `Ask ${state.loadedAgent.rapp.name} something…`;
+}
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    submit();
+  }
+});
+sendBtn.addEventListener('click', submit);
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+});
+
+async function submit() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+  try {
+    await chat(text);
+  } finally {
+    updateInputState();
+  }
+}
+
+// ─── Settings modal ─────────────────────────────────────────────────────
+
+$('#settingsBtn').addEventListener('click', () => {
+  $('#modelSelect').value = state.settings.model;
+  $('#byoKey').value = state.settings.byoKey;
+  $('#byoEndpoint').value = state.settings.byoEndpoint;
+  $('#settingsModal').classList.add('show');
+});
+$('#settingsClose').addEventListener('click', () => $('#settingsModal').classList.remove('show'));
+$('#settingsSave').addEventListener('click', () => {
+  state.settings.model = $('#modelSelect').value;
+  state.settings.byoKey = $('#byoKey').value.trim();
+  state.settings.byoEndpoint = $('#byoEndpoint').value.trim();
+  localStorage.setItem('vbs_model', state.settings.model);
+  localStorage.setItem('vbs_byo_key', state.settings.byoKey);
+  localStorage.setItem('vbs_byo_endpoint', state.settings.byoEndpoint);
+  $('#settingsModal').classList.remove('show');
+  toast('Settings saved', 'ok');
+  updateInputState();
+});
+
+// ─── Boot ───────────────────────────────────────────────────────────────
+
+(async function boot() {
+  await handleAuthCallback();
+  if (state.ghToken && !state.ghUser) await fetchGHUser();
+  updateGHPill();
+  await loadCatalog();
+  updateInputState();
+})();
+</script>
+
+</body>
+</html>
