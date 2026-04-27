@@ -251,6 +251,10 @@
   <a class="header-link" href="https://github.com/kody-w/RAPP_Store" target="_blank">source ↗</a>
   <a class="header-link" href="https://github.com/kody-w/RAR" target="_blank">RAR (bare agents) ↗</a>
   <button class="btn" id="settingsBtn">⚙ Settings</button>
+  <div class="gh-pill" id="tetherPill" title="Tether to a local brainstem on localhost:7071 for full local capabilities (your memory, your installed agents, your model preferences).">
+    <span class="gh-dot off"></span>
+    <span id="tetherLabel">No local brainstem</span>
+  </div>
   <div class="gh-pill" id="ghPill">
     <span class="gh-dot off"></span>
     <span id="ghLabel">Sign in with GitHub</span>
@@ -259,9 +263,15 @@
 
 <div class="layout">
   <aside class="catalog">
-    <h2>Catalog</h2>
+    <h2>Resident</h2>
+    <div id="residentList"></div>
+    <h2 style="margin-top: 18px;">Catalog</h2>
     <div id="rappList">
       <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
+    </div>
+    <div id="tetheredSection" style="display: none;">
+      <h2 style="margin-top: 18px;">Tethered (local)</h2>
+      <div id="tetheredList"></div>
     </div>
   </aside>
 
@@ -278,9 +288,9 @@
       <div class="welcome" id="welcome">
         <h1>Talk to the catalog</h1>
         <p>This is the resident vBrainstem for <a href="https://github.com/kody-w/RAPP_Store">kody-w/RAPP_Store</a>. Pick a rapplication from the sidebar, load it, and chat with it. Pure browser — your code, your token, your conversation.</p>
-        <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default).</div>
-        <div class="step"><span class="num">2</span><strong>Pick a rapp.</strong> Sidebar lists everything in <code>index.json</code>. Click one.</div>
-        <div class="step"><span class="num">3</span><strong>Chat.</strong> The model has the rapp's <code>perform()</code> as a tool — it'll call into Pyodide to run the actual Python code when needed.</div>
+        <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default). On sign-in, the <strong>StoreNavigator</strong> agent (hosted in <a href="https://github.com/kody-w/RAR">RAR</a>) auto-loads — ask it "what should I install for X?" and it'll search the catalog for you.</div>
+        <div class="step"><span class="num">2</span><strong>Or tether to a local brainstem.</strong> Run <code>kody-w/RAPP/rapp_brainstem</code> (default port 7071) and click the <em>tether pill</em> to route chat through it. You get the operator's soul, memory, model preferences, and every locally installed agent — not just rapp_store ones.</div>
+        <div class="step"><span class="num">3</span><strong>Chat.</strong> In cloud mode the model has the loaded rapp's <code>perform()</code> as a tool — it calls into Pyodide to run real Python in the browser. In tether mode the local brainstem owns the tool loop end-to-end.</div>
       </div>
     </div>
     <div class="composer">
@@ -336,6 +346,21 @@ const AUTH_WORKER_URL = 'https://rappterbook-auth.kwildfeuer.workers.dev';
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
 
+// Tether: optional connection to a local brainstem running on its default
+// port (7071). When detected the vBrainstem can route chat through the
+// brainstem's /chat endpoint, getting full local capabilities — the user's
+// soul.md, their memory, their installed agents (not just rapp_store ones),
+// their preferred model. The brainstem.py at kody-w/RAPP already CORS-allows
+// `https://kody-w.github.io` so this works from the hosted vBrainstem.
+const TETHER_DEFAULT_PORT = 7071;
+const TETHER_DEFAULT_BASE = `http://localhost:${TETHER_DEFAULT_PORT}`;
+
+// The store_navigator is hosted in RAR (per Constitution Article XXVII —
+// bare agents → RAR, not the rapp store). The vBrainstem auto-loads it on
+// boot so users have a chat-driven catalog browser without picking anything.
+const NAVIGATOR_URL =
+  'https://raw.githubusercontent.com/kody-w/RAR/main/agents/%40rapp/store_navigator_agent.py';
+
 // ─── State ──────────────────────────────────────────────────────────────
 
 const state = {
@@ -348,6 +373,30 @@ const state = {
   ghUser: null,
   pyodide: null,
   pyodideLoading: null,
+  // Tether state — if a local brainstem is reachable, routing changes:
+  // chat goes through localhost:7071/chat (which has the user's keys,
+  // memory, agents) instead of GitHub Models + Pyodide.
+  tether: {
+    enabled: localStorage.getItem('vbs_tether_enabled') === '1',
+    base: localStorage.getItem('vbs_tether_base') || TETHER_DEFAULT_BASE,
+    health: null,        // last /health response when reachable
+    detected: false,     // probe succeeded
+  },
+  // Resident agents — pinned to the top of the sidebar regardless of catalog.
+  // store_navigator is loaded from RAR per Article XXVII.
+  resident: [
+    {
+      id: 'store_navigator',
+      name: 'StoreNavigator',
+      version: '0.1.0',
+      summary: 'Navigate the catalog: list, search, describe, recommend, install commands. Loaded from kody-w/RAR.',
+      category: 'platform',
+      tagline: 'Ask the store what you should install.',
+      singleton_url: NAVIGATOR_URL,
+      singleton_filename: 'store_navigator_agent.py',
+      _resident: true,
+    },
+  ],
   settings: {
     model: localStorage.getItem('vbs_model') || 'gpt-4o-mini',
     byoKey: localStorage.getItem('vbs_byo_key') || '',
@@ -463,6 +512,132 @@ $('#ghPill').addEventListener('click', () => {
   }
 });
 
+// ─── Tether (local brainstem on localhost:7071) ────────────────────────
+
+async function probeTether() {
+  // Probe is fire-and-forget: if a brainstem is running, we light up the
+  // pill; if not, we silently stay in cloud mode.
+  try {
+    const r = await fetch(state.tether.base + '/health', {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const h = await r.json();
+    state.tether.health = h;
+    state.tether.detected = true;
+  } catch {
+    state.tether.detected = false;
+    state.tether.health = null;
+    // If user had previously enabled tether but the brainstem is now down,
+    // turn it off so chat falls back to cloud. They can re-enable.
+    if (state.tether.enabled) {
+      state.tether.enabled = false;
+      localStorage.setItem('vbs_tether_enabled', '0');
+      toast('Local brainstem unreachable — falling back to cloud.', 'err');
+    }
+  }
+  updateTetherPill();
+  updateTetheredList();
+}
+
+function updateTetherPill() {
+  const dot = $('#tetherPill .gh-dot');
+  const lbl = $('#tetherLabel');
+  const t = state.tether;
+  if (t.enabled && t.detected) {
+    dot.className = 'gh-dot on';
+    const v = (t.health && t.health.version) || '';
+    const model = (t.health && t.health.model) || '';
+    lbl.textContent = `Tethered · ${model || 'localhost:' + TETHER_DEFAULT_PORT}`;
+    $('#tetherPill').title = `Tethered to local brainstem (${t.base}). Chat routes through /chat with full local capabilities (soul, memory, installed agents, model preferences). Click to disconnect.`;
+  } else if (t.detected) {
+    dot.className = 'gh-dot off';
+    lbl.textContent = 'Local brainstem detected · click to tether';
+    $('#tetherPill').title = `A brainstem is running at ${t.base}. Click to tether — chat will route through it instead of cloud GitHub Models.`;
+  } else {
+    dot.className = 'gh-dot off';
+    lbl.textContent = 'No local brainstem';
+    $('#tetherPill').title = `Start a brainstem on localhost:${TETHER_DEFAULT_PORT} (kody-w/RAPP/rapp_brainstem) to enable tether mode and bring local memory + installed agents + model preferences into this vBrainstem.`;
+  }
+}
+
+$('#tetherPill').addEventListener('click', async () => {
+  await probeTether();
+  if (!state.tether.detected) {
+    toast(`No brainstem at ${state.tether.base}. Start one and try again.`, 'err');
+    return;
+  }
+  state.tether.enabled = !state.tether.enabled;
+  localStorage.setItem('vbs_tether_enabled', state.tether.enabled ? '1' : '0');
+  if (state.tether.enabled) {
+    state.conversation = []; // reset conversation on context switch
+    clearMessages();
+    addMessage('system',
+      `**Tethered to local brainstem.** Chat now routes through \`${state.tether.base}/chat\`. ` +
+      `You get the operator's soul.md, memory store, installed agents (${(state.tether.health.agents || []).length} loaded locally: ${(state.tether.health.agents || []).slice(0, 8).join(', ')}${(state.tether.health.agents || []).length > 8 ? ', …' : ''}), and the brainstem's preferred model. ` +
+      `Loading a rapp from the catalog still works for client-side execution; tethered chat ignores the loaded rapp and uses the brainstem's full agent toolbelt instead.`);
+  } else {
+    state.conversation = [];
+    clearMessages();
+    addMessage('system', 'Tether off. Chat goes back to cloud (GitHub Models + Pyodide).');
+  }
+  updateTetherPill();
+  updateInputState();
+  updateTetheredList();
+});
+
+async function fetchTetheredAgents() {
+  if (!state.tether.detected) return [];
+  try {
+    const r = await fetch(state.tether.base + '/binder');
+    if (r.ok) {
+      const d = await r.json();
+      return (d.installed || d.rapps || []).map(x => ({
+        id: x.id || x.name,
+        name: x.name || x.id,
+        version: x.version,
+        summary: `Locally installed via binder. Filename: ${x.agent_filename || x.filename || '?'}`,
+        category: 'local',
+        _tethered: true,
+        _local_filename: x.agent_filename || x.filename,
+      }));
+    }
+  } catch {}
+  return [];
+}
+
+async function updateTetheredList() {
+  const sec = $('#tetheredSection');
+  const list = $('#tetheredList');
+  if (!state.tether.enabled || !state.tether.detected) {
+    sec.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  const items = await fetchTetheredAgents();
+  if (!items.length) {
+    sec.style.display = 'none';
+    return;
+  }
+  sec.style.display = '';
+  list.innerHTML = '';
+  for (const r of items) {
+    const card = el('div', {
+      class: 'rapp-card',
+      'data-id': 'tethered:' + r.id,
+      onclick: () => {
+        toast(`'${r.name}' is loaded in the local brainstem — tethered chat will call it automatically when relevant.`);
+      },
+    }, [
+      el('div', { class: 'rapp-name', text: r.name }),
+      el('div', { class: 'rapp-meta', text: `v${r.version || '?'} · local` }),
+      el('div', { class: 'rapp-summary', text: r.summary }),
+    ]);
+    list.appendChild(card);
+  }
+}
+
 // ─── Catalog loading + rendering ────────────────────────────────────────
 
 async function loadCatalog() {
@@ -478,6 +653,24 @@ async function loadCatalog() {
 }
 
 function renderCatalog() {
+  // Resident agents — pinned at top, always visible.
+  const resList = $('#residentList');
+  resList.innerHTML = '';
+  for (const r of state.resident) {
+    const card = el('div', {
+      class: 'rapp-card',
+      'data-id': r.id,
+      onclick: () => selectRapp(r),
+    }, [
+      el('div', { class: 'rapp-name', text: r.name }),
+      el('div', { class: 'rapp-meta', text: `v${r.version} · resident · from RAR` }),
+      el('div', { class: 'rapp-summary', text: r.summary }),
+      el('div', {}, [el('span', { class: 'pill has-svc', text: 'agent' })]),
+    ]);
+    resList.appendChild(card);
+  }
+
+  // Catalog — the rapp_store rapplications.
   const list = $('#rappList');
   list.innerHTML = '';
   for (const r of state.rapps) {
@@ -677,6 +870,47 @@ function buildTools() {
 }
 
 async function chat(userMsg) {
+  // Tether mode: route through the local brainstem's /chat. The brainstem
+  // has the user's keys, soul, memory, and full agent toolbelt — we just
+  // forward the message and render the response.
+  if (state.tether.enabled && state.tether.detected) {
+    state.conversation.push({ role: 'user', content: userMsg });
+    addMessage('user', userMsg);
+    addActivity('→ POST ' + state.tether.base + '/chat');
+    try {
+      const r = await fetch(state.tether.base + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_input: userMsg,
+          conversation_history: state.conversation
+            .filter(m => m.role === 'user' || m.role === 'assistant')
+            .slice(0, -1), // exclude the just-pushed user msg (brainstem appends it)
+        }),
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        addMessage('error', `brainstem ${r.status}: ${t.slice(0, 400)}`);
+        return;
+      }
+      const d = await r.json();
+      const text = d.response || d.message || d.content || JSON.stringify(d);
+      // Strip RAPP's |||VOICE|||/|||TWIN||| separators if present
+      const main = String(text).split('|||VOICE|||')[0].split('|||TWIN|||')[0];
+      state.conversation.push({ role: 'assistant', content: main });
+      addMessage('assistant', main);
+      // Surface tool logs from the brainstem (if returned)
+      const logs = d.agent_logs || d.tool_logs || [];
+      for (const lg of logs.slice(0, 5)) {
+        addActivity(`local agent → ${lg.name || lg.tool || '?'}`);
+      }
+    } catch (e) {
+      addMessage('error', `tether error: ${e.message}. Disable tether or restart your brainstem.`);
+    }
+    return;
+  }
+
+  // Cloud mode: GitHub Models + Pyodide.
   if (!state.ghToken && !state.settings.byoKey) {
     toast('Sign in first', 'err');
     return;
@@ -930,14 +1164,23 @@ const input = $('#input');
 const sendBtn = $('#sendBtn');
 
 function updateInputState() {
-  const ready = (state.ghToken || state.settings.byoKey) && state.loadedAgent;
+  // Tether mode: input is enabled as long as the local brainstem is up.
+  // The local brainstem owns auth + agents, so neither GH sign-in nor a
+  // loaded rapp is required.
+  const tetherReady = state.tether.enabled && state.tether.detected;
+  const cloudReady = (state.ghToken || state.settings.byoKey) && state.loadedAgent;
+  const ready = tetherReady || cloudReady;
   input.disabled = !ready;
   sendBtn.disabled = !ready;
-  input.placeholder = !state.ghToken && !state.settings.byoKey
-    ? 'Sign in with GitHub first…'
-    : !state.loadedAgent
-      ? 'Pick a rapp from the sidebar to load it…'
-      : `Ask ${state.loadedAgent.rapp.name} something…`;
+  if (tetherReady) {
+    input.placeholder = `Tethered chat — ask anything (routed to ${state.tether.base})`;
+  } else if (!state.ghToken && !state.settings.byoKey) {
+    input.placeholder = 'Sign in with GitHub or start a local brainstem (tether)…';
+  } else if (!state.loadedAgent) {
+    input.placeholder = 'Pick a rapp from the sidebar to load it…';
+  } else {
+    input.placeholder = `Ask ${state.loadedAgent.rapp.name} something…`;
+  }
 }
 
 input.addEventListener('keydown', e => {
@@ -993,7 +1236,31 @@ $('#settingsSave').addEventListener('click', () => {
   if (state.ghToken && !state.ghUser) await fetchGHUser();
   updateGHPill();
   await loadCatalog();
+
+  // Probe local brainstem in parallel with catalog rendering. Probe is
+  // silent on failure — the absence of a brainstem is the common case.
+  probeTether().catch(() => {});
+
+  // If the user has signed in (cloud mode), pre-select the navigator so
+  // they have a chat-driven catalog browser without picking anything.
+  // In tether mode the local brainstem already has its own agent toolbelt
+  // so we skip the auto-load.
+  if (state.ghToken && !state.tether.enabled) {
+    const nav = state.resident.find(r => r.id === 'store_navigator');
+    if (nav) {
+      try {
+        await loadAgent(nav);
+      } catch (e) {
+        console.warn('navigator auto-load failed (will be available manually):', e.message);
+      }
+    }
+  }
+
   updateInputState();
+
+  // Re-probe tether every 30s so users who start the brainstem after the
+  // page is open see the pill light up without a refresh.
+  setInterval(() => probeTether().catch(() => {}), 30000);
 })();
 </script>
 
