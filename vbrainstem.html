@@ -320,7 +320,10 @@
         <button class="btn" id="unloadBtn" style="display:none;">Unload</button>
       </div>
     </div>
-    <iframe id="rappFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" style="display: none;"></iframe>
+    <!-- srcdoc-mounted UI: dropped allow-same-origin (Chrome warns about
+         the combination, and srcdoc gives null origin anyway). The page's
+         relative URLs resolve via injected <base href> back to raw. -->
+    <iframe id="rappFrame" sandbox="allow-scripts allow-forms allow-popups allow-modals" style="display: none;"></iframe>
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
         <h1>Talk to the catalog</h1>
@@ -872,18 +875,43 @@ function selectRapp(r) {
   loadAgent(r);
 }
 
-function mountRappFrame(r) {
+// raw.githubusercontent.com refuses to be iframed (X-Frame-Options: deny).
+// We keep raw as the source of truth — that's the federation contract — but
+// inline the HTML into a srcdoc iframe so X-Frame-Options doesn't apply
+// (the iframe has no top-level origin, just bytes). Inject a <base href>
+// so the page's relative URLs (CSS, JS, images, fetches) still resolve
+// back to the original raw host, where CORS GET is permitted.
+async function mountRappFrame(r) {
   const frame = $('#rappFrame');
   const tabs = $('#viewTabs');
-  if (r && r.ui_url) {
-    frame.src = r.ui_url;
-    tabs.style.display = '';
-    setView('ui');
-  } else {
+  if (!r || !r.ui_url) {
     frame.removeAttribute('src');
-    frame.src = 'about:blank';
+    frame.removeAttribute('srcdoc');
     tabs.style.display = 'none';
     setView('chat');
+    return;
+  }
+  tabs.style.display = '';
+  setView('ui');
+  frame.srcdoc = '<div style="font-family:system-ui;padding:24px;color:#888;">Loading UI…</div>';
+  try {
+    const resp = await fetch(r.ui_url, { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    let html = await resp.text();
+    const base = r.ui_url.replace(/[^/]+$/, '');
+    const baseTag = `<base href="${base}">`;
+    if (/<head[^>]*>/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+    } else if (/<html[^>]*>/i.test(html)) {
+      html = html.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
+    } else {
+      html = `<head>${baseTag}</head>` + html;
+    }
+    frame.srcdoc = html;
+  } catch (e) {
+    frame.srcdoc = `<div style="font-family:system-ui;padding:24px;color:#f85149;">` +
+      `Failed to load UI from <code>${r.ui_url}</code>: ${e.message}` +
+      `</div>`;
   }
 }
 
