@@ -135,17 +135,22 @@
   .loaded-bar .tab:hover:not(.active) { color: var(--text); }
 
   /* Rapp UI iframe — replaces or sides the messages area depending on view */
-  #rappFrame {
-    flex: 1; border: 0; background: #fff;
-    width: 100%; min-height: 0;
+  #rappFrame { border: 0; background: #fff; width: 100%; }
+  /* Default state: only chat visible (use !important everywhere so loaded-bar
+     state changes don't accidentally win specificity). */
+  main.chat #rappFrame { display: none; flex: 0 0 0; }
+  main.chat.view-chat .messages { display: flex !important; flex: 1; }
+  main.chat.view-chat .composer { display: flex !important; }
+  main.chat.view-chat #rappFrame { display: none !important; flex: 0 0 0 !important; }
+  main.chat.view-ui   .messages { display: none !important; }
+  main.chat.view-ui   .composer { display: none !important; }
+  main.chat.view-ui   #rappFrame { display: block !important; flex: 1 1 auto !important; }
+  main.chat.view-split .messages { display: flex !important; flex: 1 1 0 !important; min-height: 0; }
+  main.chat.view-split .composer { display: flex !important; }
+  main.chat.view-split #rappFrame {
+    display: block !important; flex: 1 1 0 !important; min-height: 0;
+    border-top: 1px solid var(--border);
   }
-  /* When view = split, the chat takes top half and the iframe takes bottom */
-  main.chat.view-chat #rappFrame { display: none !important; }
-  main.chat.view-ui  .messages,
-  main.chat.view-ui  .composer { display: none !important; }
-  main.chat.view-ui  #rappFrame { display: block !important; }
-  main.chat.view-split #rappFrame { display: block; flex: 1; min-height: 200px; border-top: 1px solid var(--border); }
-  main.chat.view-split .messages { flex: 1; min-height: 150px; }
   .btn {
     background: var(--surface2); border: 1px solid var(--border); color: var(--text);
     padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
@@ -320,10 +325,9 @@
         <button class="btn" id="unloadBtn" style="display:none;">Unload</button>
       </div>
     </div>
-    <!-- srcdoc-mounted UI: dropped allow-same-origin (Chrome warns about
-         the combination, and srcdoc gives null origin anyway). The page's
-         relative URLs resolve via injected <base href> back to raw. -->
-    <iframe id="rappFrame" sandbox="allow-scripts allow-forms allow-popups allow-modals" style="display: none;"></iframe>
+    <!-- srcdoc-mounted UI. Visibility controlled by view-* classes on
+         <main.chat>; no inline display style so the rule isn't overridden. -->
+    <iframe id="rappFrame" sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe>
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
         <h1>Talk to the catalog</h1>
@@ -875,6 +879,73 @@ function selectRapp(r) {
   loadAgent(r);
 }
 
+// Fetch shim injected into the rapp UI iframe BEFORE the page's own scripts
+// run. Captures any calls to brainstem endpoints (localhost:7071, relative
+// /api/binder/*, /chat, /health, /tether) and routes them to the parent via
+// postMessage. The parent dispatches: tether mode → forward to the local
+// brainstem; cloud mode → fulfill from Pyodide / GitHub Models / canned
+// brainstem-shaped responses for /health & /api/binder. The rapp UI's own
+// fetch code is unmodified — it just gets the responses it expected from
+// a "running brainstem" without one having to actually exist.
+const FETCH_SHIM_HTML = `<script>
+(function(){
+  if (window.__rapp_fetch_shimmed) return;
+  window.__rapp_fetch_shimmed = true;
+  const origFetch = window.fetch.bind(window);
+  function isBrainstem(url) {
+    if (!url) return false;
+    const u = String(url);
+    if (/^(https?:)?\\/\\/(localhost|127\\.0\\.0\\.1):7071\\b/.test(u)) return true;
+    // Relative paths the bookfactory / rapplications UIs hit.
+    if (/^\\/(chat|health|api\\/binder|api\\/twin|tether|voice|models|login)\\b/.test(u)) return true;
+    return false;
+  }
+  window.fetch = function(input, init) {
+    let url, method = 'GET', body = null, headers = {};
+    if (typeof input === 'string') url = input;
+    else if (input && input.url) { url = input.url; method = input.method; }
+    else url = String(input);
+    if (init) {
+      method = init.method || method;
+      body = init.body == null ? null : (typeof init.body === 'string' ? init.body : JSON.stringify(init.body));
+      if (init.headers) {
+        if (init.headers instanceof Headers) {
+          init.headers.forEach((v, k) => { headers[k] = v; });
+        } else if (Array.isArray(init.headers)) {
+          for (const [k, v] of init.headers) headers[k] = v;
+        } else {
+          headers = Object.assign({}, init.headers);
+        }
+      }
+    }
+    if (!isBrainstem(url)) return origFetch(input, init);
+    return new Promise((resolve, reject) => {
+      const id = 'fx-' + Math.random().toString(36).slice(2);
+      let timer;
+      const handler = (ev) => {
+        const d = ev.data;
+        if (!d || d.type !== 'rapp:proxy_fetch:result' || d.id !== id) return;
+        clearTimeout(timer);
+        window.removeEventListener('message', handler);
+        if (d.error) return reject(new Error(d.error));
+        resolve(new Response(d.body || '', {
+          status: d.status || 200,
+          headers: d.headers || { 'content-type': 'application/json' },
+        }));
+      };
+      window.addEventListener('message', handler);
+      timer = setTimeout(() => {
+        window.removeEventListener('message', handler);
+        reject(new Error('vBrainstem proxy fetch timed out'));
+      }, 120000);
+      window.parent.postMessage({
+        type: 'rapp:proxy_fetch', id, url, method, body, headers,
+      }, '*');
+    });
+  };
+})();
+</`+`script>`;
+
 // raw.githubusercontent.com refuses to be iframed (X-Frame-Options: deny).
 // We keep raw as the source of truth — that's the federation contract — but
 // inline the HTML into a srcdoc iframe so X-Frame-Options doesn't apply.
@@ -908,12 +979,18 @@ async function mountRappFrame(r) {
     let html = await resp.text();
     const base = r.ui_url.replace(/[^/]+$/, '');
     const baseTag = `<base href="${base}">`;
+    // The fetch shim runs BEFORE any of the rapp UI's own scripts so it
+    // captures their fetch references and reroutes brainstem-bound calls
+    // (localhost:7071, /api/binder, /chat, /health) to the parent. Without
+    // this, UIs that hardcode the local brainstem can't run inside the
+    // cloud vBrainstem — bookfactory's "Brainstem unreachable" banner.
+    const headInject = baseTag + FETCH_SHIM_HTML;
     if (/<head[^>]*>/i.test(html)) {
-      html = html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+      html = html.replace(/<head([^>]*)>/i, `<head$1>${headInject}`);
     } else if (/<html[^>]*>/i.test(html)) {
-      html = html.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
+      html = html.replace(/<html([^>]*)>/i, `<html$1><head>${headInject}</head>`);
     } else {
-      html = `<head>${baseTag}</head>` + html;
+      html = `<head>${headInject}</head>` + html;
     }
     frame.srcdoc = html;
     // Post the cartridge once the iframe finishes parsing + running its
@@ -963,6 +1040,139 @@ function buildCartridge(r) {
       can_proxy_fetch: true,
       can_post_chat:   true,
     },
+  };
+}
+
+// Dispatcher for `rapp:proxy_fetch` messages. The rapp UI's fetch shim
+// (FETCH_SHIM_HTML, injected before the UI's own scripts) sends every
+// brainstem-bound call here. We:
+//   * tether mode → forward verbatim to the local brainstem (it has
+//     real auth / agents / state).
+//   * cloud mode → fulfill from what the vBrainstem actually has:
+//       /health             → 200, brainstem-shaped status
+//       /api/binder         → list of "installed" entries (just the
+//                              currently-loaded rapp)
+//       /api/binder/agent   → run the loaded agent's perform via Pyodide
+//       /chat               → run a full chat turn through the existing
+//                              GitHub Models + Pyodide path
+async function proxyBrainstemFetch(msg) {
+  const url = String(msg.url || '');
+  const method = (msg.method || 'GET').toUpperCase();
+  const headers = msg.headers || {};
+  const body = msg.body;
+
+  // ── tether: forward straight through ───────────────
+  if (state.tether.enabled && state.tether.detected) {
+    let target = url;
+    if (/^\/[^/]/.test(url)) target = state.tether.base + url;
+    if (/^https?:\/\/(localhost|127\.0\.0\.1):7071/.test(url)) {
+      target = url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):7071/, state.tether.base);
+    }
+    try {
+      const r = await fetch(target, {
+        method, body: (method === 'GET' || method === 'HEAD') ? undefined : body, headers,
+      });
+      const text = await r.text();
+      return {
+        status: r.status, body: text,
+        headers: { 'content-type': r.headers.get('content-type') || 'application/json' },
+      };
+    } catch (e) {
+      return { status: 502, body: JSON.stringify({ error: 'tether forward failed: ' + e.message }) };
+    }
+  }
+
+  // ── cloud: simulate the brainstem ──────────────────
+  const path = url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):7071/, '');
+
+  if (/^\/health(\?|$)/.test(path)) {
+    const agents = state.loadedAgent
+      ? [state.loadedAgent.metadata?.name || state.loadedAgent.agentClass]
+      : [];
+    return {
+      status: 200,
+      body: JSON.stringify({
+        status: state.ghToken || state.settings.byoKey ? 'ok' : 'unauthenticated',
+        version: 'vbrainstem-cloud',
+        model: state.settings.model,
+        agents,
+        copilot: 'cloud',
+        brainstem_dir: '(simulated by vBrainstem)',
+      }),
+    };
+  }
+
+  if (/^\/api\/binder\/agent(\?|$)/.test(path) && method === 'POST') {
+    if (!state.loadedAgent) {
+      return { status: 503, body: JSON.stringify({ error: 'no agent loaded in vBrainstem' }) };
+    }
+    let parsed = {};
+    try { parsed = body ? JSON.parse(body) : {}; } catch {}
+    const args = parsed.args || parsed.kwargs || parsed;
+    try {
+      const out = await runLoadedAgent(args);
+      return {
+        status: 200,
+        body: JSON.stringify({
+          result: out, output: out,
+          name: state.loadedAgent.metadata?.name,
+        }),
+      };
+    } catch (e) {
+      return { status: 500, body: JSON.stringify({ error: String(e.message || e) }) };
+    }
+  }
+
+  if (/^\/api\/binder(\?|$|\/installed|\/catalog)/.test(path)) {
+    const installed = state.loadedAgent && state.selectedRapp ? [{
+      id: state.selectedRapp.id,
+      version: state.selectedRapp.version,
+      agent_filename: state.selectedRapp.singleton_filename,
+      installed_at: new Date().toISOString(),
+    }] : [];
+    return { status: 200, body: JSON.stringify({ installed, rapps: installed }) };
+  }
+
+  if (/^\/chat(\?|$)/.test(path) && method === 'POST') {
+    let parsed = {};
+    try { parsed = body ? JSON.parse(body) : {}; } catch {}
+    const userMsg = parsed.user_input || parsed.message || '';
+    if (!userMsg) {
+      return { status: 400, body: JSON.stringify({ error: 'user_input is required' }) };
+    }
+    const before = state.conversation.length;
+    try {
+      await chat(userMsg);
+    } catch (e) {
+      return { status: 500, body: JSON.stringify({ error: String(e.message || e) }) };
+    }
+    const last = state.conversation.slice(before).filter(m => m.role === 'assistant').pop();
+    return {
+      status: 200,
+      body: JSON.stringify({
+        response: last ? last.content : '',
+        session_id: 'vbrainstem-cloud',
+      }),
+    };
+  }
+
+  if (/^\/models(\?|$)/.test(path)) {
+    return {
+      status: 200,
+      body: JSON.stringify({
+        models: ['gpt-4o-mini', 'gpt-4o', 'o1-mini'],
+        current: state.settings.model,
+      }),
+    };
+  }
+
+  // Unknown brainstem path — explain instead of returning a confusing 0.
+  return {
+    status: 404,
+    body: JSON.stringify({
+      error: `vBrainstem cloud mode does not simulate ${path}. Tether to a local brainstem on localhost:7071 to use full brainstem features.`,
+      path, method,
+    }),
   };
 }
 
@@ -1023,6 +1233,11 @@ window.addEventListener('message', async (ev) => {
       const r = await fetch(msg.url, msg.init || {});
       const text = await r.text();
       reply('rapp:fetch:result', { status: r.status, body: text });
+      return;
+    }
+    if (msg.type === 'rapp:proxy_fetch') {
+      const out = await proxyBrainstemFetch(msg);
+      reply('rapp:proxy_fetch:result', out);
       return;
     }
   } catch (e) {
