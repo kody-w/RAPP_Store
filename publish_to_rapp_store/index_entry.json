@@ -1,0 +1,20 @@
+{
+  "id": "publish_to_rapp_store",
+  "name": "PublishToRappStore",
+  "version": "0.1.0",
+  "summary": "Publish a rapplication to the RAPP store catalog. Validates locally against SPEC.md, then opens a [RAPP] issue on kody-w/rapp_store with a structured submission payload. Supports BUNDLE (files copied into the catalog) and FEDERATION (catalog points at submitter's own public GitHub repo).",
+  "tagline": "Submit a rapplication, from your repo or your laptop.",
+  "category": "platform",
+  "tags": ["rapplication", "publish", "store", "submission", "federation", "platform"],
+  "manifest_name": "@rapp/publish-to-rapp-store",
+  "singleton_filename": "publish_to_rapp_store_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/publish_to_rapp_store/singleton/publish_to_rapp_store_agent.py",
+  "license": "BSD-style",
+  "publisher": "@rapp",
+  "example_call": {
+    "args": {
+      "action": "submit_repo",
+      "repo_url": "https://github.com/alice/cool-rapps/tree/main/my_rapp"
+    }
+  }
+}

@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.0.0",
-  "generated_at": "2026-04-19T00:00:00Z",
+  "generated_at": "2026-04-27T20:15:46Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
@@ -1133,6 +1133,36 @@
       "singleton_sha256": "c5a89af7ec48916d634a0db0f34614bd7f43972217b3624ecad46c70e744d737",
       "singleton_bytes": 20663,
       "singleton_lines": 532
+    },
+    {
+      "id": "publish_to_rapp_store",
+      "name": "PublishToRappStore",
+      "version": "0.1.0",
+      "summary": "Publish a rapplication to the RAPP store catalog. Validates locally against SPEC.md, then opens a [RAPP] issue on kody-w/rapp_store with a structured submission payload. Supports two modes: BUNDLE (files copied into the catalog) and FEDERATION (catalog points at the submitter's own public GitHub repo via raw.githubusercontent.com). Submitters get fast pre-flight feedback before anything leaves their machine.",
+      "category": "platform",
+      "tags": [
+        "rapplication",
+        "publish",
+        "store",
+        "submission",
+        "federation",
+        "platform"
+      ],
+      "license": "BSD-style",
+      "publisher": "@rapp",
+      "tagline": "Submit a rapplication, from your repo or your laptop.",
+      "manifest_name": "@rapp/publish-to-rapp-store",
+      "singleton_filename": "publish_to_rapp_store_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/publish_to_rapp_store/singleton/publish_to_rapp_store_agent.py",
+      "singleton_sha256": "1bf6a517db4836c578137e22f6354e0544a5317008fb6f61363997653c387f46",
+      "singleton_lines": 730,
+      "singleton_bytes": 30767,
+      "example_call": {
+        "args": {
+          "action": "submit_repo",
+          "repo_url": "https://github.com/alice/cool-rapps/tree/main/my_rapp"
+        }
+      }
     }
   ],
   "senses": [

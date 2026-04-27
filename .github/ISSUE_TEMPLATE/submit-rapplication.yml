@@ -1,0 +1,76 @@
+name: Submit a rapplication
+description: Add or update a rapplication in the RAPP store catalog
+title: "[RAPP] @your-username/your-rapp-id v0.0.0"
+labels:
+  - rapplication-submission
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## How submissions work
+
+        Rapplications can be submitted in two modes:
+
+        - **BUNDLE** — paste a base64-encoded `.zip` of your rapplication directory in the body. Files get copied into `kody-w/rapp_store` on approval.
+        - **FEDERATION** — point at a public GitHub repo. The catalog entry's `singleton_url` references your repo via `raw.githubusercontent.com`. Nothing is copied.
+
+        The recommended path is to use the [`@rapp/publish-to-rapp-store`](https://github.com/kody-w/rapp_store/tree/main/publish_to_rapp_store) agent, which validates locally and opens this issue with the right payload. You can also fill the form by hand — just paste a JSON metadata block and either a bundle or a source block.
+
+        See [SPEC.md](https://github.com/kody-w/rapp_store/blob/main/SPEC.md) for the full validation ruleset.
+
+  - type: dropdown
+    id: submission_type
+    attributes:
+      label: Submission mode
+      options:
+        - bundle
+        - federation
+    validations:
+      required: true
+
+  - type: textarea
+    id: payload
+    attributes:
+      label: Submission metadata (JSON)
+      description: |
+        Required. Paste a fenced JSON block with:
+        `submission_type`, `id`, `version`, `publisher`, `name`, `category`, `tags`.
+        For federation also include `source: {repo, ref, path}`.
+      render: json
+      placeholder: |
+        {
+          "submission_type": "federation",
+          "id": "my_rapp",
+          "version": "0.1.0",
+          "publisher": "@your-username",
+          "name": "My Rapp",
+          "category": "analysis",
+          "tags": ["rapplication"],
+          "source": {
+            "repo": "your-username/cool-rapps",
+            "ref": "main",
+            "path": "my_rapp"
+          }
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: bundle
+    attributes:
+      label: Bundle (base64 zip — bundle mode only)
+      description: |
+        For bundle submissions, paste a fenced ` ```bundle ` block containing the base64-encoded contents of your rapplication zip. Skip this for federation.
+      render: bundle
+
+  - type: checkboxes
+    id: contract
+    attributes:
+      label: Submission checklist
+      options:
+        - label: My rapplication conforms to [SPEC.md](https://github.com/kody-w/rapp_store/blob/main/SPEC.md).
+          required: true
+        - label: I am the publisher (`@my-github-handle` matches the publisher in my manifest), or I have authorization to publish under the manifest's publisher.
+          required: true
+        - label: For federation submissions, the source repo is public and the singleton URL is reachable anonymously via `raw.githubusercontent.com`.
+          required: false

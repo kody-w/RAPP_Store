@@ -1,0 +1,82 @@
+name: Process rapplication submission
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: rapp-store-state
+  cancel-in-progress: false
+
+jobs:
+  process:
+    if: startsWith(github.event.issue.title, '[RAPP]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate submission
+        id: validate
+        continue-on-error: true
+        run: |
+          set +e
+          python3 scripts/process_rapplication.py \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --staging-dir staging/ \
+            --catalog index.json \
+            > /tmp/report.md
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/report.md', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Apply labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const code = '${{ steps.validate.outputs.exit_code }}';
+            const labels = code === '0' ? ['pending-review', 'rapplication-submission']
+                                        : ['failed', 'rapplication-submission'];
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels
+            });
+
+      - name: Commit staging changes
+        if: steps.validate.outputs.exit_code == '0'
+        run: |
+          git config user.name "rapp-store-bot"
+          git config user.email "rapp-store-bot@users.noreply.github.com"
+          git add staging/
+          if git diff --staged --quiet; then
+            echo "No staging changes to commit (federation mode or unchanged)."
+          else
+            git commit -m "stage: rapplication for issue #${{ github.event.issue.number }} [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push origin HEAD:main && break
+              echo "push attempt $i failed; retrying"
+              sleep 3
+            done
+          fi
