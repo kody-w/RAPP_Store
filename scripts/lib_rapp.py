@@ -451,7 +451,7 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
         else:
             if len(singleton_blob) > MAX_SINGLETON_BYTES:
                 errors.append(f"E_SINGLETON_TOO_LARGE: {len(singleton_blob)} bytes")
-            errors.extend(_validate_singleton_bytes(singleton_blob, agent_rel))
+            errors.extend(_validate_singleton_bytes(singleton_blob))
             integrity.update({
                 "singleton_sha256": hashlib.sha256(singleton_blob).hexdigest(),
                 "singleton_bytes": len(singleton_blob),
@@ -464,7 +464,7 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
         except FetchError as e:
             errors.append(f"E_SERVICE_MISSING: {service_rel}: {e}")
         else:
-            errors.extend(_validate_service_bytes(svc_blob, service_rel))
+            errors.extend(_validate_service_bytes(svc_blob))
             integrity["service_sha256"] = hashlib.sha256(svc_blob).hexdigest()
             integrity["service_bytes"] = len(svc_blob)
 
@@ -546,7 +546,7 @@ def parse_repo_url(url: str) -> tuple[str, str, str]:
     return repo, ref, path
 
 
-def _validate_singleton_bytes(blob: bytes, name: str) -> list[str]:
+def _validate_singleton_bytes(blob: bytes) -> list[str]:
     """Same as _validate_singleton but takes bytes (no filesystem path)."""
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
@@ -558,7 +558,7 @@ def _validate_singleton_bytes(blob: bytes, name: str) -> list[str]:
         tmp.unlink(missing_ok=True)
 
 
-def _validate_service_bytes(blob: bytes, name: str) -> list[str]:
+def _validate_service_bytes(blob: bytes) -> list[str]:
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
         f.write(blob)
