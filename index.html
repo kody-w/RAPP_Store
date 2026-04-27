@@ -3,269 +3,968 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAPPstore — converged single-file agents you can pull into your brainstem</title>
+<title>RAPP Store — apps, agents, senses for your local brainstem</title>
+<meta name="description" content="The RAPP Store. Browse rapplications, single-file agents, and per-channel senses. One curl install. Drop into your brainstem and run.">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #0a0c10;
+    --bg-soft:   #0d1117;
+    --surface:   #161b22;
+    --surface2:  #21262d;
+    --surface3:  #30363d;
+    --border:    #21262d;
+    --border-hi: #30363d;
+    --text:      #e6edf3;
+    --text-dim:  #8b949e;
+    --text-mute: #6e7681;
+    --accent:    #58a6ff;
+    --accent-bg: rgba(88,166,255,.14);
+    --accent-2:  #1f6feb;
+    --green:     #3fb950;
+    --green-bg:  rgba(63,185,80,.13);
+    --orange:    #d29922;
+    --orange-bg: rgba(210,153,34,.13);
+    --purple:    #bc8cff;
+    --purple-bg: rgba(188,140,255,.13);
+    --pink:      #f778ba;
+    --red:       #f85149;
+    --red-bg:    rgba(248,81,73,.13);
+    --gold:      #ffd166;
+    --shadow:    0 4px 14px rgba(0,0,0,.4);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.55);
+    --r-sm: 6px; --r: 10px; --r-lg: 16px; --r-xl: 22px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: #0d1117; color: #e6edf3;
     line-height: 1.5; min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
-  a { color: #58a6ff; }
-  main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
-  header {
-    border-bottom: 1px solid #21262d; padding-bottom: 22px; margin-bottom: 32px;
-    display: flex; align-items: center; gap: 16px;
-  }
-  header .icon { font-size: 36px; }
-  header h1 { font-size: 24px; font-weight: 700; }
-  header h1 .badge {
-    margin-left: 10px; font-size: 9px; letter-spacing: 1.5px;
-    color: #58a6ff; vertical-align: middle;
-    border: 1px solid #1f6feb; padding: 3px 8px; border-radius: 999px;
-    text-transform: uppercase; font-weight: 700;
-  }
-  header h1 .sub { display: block; font-size: 12px; color: #8b949e;
-    font-family: "SF Mono", monospace; margin-top: 4px; letter-spacing: .5px; }
-  header .controls { margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #8b949e; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: "SF Mono", "Fira Code", Consolas, monospace; }
+  button { font-family: inherit; cursor: pointer; border: 0; }
 
-  .help {
-    background: #161b22; border: 1px solid #21262d; border-radius: 12px;
-    padding: 16px 20px; margin-bottom: 28px; font-size: 13px; color: #c9d1d9;
+  /* ── Header ────────────────────────────────────────── */
+  header.top {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(13,17,23,.85);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid var(--border);
   }
-  .help h2 { font-size: 13px; color: #8b949e; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
-  .help code {
-    background: #0d1117; border: 1px solid #30363d; padding: 2px 8px;
-    border-radius: 5px; font-size: 11px; font-family: "SF Mono", monospace; color: #58a6ff;
+  header.top .row {
+    max-width: 1200px; margin: 0 auto;
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 18px;
   }
-  .help pre {
-    background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
-    padding: 10px 12px; margin-top: 10px; overflow-x: auto;
-    font-family: "SF Mono", monospace; font-size: 11px;
+  .brand { display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
+  .brand .glyph {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, #58a6ff 0%, #bc8cff 60%, #f778ba 100%);
+    display: grid; place-items: center; color: #fff; font-size: 16px; font-weight: 800;
+    box-shadow: 0 4px 12px rgba(88,166,255,.25);
+  }
+  .brand .text h1 { font-size: 16px; font-weight: 700; line-height: 1.1; }
+  .brand .text .sub { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+
+  .search {
+    flex: 1; max-width: 460px;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 7px 14px;
+    transition: border-color .15s, background .15s;
+  }
+  .search:focus-within { border-color: var(--accent); background: var(--bg-soft); }
+  .search svg { width: 14px; height: 14px; color: var(--text-mute); flex-shrink: 0; }
+  .search input {
+    flex: 1; background: transparent; border: 0; color: var(--text);
+    font: inherit; font-size: 13px; outline: 0;
+  }
+  .search input::placeholder { color: var(--text-mute); }
+  .search kbd {
+    font-family: inherit; font-size: 10px; color: var(--text-mute);
+    background: var(--surface3); border: 1px solid var(--border-hi);
+    border-radius: 4px; padding: 1px 5px;
   }
 
-  .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-  .card {
-    background: #161b22; border: 1px solid #21262d; border-radius: 12px;
-    padding: 22px 24px; transition: border-color .15s;
+  .nav { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
+  .nav a, .nav .btn-link {
+    font-size: 12px; color: var(--text-dim);
   }
-  .card:hover { border-color: #58a6ff; }
-  .card .head {
-    display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;
-  }
-  .card .name { font-size: 18px; font-weight: 700; }
-  .card .version { color: #8b949e; font-family: "SF Mono", monospace; font-size: 11px; }
-  .card .tagline { color: #c9d1d9; font-style: italic; margin-bottom: 14px; }
-  .card .summary { font-size: 13px; color: #8b949e; margin-bottom: 14px; }
-  .card .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-  .pill {
-    background: #0d1117; border: 1px solid #30363d; border-radius: 999px;
-    padding: 2px 10px; font-size: 11px; color: #8b949e; font-family: "SF Mono", monospace;
-  }
-  .pill.cat { color: #58a6ff; border-color: #1f6feb; }
-
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 14px; }
-  .stat {
-    background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 8px 12px;
-  }
-  .stat .label { font-size: 9px; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
-  .stat .val { font-size: 14px; font-weight: 600; font-family: "SF Mono", monospace; margin-top: 2px; }
-
-  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-  .btn {
-    background: #21262d; border: 1px solid #30363d; color: #e6edf3;
-    padding: 9px 16px; border-radius: 8px; cursor: pointer;
-    font-size: 13px; text-decoration: none; font-family: inherit;
+  .nav a:hover, .nav .btn-link:hover { color: var(--accent); text-decoration: none; }
+  .nav .cta {
+    background: var(--accent); color: #fff;
+    padding: 7px 14px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
     display: inline-flex; align-items: center; gap: 6px;
+    transition: transform .15s, box-shadow .15s;
   }
-  .btn:hover { border-color: #58a6ff; color: #58a6ff; }
-  .btn.primary { background: #238636; border-color: #2ea043; color: #fff; }
-  .btn.primary:hover { background: #2ea043; color: #fff; border-color: #3fb950; }
-  .btn.secondary { background: #161b22; border-color: #21262d; color: #c9d1d9; }
+  .nav .cta:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(88,166,255,.35); text-decoration: none; }
 
-  details {
-    margin-top: 14px; background: #0d1117; border: 1px solid #21262d; border-radius: 8px;
-    padding: 10px 14px;
+  /* ── Hero ──────────────────────────────────────────── */
+  .hero { max-width: 1200px; margin: 0 auto; padding: 36px 24px 8px; }
+  .hero-card {
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(1100px 400px at 0% 0%, rgba(88,166,255,.18), transparent 60%),
+      radial-gradient(800px 360px at 100% 0%, rgba(247,120,186,.13), transparent 65%),
+      linear-gradient(180deg, var(--surface) 0%, var(--bg-soft) 100%);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--r-xl);
+    padding: 36px 36px 32px;
+    box-shadow: var(--shadow-lg);
   }
-  details summary {
-    cursor: pointer; font-size: 12px; color: #8b949e; user-select: none;
+  .hero-card .eyebrow {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; color: var(--gold);
+    background: rgba(255,209,102,.10); border: 1px solid rgba(255,209,102,.3);
+    padding: 3px 11px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;
+    margin-bottom: 14px;
   }
-  details[open] summary { color: #58a6ff; }
-  details .body { margin-top: 10px; font-size: 12px; color: #c9d1d9; }
-  details code { background: transparent; color: #58a6ff; }
-  details pre {
-    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
-    padding: 10px 12px; overflow-x: auto;
-    font-family: "SF Mono", monospace; font-size: 11px; line-height: 1.5;
+  .hero-card h2 { font-size: 32px; font-weight: 800; line-height: 1.15; margin-bottom: 10px; letter-spacing: -.5px; }
+  .hero-card .tagline { font-size: 15px; color: var(--text-dim); max-width: 720px; margin-bottom: 22px; }
+  .hero-card .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface2); color: var(--text); border: 1px solid var(--border-hi);
+    padding: 9px 18px; border-radius: var(--r);
+    font-size: 13px; font-weight: 500; transition: border-color .15s, background .15s;
   }
+  .btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+  .btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  }
+  .btn.primary:hover { background: #79b7ff; border-color: #79b7ff; color: #fff; }
+  .btn.ghost { background: transparent; }
+  .hero-card .meta-row {
+    display: flex; gap: 14px; flex-wrap: wrap; margin-top: 20px;
+    color: var(--text-mute); font-size: 12px; font-family: "SF Mono", monospace;
+  }
+  .hero-card .meta-row span { display: inline-flex; align-items: center; gap: 5px; }
 
+  /* ── Tabs ──────────────────────────────────────────── */
+  .tabs-row {
+    max-width: 1200px; margin: 0 auto;
+    padding: 28px 24px 0;
+    display: flex; align-items: center; gap: 6px;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .tab {
+    background: transparent; color: var(--text-dim);
+    padding: 11px 18px; border: 0; border-bottom: 2px solid transparent;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: color .15s, border-color .15s;
+    position: relative; bottom: -1px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-color: var(--accent); }
+  .tab .count {
+    font-size: 11px; color: var(--text-mute); font-family: "SF Mono", monospace;
+    background: var(--surface2); padding: 1px 7px; border-radius: 999px;
+    font-weight: 500;
+  }
+  .tab.active .count { color: var(--accent); background: var(--accent-bg); }
+
+  /* ── Filters (categories/tier) ─────────────────────── */
+  .filter-row {
+    max-width: 1200px; margin: 0 auto;
+    padding: 18px 24px 6px;
+    display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .filter-group .label {
+    font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px;
+    font-weight: 700; margin-right: 4px;
+  }
+  .chip {
+    background: var(--surface); color: var(--text-dim);
+    border: 1px solid var(--border-hi);
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 12px; cursor: pointer; transition: all .15s;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent); }
+  .chip.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+  /* ── Catalog grid ──────────────────────────────────── */
+  .catalog { max-width: 1200px; margin: 0 auto; padding: 16px 24px 60px; }
+  .grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 20px;
+    cursor: pointer; transition: transform .15s, border-color .15s, box-shadow .15s;
+    display: flex; flex-direction: column; gap: 10px; position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    border-color: var(--accent); transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  .card .icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    display: grid; place-items: center;
+    font-size: 22px; flex-shrink: 0;
+    background: var(--surface2); border: 1px solid var(--border-hi);
+  }
+  .card .head { display: flex; align-items: center; gap: 12px; }
+  .card .name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .card .pub { font-size: 11px; color: var(--text-mute); font-family: "SF Mono", monospace; }
+  .card .pub .sep { opacity: .6; margin: 0 4px; }
+  .card .pub .ver { color: var(--text-dim); }
+  .card .summary { font-size: 13px; color: var(--text-dim); line-height: 1.45; flex: 1; }
+  .card .badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
+  .badge {
+    font-size: 9.5px; padding: 2px 8px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .8px; font-weight: 700;
+    font-family: "SF Mono", monospace;
+  }
+  .badge.cat { background: var(--accent-bg); color: var(--accent); }
+  .badge.tier-featured  { background: rgba(255,209,102,.15); color: var(--gold); }
+  .badge.tier-official  { background: var(--accent-bg); color: var(--accent); }
+  .badge.tier-verified  { background: var(--green-bg); color: var(--green); }
+  .badge.tier-community { background: var(--surface3); color: var(--text-dim); }
+  .badge.tier-experimental { background: var(--orange-bg); color: var(--orange); }
+  .badge.surface-ui   { background: rgba(247,120,186,.13); color: var(--pink); }
+  .badge.surface-svc  { background: var(--green-bg); color: var(--green); }
+  .badge.surface-eggs { background: var(--purple-bg); color: var(--purple); }
+  .badge.kind-agent   { background: rgba(88,166,255,.18); color: var(--accent); }
+  .badge.kind-rapp    { background: rgba(247,120,186,.18); color: var(--pink); }
+  .badge.kind-sense   { background: rgba(188,140,255,.18); color: var(--purple); }
+
+  .empty {
+    grid-column: 1 / -1; padding: 60px 30px; text-align: center;
+    background: var(--surface); border: 1px dashed var(--border-hi);
+    border-radius: var(--r-lg); color: var(--text-dim);
+  }
+  .empty h3 { color: var(--text); margin-bottom: 8px; font-size: 16px; }
+  .empty .submit { margin-top: 18px; }
+
+  /* ── Section divider ────────────────────────────── */
+  .section-title {
+    grid-column: 1 / -1; padding: 22px 4px 6px;
+    font-size: 11px; color: var(--text-mute); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .section-title .source { color: var(--accent); font-family: "SF Mono", monospace;
+    text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 11px; }
+  .section-title .source:hover { text-decoration: underline; }
+
+  /* ── Modal ─────────────────────────────────────────── */
+  .modal-bg {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(5, 7, 11, .72);
+    backdrop-filter: blur(4px);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 36px 16px;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--bg-soft); border: 1px solid var(--border-hi);
+    border-radius: var(--r-lg); width: 100%; max-width: 720px;
+    max-height: calc(100vh - 72px); overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+  }
+  .modal-head {
+    padding: 24px 28px 18px; display: flex; align-items: center; gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-head .icon {
+    width: 56px; height: 56px; border-radius: 14px;
+    display: grid; place-items: center;
+    font-size: 28px; background: var(--surface2);
+    border: 1px solid var(--border-hi); flex-shrink: 0;
+  }
+  .modal-head h2 { font-size: 22px; font-weight: 800; line-height: 1.2; margin-bottom: 4px; }
+  .modal-head .pub { font-size: 12px; color: var(--text-mute); font-family: "SF Mono", monospace; }
+  .modal-close {
+    margin-left: auto; background: var(--surface2); border: 1px solid var(--border-hi);
+    color: var(--text-dim); width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center; font-size: 16px;
+  }
+  .modal-close:hover { background: var(--surface3); color: var(--text); }
+  .modal-body { padding: 22px 28px 28px; }
+  .modal-body .tagline { font-size: 14px; color: var(--text); font-style: italic; margin-bottom: 14px; }
+  .modal-body .summary { font-size: 14px; color: var(--text-dim); line-height: 1.6; margin-bottom: 18px; }
+  .modal-body .badges { margin-bottom: 22px; }
+  .modal-body section { margin-bottom: 22px; }
+  .modal-body section h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--text-mute); margin-bottom: 8px; font-weight: 700;
+  }
+  .install-cmd {
+    position: relative;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 12px 14px;
+    font-family: "SF Mono", monospace; font-size: 12px; color: var(--accent);
+    overflow-x: auto; white-space: pre;
+  }
+  .install-cmd .copy {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--surface2); border: 1px solid var(--border-hi);
+    color: var(--text-dim); padding: 4px 10px; border-radius: 6px; font-size: 10px;
+  }
+  .install-cmd .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .meta-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+  .meta-list .item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 12px;
+  }
+  .meta-list .item .lbl {
+    font-size: 9px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;
+  }
+  .meta-list .item .val {
+    font-size: 12px; color: var(--text); font-family: "SF Mono", monospace; margin-top: 2px;
+    word-break: break-all;
+  }
+  .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; padding: 0 28px 24px; }
+
+  /* ── Toast ─────────────────────────────────────────── */
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #161b22; color: #e6edf3; border: 1px solid #2ea043;
-    padding: 10px 18px; border-radius: 8px; font-size: 13px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.4); z-index: 200;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border-hi); border-radius: 8px;
+    padding: 10px 18px; font-size: 13px;
+    box-shadow: var(--shadow); z-index: 1000;
     opacity: 0; transition: opacity .25s;
   }
   .toast.show { opacity: 1; }
+  .toast.ok  { border-color: var(--green); }
+  .toast.err { border-color: var(--red); }
 
-  .footer {
-    margin-top: 40px; padding-top: 20px; border-top: 1px solid #21262d;
-    color: #8b949e; font-size: 12px; text-align: center;
+  /* ── Footer ────────────────────────────────────────── */
+  footer {
+    max-width: 1200px; margin: 60px auto 0;
+    padding: 32px 24px 60px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim); font-size: 12px;
   }
+  footer .cols { display: grid; gap: 32px; grid-template-columns: 2fr 1fr 1fr 1fr; }
+  footer h5 { font-size: 11px; color: var(--text); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; font-weight: 700; }
+  footer ul { list-style: none; }
+  footer li { margin-bottom: 7px; }
+  footer .legal {
+    margin-top: 26px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--text-mute); font-size: 11px;
+  }
+
+  /* ── Mobile ────────────────────────────────────────── */
+  @media (max-width: 720px) {
+    header.top .row { padding: 11px 14px; gap: 10px; }
+    .brand .text { display: none; }
+    .search { max-width: none; }
+    .nav a:not(.cta) { display: none; }
+    .hero { padding: 22px 14px 4px; }
+    .hero-card { padding: 24px 22px; }
+    .hero-card h2 { font-size: 24px; }
+    .tabs-row { padding: 22px 14px 0; gap: 2px; }
+    .tab { padding: 10px 12px; font-size: 13px; }
+    .filter-row { padding: 14px 14px 4px; }
+    .catalog { padding: 14px 14px 50px; }
+    footer .cols { grid-template-columns: 1fr 1fr; gap: 24px; }
+  }
+
+  /* When the user has searched / filtered, hide the section dividers and
+     just show one merged grid. Looks cleaner during search. */
+  .catalog.searching .section-title { display: none; }
 </style>
 </head>
 <body>
 
-<main>
+<header class="top">
+  <div class="row">
+    <a href="./" class="brand" style="text-decoration: none; color: inherit;">
+      <div class="glyph">R</div>
+      <div class="text">
+        <h1>RAPP Store</h1>
+        <div class="sub">apps · agents · senses</div>
+      </div>
+    </a>
 
-<header>
-  <div class="icon">📦</div>
-  <div>
-    <h1>RAPPstore <span class="badge">official</span>
-      <span class="sub">converged single-file agents · pull into your brainstem · run locally</span>
-    </h1>
-  </div>
-  <div class="controls">
-    <a href="./vbrainstem.html"><strong>💬 vBrainstem</strong></a>
-    <a href="https://kody-w.github.io/RAPP/">← RAPP</a>
-    <a href="https://kody-w.github.io/RAR/" target="_blank">RAR (bare agents) ↗</a>
-    <a href="https://github.com/kody-w/rapp_store" target="_blank">source ↗</a>
+    <div class="search">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+      <input type="text" id="search" placeholder="Search rapps, agents, senses…" autocomplete="off"/>
+      <kbd>/</kbd>
+    </div>
+
+    <nav class="nav">
+      <a href="./SPEC.md">Spec</a>
+      <a href="https://github.com/kody-w/RAPP_Store" target="_blank">Source</a>
+      <a class="cta" href="./vbrainstem.html">💬 vBrainstem</a>
+    </nav>
   </div>
 </header>
 
-<div class="help">
-  <h2>What is a rapplication?</h2>
-  A rapplication is a <strong>bundle</strong> — a single-file agent paired with at least one of: a UI, an HTTP service,
-  or a state cartridge (<code>.egg</code>). Drop the directory into your local brainstem and the whole experience works:
-  the agent for the LLM to call, the UI to render, the service to expose endpoints, the egg to seed state.
-  No <code>pip install</code>. No native dependencies. Just <code>BasicAgent</code> and an LLM key in your environment.
-  <br><br>
-  <strong>Looking for a bare <code>agent.py</code>?</strong> Per <a href="https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md#article-xxvii--rar-holds-files-the-rapp-store-holds-bundles" target="_blank">Constitution Article XXVII</a>,
-  one-file agents live in <a href="https://kody-w.github.io/RAR/" target="_blank">kody-w/RAR</a>. The store hosts bundles; RAR hosts files.
-  <br><br>
-  Each rapplication was produced by the <strong>double-jump loop</strong>: claude vs framework,
-  score head-to-head, encode the diagnosis as <code>agent.py</code> changes, re-run until convergence. Then collapse the
-  multi-file ensemble into one shippable singleton. Read more in the <a href="https://kody-w.github.io/RAPP/pages/vault/" target="_blank">RAPP vault</a>.
-  <br><br>
-  <strong>Install path:</strong>
-  <pre>curl -fsSL &lt;singleton_url&gt; > ~/your-brainstem/agents/&lt;name&gt;.py
-# now POST /api/swarm/deploy with a bundle that includes it
-# OR if your brainstem watches agents/, just hit the endpoint</pre>
+<section class="hero">
+  <div class="hero-card" id="hero">
+    <div class="eyebrow">⭐ Featured</div>
+    <h2 id="heroTitle">Loading featured rapp…</h2>
+    <div class="tagline" id="heroTagline"></div>
+    <div class="actions" id="heroActions"></div>
+    <div class="meta-row" id="heroMeta"></div>
+  </div>
+</section>
+
+<div class="tabs-row" id="tabs">
+  <button class="tab active" data-tab="all">All <span class="count" id="countAll">0</span></button>
+  <button class="tab" data-tab="rapp">Rapplications <span class="count" id="countRapp">0</span></button>
+  <button class="tab" data-tab="agent">Agents <span class="count" id="countAgent">0</span></button>
+  <button class="tab" data-tab="sense">Senses <span class="count" id="countSense">0</span></button>
 </div>
 
-<div class="grid" id="grid">
-  <div class="card"><div class="summary">Loading rapplications…</div></div>
-</div>
+<div class="filter-row" id="filterRow"></div>
 
-<div class="footer">
-  RAPPstore catalog format: <code>rapp-store/1.0</code> ·
-  Fork your own catalog by copying <code>index.json</code> from this repo ·
-  See the <a href="https://kody-w.github.io/RAPP/pages/vault/" target="_blank">RAPP vault</a> for the spec
-</div>
-
+<main class="catalog">
+  <div class="grid" id="grid">
+    <div class="empty"><h3>Loading the ecosystem…</h3>Pulling rapplications, agents, and senses from three repos.</div>
+  </div>
 </main>
+
+<div class="modal-bg" id="modal" onclick="if(event.target.id==='modal')closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
 
 <div class="toast" id="toast"></div>
 
+<footer>
+  <div class="cols">
+    <div>
+      <h5>RAPP</h5>
+      <p style="line-height: 1.6;">
+        The open, local-first agent platform. One file = one capability. One bundle = one experience. One brainstem = one personal AI runtime.
+      </p>
+      <p style="margin-top: 8px;">
+        <a href="https://github.com/kody-w/RAPP" target="_blank">github.com/kody-w/RAPP</a>
+      </p>
+    </div>
+    <div>
+      <h5>The three stores</h5>
+      <ul>
+        <li><a href="https://github.com/kody-w/RAPP_Store" target="_blank">RAPP Store (rapps)</a></li>
+        <li><a href="https://github.com/kody-w/RAR" target="_blank">RAR (agents)</a></li>
+        <li><a href="https://github.com/kody-w/RAPP_Sense_Store" target="_blank">Sense Store</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Submit</h5>
+      <ul>
+        <li><a href="https://github.com/kody-w/RAPP_Store/issues/new?template=submit-rapplication.yml" target="_blank">[RAPP] new rapplication</a></li>
+        <li><a href="https://github.com/kody-w/RAR/issues/new" target="_blank">[AGENT] new agent</a></li>
+        <li><a href="https://github.com/kody-w/RAPP_Sense_Store/issues/new?template=submit-sense.yml" target="_blank">[SENSE] new sense</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Docs</h5>
+      <ul>
+        <li><a href="./SPEC.md">SPEC.md</a></li>
+        <li><a href="https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md" target="_blank">Constitution</a></li>
+        <li><a href="./docs/proposals/" target="_blank">Proposals</a></li>
+        <li><a href="./vbrainstem.html">vBrainstem</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="legal">
+    Catalog format <code>rapp-store/1.0</code> ·
+    Three-store ecosystem governed by Constitution Article XXXI ·
+    Made by <a href="https://github.com/kody-w" target="_blank">@kody-w</a>
+  </div>
+</footer>
+
 <script>
 'use strict';
-function $(s) { return document.querySelector(s); }
-function el(t, a={}, k=[]) {
-  const e = document.createElement(t);
-  for (const [k2,v] of Object.entries(a)) {
-    if (k2==='class') e.className=v;
-    else if (k2==='text') e.textContent=v;
-    else if (k2==='html') e.innerHTML=v;
-    else if (k2.startsWith('on')) e.addEventListener(k2.slice(2), v);
-    else e.setAttribute(k2, v);
+
+// ─── Sources ────────────────────────────────────────────────────────────
+
+const SOURCES = {
+  rapp:  { url: './index.json',
+           label: 'RAPP_Store',
+           href:  'https://github.com/kody-w/RAPP_Store' },
+  agent: { url: 'https://raw.githubusercontent.com/kody-w/RAR/main/registry.json',
+           label: 'RAR',
+           href:  'https://github.com/kody-w/RAR' },
+  sense: { url: 'https://raw.githubusercontent.com/kody-w/RAPP_Sense_Store/main/index.json',
+           label: 'RAPP_Sense_Store',
+           href:  'https://github.com/kody-w/RAPP_Sense_Store' },
+};
+
+// Curated featured rapp (rotates among these on each visit). The catalog
+// model doesn't yet track quality_tier="featured" so this is the editorial
+// override until that data is live.
+const FEATURED_IDS = ['bookfactoryagent', 'twin_workshop', 'kanban', 'binder'];
+
+// Category emoji → drives the card icon. Falls back to a generic glyph.
+const CAT_ICON = {
+  productivity: '⚡',
+  creative:     '✨',
+  analysis:     '🔍',
+  data:         '📊',
+  integration:  '🔌',
+  platform:     '🧰',
+  workspace:    '🗂️',
+  agent:        '🤖',
+  sense:        '🎙️',
+};
+
+// ─── State ──────────────────────────────────────────────────────────────
+
+const state = {
+  rapps: [],     // unified [{kind, id, name, publisher, version, summary, tagline, category, tier, surfaces, source, raw_url, ui_url, _orig}]
+  tab: 'all',
+  search: '',
+  category: null,
+  loaded: { rapp: false, agent: false, sense: false },
+};
+
+// ─── DOM ────────────────────────────────────────────────────────────────
+
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+function el(tag, attrs = {}, kids = []) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
   }
-  for (const c of (Array.isArray(k)?k:[k])) {
-    if (c==null) continue;
-    e.appendChild(typeof c==='string' ? document.createTextNode(c) : c);
+  for (const c of (Array.isArray(kids) ? kids : [kids])) {
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
   }
   return e;
 }
-function toast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2400);
+function toast(msg, kind = '') {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2400);
 }
-
 async function copy(text) {
-  await navigator.clipboard.writeText(text);
-  toast('Copied to clipboard');
+  try { await navigator.clipboard.writeText(text); toast('Copied to clipboard', 'ok'); }
+  catch { toast('Copy failed', 'err'); }
 }
 
-(async function boot() {
-  let catalog;
+// ─── Loaders ────────────────────────────────────────────────────────────
+
+async function loadAll() {
+  await Promise.allSettled([loadRapps(), loadAgents(), loadSenses()]);
+  renderHero();
+  applyView();
+}
+
+async function loadRapps() {
   try {
-    const r = await fetch('./index.json', { cache: 'no-cache' });
-    catalog = await r.json();
+    const r = await fetch(SOURCES.rapp.url, { cache: 'no-store' });
+    const cat = await r.json();
+    state.rapps.push(...(cat.rapplications || []).map(normalizeRapp));
+    state.loaded.rapp = true;
   } catch (e) {
-    $('#grid').innerHTML = `<div class="card"><div class="summary">Failed to load catalog: ${e.message}</div></div>`;
+    console.warn('rapps load failed:', e);
+  }
+}
+
+async function loadAgents() {
+  try {
+    const r = await fetch(SOURCES.agent.url, { cache: 'no-store' });
+    const reg = await r.json();
+    // RAR has 270+ entries; show only @rapp/* on the front page (everything
+    // remains searchable via the search box, which falls back to the full set).
+    const all = (reg.agents || []).map(normalizeAgent);
+    state._all_agents = all;
+    state.rapps.push(...all.filter(a => a.publisher === '@rapp'));
+    state.loaded.agent = true;
+  } catch (e) {
+    console.warn('agents load failed:', e);
+  }
+}
+
+async function loadSenses() {
+  try {
+    const r = await fetch(SOURCES.sense.url, { cache: 'no-store' });
+    const cat = await r.json();
+    state.rapps.push(...(cat.senses || []).map(normalizeSense));
+    state.loaded.sense = true;
+  } catch (e) {
+    console.warn('senses load failed:', e);
+  }
+}
+
+// ─── Normalizers — three sources → one shape ────────────────────────────
+
+function normalizeRapp(r) {
+  return {
+    kind: 'rapp',
+    id: r.id,
+    name: r.name || r.id,
+    publisher: r.publisher || '@rapp',
+    version: r.version || '?',
+    tagline: r.tagline || '',
+    summary: r.summary || '',
+    category: r.category || 'platform',
+    tier: r.quality_tier || 'community',
+    surfaces: surfacesFor(r),
+    source: 'rapp',
+    raw_url: r.singleton_url || r.service_url || null,
+    ui_url:  r.ui_url || null,
+    egg_url: r.egg_url || null,
+    sha256:  r.singleton_sha256 || null,
+    filename: r.singleton_filename || null,
+    sub_label: r.tagline || (r.category || ''),
+    _orig: r,
+  };
+}
+function normalizeAgent(a) {
+  const [pub, slug] = (a.name || '').split('/', 2);
+  return {
+    kind: 'agent',
+    id: a.name,
+    name: a.display_name || slug || a.name,
+    publisher: pub || '?',
+    version: a.version || '?',
+    tagline: '',
+    summary: a.description || '',
+    category: a.category || 'agent',
+    tier: a.quality_tier || 'community',
+    surfaces: [],
+    source: 'agent',
+    raw_url: `https://raw.githubusercontent.com/kody-w/RAR/main/agents/${pub}/${slug && slug.endsWith('_agent') ? slug : slug + '_agent'}.py`,
+    ui_url: null,
+    sub_label: a.tags && a.tags[0] || a.category || 'agent',
+    _orig: a,
+  };
+}
+function normalizeSense(s) {
+  return {
+    kind: 'sense',
+    id: `${s.publisher || '@rapp'}/${s.name}`,
+    name: s.name,
+    publisher: s.publisher || '@rapp',
+    version: s.version || '?',
+    tagline: s.delimiter || '',
+    summary: s.description || '',
+    category: 'sense',
+    tier: 'official',
+    surfaces: s.surfaces || ['chat'],
+    source: 'sense',
+    raw_url: s.url,
+    ui_url: null,
+    sub_label: s.delimiter || 'sense',
+    _orig: s,
+  };
+}
+function surfacesFor(r) {
+  const out = [];
+  if (r.ui_url)      out.push('ui');
+  if (r.service_url) out.push('service');
+  if (r.egg_url)     out.push('eggs');
+  return out;
+}
+
+// ─── Hero ───────────────────────────────────────────────────────────────
+
+function renderHero() {
+  const candidates = state.rapps.filter(r =>
+    r.kind === 'rapp' && FEATURED_IDS.includes(r.id));
+  const pick = candidates.length
+    ? candidates[Math.floor(Date.now() / (1000 * 60 * 30)) % candidates.length] // rotate every 30min
+    : state.rapps.find(r => r.kind === 'rapp');
+  if (!pick) {
+    $('#hero').style.display = 'none';
     return;
   }
+  $('#heroTitle').textContent = pick.name;
+  $('#heroTagline').textContent = pick.tagline || pick.summary;
+  $('#heroActions').innerHTML = '';
+  $('#heroActions').appendChild(el('button', {
+    class: 'btn primary', onclick: () => openModal(pick),
+  }, ['View details']));
+  if (pick.kind === 'rapp' && pick.ui_url) {
+    $('#heroActions').appendChild(el('a', {
+      class: 'btn', href: `./vbrainstem.html`,
+    }, ['💬 Open in vBrainstem']));
+  }
+  $('#heroActions').appendChild(el('a', {
+    class: 'btn ghost', href: pick.raw_url, target: '_blank',
+  }, ['View source']));
+  const meta = $('#heroMeta');
+  meta.innerHTML = '';
+  meta.appendChild(el('span', {}, [`📦 ${pick.publisher}`]));
+  meta.appendChild(el('span', {}, [`v${pick.version}`]));
+  meta.appendChild(el('span', {}, [`${pick.category}`]));
+  for (const s of pick.surfaces) meta.appendChild(el('span', {}, [`✦ ${s}`]));
+}
+
+// ─── Render ─────────────────────────────────────────────────────────────
+
+function visibleItems() {
+  const q = state.search.trim().toLowerCase();
+  let items = state.rapps;
+  // When searching, fall back to the full agent set (not just @rapp/*) so
+  // hidden agents become findable.
+  if (q && state._all_agents) {
+    const ids = new Set(items.map(x => x.kind + ':' + x.id));
+    for (const a of state._all_agents) {
+      const k = 'agent:' + a.id;
+      if (!ids.has(k)) { items.push(a); ids.add(k); }
+    }
+  }
+  if (state.tab !== 'all') items = items.filter(r => r.kind === state.tab);
+  if (state.category) items = items.filter(r => r.category === state.category);
+  if (q) {
+    items = items.filter(r => {
+      const hay = [r.name, r.id, r.publisher, r.tagline, r.summary,
+                    r.category, r.tier, ...(r.surfaces || [])]
+                  .join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  return items;
+}
+
+function applyView() {
+  const items = visibleItems();
+  $('#countAll').textContent  = state.rapps.length;
+  $('#countRapp').textContent  = state.rapps.filter(r => r.kind === 'rapp').length;
+  $('#countAgent').textContent = state.rapps.filter(r => r.kind === 'agent').length;
+  $('#countSense').textContent = state.rapps.filter(r => r.kind === 'sense').length;
+  renderFilters();
+  renderGrid(items);
+}
+
+function renderFilters() {
+  // Category chips, derived from currently-visible items in the active tab.
+  const inTab = state.tab === 'all'
+    ? state.rapps
+    : state.rapps.filter(r => r.kind === state.tab);
+  const cats = Array.from(new Set(inTab.map(r => r.category).filter(Boolean))).sort();
+  const row = $('#filterRow');
+  row.innerHTML = '';
+  if (!cats.length) return;
+  row.appendChild(el('div', { class: 'filter-group' }, [
+    el('span', { class: 'label', text: 'Categories' }),
+    el('button', {
+      class: 'chip' + (state.category ? '' : ' active'),
+      onclick: () => { state.category = null; applyView(); },
+    }, ['All']),
+    ...cats.map(c => el('button', {
+      class: 'chip' + (state.category === c ? ' active' : ''),
+      onclick: () => { state.category = state.category === c ? null : c; applyView(); },
+    }, [c])),
+  ]));
+}
+
+function renderGrid(items) {
   const grid = $('#grid');
   grid.innerHTML = '';
-  for (const r of (catalog.rapplications || [])) {
-    const installCmd = `curl -fsSL ${r.singleton_url} -o agents/${r.singleton_filename}`;
-    const card = el('div', { class: 'card' }, [
-      el('div', { class: 'head' }, [
-        el('div', { class: 'name', text: r.name }),
-        el('div', { class: 'version', text: 'v' + r.version }),
-      ]),
-      el('div', { class: 'tagline', text: r.tagline || '' }),
-      el('div', { class: 'pills' }, [
-        el('span', { class: 'pill cat', text: r.category || '' }),
-        ...(r.tags || []).map(t => el('span', { class: 'pill', text: t })),
-      ]),
-      el('div', { class: 'summary', text: r.summary || '' }),
-      el('div', { class: 'stats' }, [
-        el('div', { class: 'stat' }, [
-          el('div', { class: 'label', text: 'lines' }),
-          el('div', { class: 'val', text: r.singleton_lines }),
-        ]),
-        el('div', { class: 'stat' }, [
-          el('div', { class: 'label', text: 'bytes' }),
-          el('div', { class: 'val', text: r.singleton_bytes.toLocaleString() }),
-        ]),
-        el('div', { class: 'stat' }, [
-          el('div', { class: 'label', text: 'LLM calls' }),
-          el('div', { class: 'val', text: r.metrics?.llm_calls_per_invocation || '?' }),
-        ]),
-        el('div', { class: 'stat' }, [
-          el('div', { class: 'label', text: 'p50 wall' }),
-          el('div', { class: 'val', text: (r.metrics?.wall_time_sec_per_call_p50 || '?') + 's' }),
-        ]),
-      ]),
-      el('div', { class: 'actions' }, [
-        el('a', { class: 'btn primary', href: r.singleton_url, download: r.singleton_filename }, ['⬇ Download singleton']),
-        el('button', { class: 'btn', onclick: () => copy(installCmd) }, ['📋 Copy install command']),
-        r.spec_post ? el('a', { class: 'btn secondary', href: r.spec_post, target: '_blank' }, ['📄 Read the spec']) : null,
-      ]),
-      el('details', {}, [
-        el('summary', { text: `Specialists collapsed into this singleton (${(r.produced_by?.specialists || []).length})` }),
-        el('div', { class: 'body' }, [
-          el('div', { text: r.produced_by?.method ? `Produced by: ${r.produced_by.method} · ${r.produced_by.cycles} cycles · ${r.produced_by.source_files_collapsed} source files collapsed` : '' }),
-          el('pre', { text: (r.produced_by?.specialists || []).join('\n') }),
-        ]),
-      ]),
-      el('details', {}, [
-        el('summary', { text: 'Example call' }),
-        el('div', { class: 'body' }, [
-          el('div', { text: r.example_call?.endpoint || '' }),
-          el('pre', { text: JSON.stringify(r.example_call?.body, null, 2) }),
-        ]),
-      ]),
-      el('details', {}, [
-        el('summary', { text: `SHA-256 · sha=${(r.singleton_sha256 || '').slice(0, 16)}…` }),
-        el('div', { class: 'body' }, [
-          el('pre', { text: r.singleton_sha256 || '(not pinned yet)' }),
-        ]),
-      ]),
-    ]);
-    grid.appendChild(card);
+  grid.classList.toggle('searching', !!state.search.trim());
+
+  if (!items.length) {
+    grid.appendChild(el('div', { class: 'empty' }, [
+      el('h3', { text: 'Nothing found' }),
+      el('div', { text: state.search ? `No matches for "${state.search}".` : 'Catalog is empty for this filter.' }),
+    ]));
+    return;
   }
-})();
+
+  // When showing "All" without a search, group by kind.
+  if (state.tab === 'all' && !state.search.trim() && !state.category) {
+    const order = [['rapp', 'Rapplications'], ['agent', 'Agents'], ['sense', 'Senses']];
+    for (const [k, label] of order) {
+      const sub = items.filter(r => r.kind === k);
+      if (!sub.length) continue;
+      const head = el('div', { class: 'section-title' }, [
+        label + ' · ' + sub.length,
+        el('a', { class: 'source', href: SOURCES[k].href, target: '_blank',
+                   text: SOURCES[k].label + ' ↗' }),
+      ]);
+      grid.appendChild(head);
+      for (const r of sub) grid.appendChild(makeCard(r));
+    }
+  } else {
+    for (const r of items) grid.appendChild(makeCard(r));
+  }
+}
+
+function makeCard(r) {
+  return el('div', { class: 'card', onclick: () => openModal(r) }, [
+    el('div', { class: 'head' }, [
+      el('div', { class: 'icon' }, [iconFor(r)]),
+      el('div', {}, [
+        el('div', { class: 'name', text: r.name }),
+        el('div', { class: 'pub' }, [
+          r.publisher,
+          el('span', { class: 'sep', text: '·' }),
+          el('span', { class: 'ver', text: 'v' + r.version }),
+        ]),
+      ]),
+    ]),
+    r.tagline ? el('div', { class: 'summary', text: r.tagline }) :
+                el('div', { class: 'summary', text: (r.summary || '').slice(0, 140) }),
+    el('div', { class: 'badges' }, [
+      el('span', { class: `badge kind-${r.kind}`, text: r.kind }),
+      r.category ? el('span', { class: 'badge cat', text: r.category }) : null,
+      r.tier && r.tier !== 'community' ? el('span', { class: `badge tier-${r.tier}`, text: r.tier }) : null,
+      ...(r.surfaces || []).map(s =>
+        el('span', { class: `badge surface-${s.replace('service','svc')}`, text: s })),
+    ]),
+  ]);
+}
+
+function iconFor(r) {
+  return CAT_ICON[r.category] || (r.kind === 'sense' ? '🎙️' : r.kind === 'agent' ? '🤖' : '📦');
+}
+
+// ─── Modal ──────────────────────────────────────────────────────────────
+
+function openModal(r) {
+  const m = $('#modalContent');
+  const installCmd = installCommandFor(r);
+  m.innerHTML = '';
+  m.appendChild(el('div', { class: 'modal-head' }, [
+    el('div', { class: 'icon' }, [iconFor(r)]),
+    el('div', { style: 'flex:1; min-width:0' }, [
+      el('h2', { text: r.name }),
+      el('div', { class: 'pub' }, [
+        r.publisher + ' · v' + r.version + ' · ' + r.kind,
+      ]),
+    ]),
+    el('button', { class: 'modal-close', onclick: closeModal, text: '×' }),
+  ]));
+
+  const body = el('div', { class: 'modal-body' });
+
+  if (r.tagline) body.appendChild(el('div', { class: 'tagline', text: '“' + r.tagline + '”' }));
+  if (r.summary) body.appendChild(el('div', { class: 'summary', text: r.summary }));
+
+  body.appendChild(el('div', { class: 'badges' }, [
+    el('span', { class: `badge kind-${r.kind}`, text: r.kind }),
+    r.category ? el('span', { class: 'badge cat', text: r.category }) : null,
+    r.tier ? el('span', { class: `badge tier-${r.tier}`, text: r.tier }) : null,
+    ...(r.surfaces || []).map(s =>
+      el('span', { class: `badge surface-${s.replace('service','svc')}`, text: s })),
+  ]));
+
+  if (installCmd) {
+    body.appendChild(el('section', {}, [
+      el('h4', { text: 'Install (one-liner)' }),
+      el('div', { class: 'install-cmd' }, [
+        installCmd,
+        el('button', { class: 'copy', onclick: ev => { ev.stopPropagation(); copy(installCmd); } }, ['Copy']),
+      ]),
+    ]));
+  }
+
+  body.appendChild(el('section', {}, [
+    el('h4', { text: 'Install via brainstem (chat)' }),
+    el('div', { class: 'install-cmd' }, [chatInstallFor(r)]),
+  ]));
+
+  body.appendChild(el('section', {}, [
+    el('h4', { text: 'Metadata' }),
+    el('div', { class: 'meta-list' }, [
+      kv('Publisher', r.publisher),
+      kv('Version',   r.version),
+      kv('Category',  r.category),
+      kv('Tier',      r.tier),
+      r.sha256 ? kv('SHA-256', r.sha256.slice(0, 16) + '…') : null,
+      r.filename ? kv('Filename', r.filename) : null,
+    ]),
+  ]));
+
+  m.appendChild(body);
+
+  const actions = el('div', { class: 'modal-actions' });
+  if (r.kind === 'rapp' && r.ui_url) {
+    actions.appendChild(el('a', { class: 'btn primary', href: './vbrainstem.html' },
+      ['💬 Open in vBrainstem']));
+  } else if (r.kind === 'rapp' || r.kind === 'agent') {
+    actions.appendChild(el('a', { class: 'btn primary', href: './vbrainstem.html' },
+      ['💬 Chat with it']));
+  }
+  if (r.raw_url) {
+    actions.appendChild(el('a', { class: 'btn', href: r.raw_url, target: '_blank' },
+      ['View source ↗']));
+  }
+  if (r.ui_url) {
+    actions.appendChild(el('a', { class: 'btn', href: r.ui_url, target: '_blank' },
+      ['Open UI ↗']));
+  }
+  actions.appendChild(el('a', { class: 'btn ghost', href: SOURCES[r.kind === 'rapp' ? 'rapp' : r.kind].href, target: '_blank' },
+    [SOURCES[r.kind === 'rapp' ? 'rapp' : r.kind].label + ' ↗']));
+  m.appendChild(actions);
+
+  $('#modal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function kv(label, val) {
+  if (val == null) return null;
+  return el('div', { class: 'item' }, [
+    el('div', { class: 'lbl', text: label }),
+    el('div', { class: 'val', text: String(val) }),
+  ]);
+}
+
+function closeModal() {
+  $('#modal').classList.remove('show');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    $('#search').focus();
+  }
+});
+
+function installCommandFor(r) {
+  if (r.kind === 'rapp' && r.raw_url) {
+    return `curl -fsSL ${r.raw_url} -o ~/.brainstem/src/rapp_brainstem/agents/${r.filename || (r.id + '_agent.py')}`;
+  }
+  if (r.kind === 'agent' && r.raw_url) {
+    const slug = (r.id || '').split('/', 2)[1] || r.id;
+    const fn = slug.endsWith('_agent') ? `${slug}.py` : `${slug}_agent.py`;
+    return `curl -fsSL ${r.raw_url} -o ~/.brainstem/src/rapp_brainstem/agents/${fn}`;
+  }
+  if (r.kind === 'sense' && r.raw_url) {
+    return `curl -fsSL ${r.raw_url} -o ~/.brainstem/src/rapp_brainstem/utils/senses/${r.name}_sense.py`;
+  }
+  return null;
+}
+
+function chatInstallFor(r) {
+  if (r.kind === 'rapp')  return `Binder: install ${r.id}`;
+  if (r.kind === 'agent') return `Binder: install_agent ${r.id}`;
+  if (r.kind === 'sense') return `Binder: install_sense ${r.name}`;
+  return '';
+}
+
+// ─── Tabs + search ──────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  state.tab = t.getAttribute('data-tab');
+  state.category = null;
+  $$('.tab').forEach(x => x.classList.toggle('active', x === t));
+  applyView();
+}));
+
+$('#search').addEventListener('input', e => {
+  state.search = e.target.value;
+  applyView();
+});
+
+// ─── Boot ───────────────────────────────────────────────────────────────
+
+loadAll();
 </script>
 
 </body>
