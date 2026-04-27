@@ -65,7 +65,7 @@ The submission unit is **the `<id>/` directory zipped**. The `.zip` filename SHO
 | `service` | string | yes if no `agent` | Relative path to the service module, e.g. `service/<id>_service.py`. |
 | `ui` | string | no | Relative path to the iframe entrypoint. |
 | `license` | string | no | SPDX or free-form. |
-| `quality_tier` | string | no | `official` / `verified` / `community` / `experimental`. Submitters cannot self-declare anything above `community` — the receiver downgrades. |
+| `quality_tier` | string | no | `featured` / `official` / `verified` / `community` / `experimental` / `deprecated`. Submitters cannot self-declare above `community` (or `experimental` / `deprecated` — those are submitter-allowed self-marks). The receiver's `build_index_entry()` downgrades anything higher to `community`. Tier promotions to `verified`, `official`, or `featured` happen via maintainer-merged PR only. |
 
 Other fields (`tagline`, `manifest_name`, `produced_by`, `optional_dependencies`, `tool`, etc.) are tolerated and pass through to the catalog entry verbatim.
 

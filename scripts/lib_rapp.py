@@ -46,7 +46,27 @@ RESERVED_IDS = frozenset({
 
 OFFICIAL_PUBLISHERS = frozenset({"@rapp", "@rarbookworld"})
 
-ACCEPTED_QUALITY_TIERS = frozenset({"official", "verified", "community", "experimental"})
+ACCEPTED_QUALITY_TIERS = frozenset({
+    "featured",      # ≤ 7 hand-curated front-page rapps. Maintainer-only.
+    "official",      # platform-shipped, supported.
+    "verified",      # community-submitted, vetted by maintainer.
+    "community",     # default for federation submissions; passed validator.
+    "experimental",  # rough/early; surfaced with a warning in UI.
+    "deprecated",    # hidden by default but installable for back-compat.
+})
+
+# Submitters cannot self-elevate above 'community'. The validator downgrades
+# any higher tier on incoming submissions; only maintainer-merged PRs can
+# raise a tier (e.g. promote 'community' → 'verified' → 'featured').
+SUBMITTER_MAX_TIER = "community"
+TIER_RANK = {
+    "deprecated": -1,
+    "experimental": 0,
+    "community": 1,
+    "verified": 2,
+    "official": 3,
+    "featured": 4,
+}
 
 # Per Proposal 0001 step G: lock the category enum. Adding a new category
 # requires a follow-up proposal. Keeping the set small keeps the catalog
@@ -273,6 +293,18 @@ def compute_integrity(rapp_dir: Path, manifest: dict) -> dict[str, Any]:
     return out
 
 
+def downgrade_tier_for_submission(quality_tier: str | None) -> str:
+    """Cap incoming submissions at SUBMITTER_MAX_TIER. Submitters cannot
+    self-declare 'official', 'verified', or 'featured' — those require a
+    maintainer-merged PR. 'experimental' and 'deprecated' pass through
+    (a submitter is allowed to mark their own work as rough or stale)."""
+    if not quality_tier:
+        return SUBMITTER_MAX_TIER
+    if quality_tier in ("experimental", "deprecated"):
+        return quality_tier
+    return SUBMITTER_MAX_TIER
+
+
 def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str, Any]:
     """Construct the canonical catalog entry, overwriting integrity + URLs.
 
@@ -287,6 +319,7 @@ def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str
         "tags": manifest.get("tags", []),
         "license": manifest.get("license", "BSD-style"),
         "publisher": manifest["publisher"],
+        "quality_tier": downgrade_tier_for_submission(manifest.get("quality_tier")),
     }
     for opt in ("tagline", "manifest_name", "produced_by", "metrics",
                 "optional_dependencies", "spec_post"):
