@@ -877,10 +877,18 @@ function selectRapp(r) {
 
 // raw.githubusercontent.com refuses to be iframed (X-Frame-Options: deny).
 // We keep raw as the source of truth — that's the federation contract — but
-// inline the HTML into a srcdoc iframe so X-Frame-Options doesn't apply
-// (the iframe has no top-level origin, just bytes). Inject a <base href>
-// so the page's relative URLs (CSS, JS, images, fetches) still resolve
-// back to the original raw host, where CORS GET is permitted.
+// inline the HTML into a srcdoc iframe so X-Frame-Options doesn't apply.
+// Inject a <base href> so the page's relative URLs still resolve back to
+// raw, where CORS GET is permitted.
+//
+// THE CARTRIDGE PATTERN. The vBrainstem is the console; the rapplication
+// is the cartridge. After the iframe loads we postMessage a structured
+// "cartridge" envelope containing the rapp's manifest, the user's
+// context, and the parent's capabilities. The iframe can postMessage
+// back to invoke its backing agent's perform() — the parent runs it via
+// Pyodide (cloud mode) or the tether (local brainstem mode). New UIs
+// opt in by listening for `rapp:cartridge`; existing UIs that ignore
+// postMessage keep working as standalone pages.
 async function mountRappFrame(r) {
   const frame = $('#rappFrame');
   const tabs = $('#viewTabs');
@@ -908,12 +916,119 @@ async function mountRappFrame(r) {
       html = `<head>${baseTag}</head>` + html;
     }
     frame.srcdoc = html;
+    // Post the cartridge once the iframe finishes parsing + running its
+    // own scripts (so its message listeners are wired before our envelope
+    // arrives). Fire on both 'load' (when fully loaded) and a short delay
+    // fallback in case the rapp UI's listener registers later.
+    frame.addEventListener('load', () => postCartridge(r), { once: true });
   } catch (e) {
     frame.srcdoc = `<div style="font-family:system-ui;padding:24px;color:#f85149;">` +
       `Failed to load UI from <code>${r.ui_url}</code>: ${e.message}` +
       `</div>`;
   }
 }
+
+// Build + post the cartridge envelope to the iframe. Schema:
+// rapp-cartridge/1.0 — additive only; new fields are tolerated by
+// older rapp UIs because they ignore unknown keys.
+function buildCartridge(r) {
+  return {
+    type: 'rapp:cartridge',
+    schema: 'rapp-cartridge/1.0',
+    rapp: r ? { ...r } : null,
+    context: {
+      user: state.ghUser ? {
+        login: state.ghUser.login,
+        name: state.ghUser.name || null,
+        avatar_url: state.ghUser.avatar_url || null,
+      } : null,
+      // Auth token is NEVER shipped across the iframe boundary. UIs that
+      // need to make authenticated calls postMessage back to us with
+      // `rapp:fetch` and we proxy.
+      tether: {
+        active: !!(state.tether.enabled && state.tether.detected),
+        base:   state.tether.detected ? state.tether.base : null,
+      },
+      session: {
+        id: state._session_id || (state._session_id = 'vbs-' + Math.random().toString(36).slice(2, 10)),
+        conversation_history: state.conversation || [],
+      },
+      origin: {
+        vbrainstem: location.href,
+        catalog_source: 'kody-w/RAPP_Store',
+      },
+    },
+    capabilities: {
+      can_invoke_agent: !!state.loadedAgent,
+      can_proxy_fetch: true,
+      can_post_chat:   true,
+    },
+  };
+}
+
+function postCartridge(r) {
+  const frame = $('#rappFrame');
+  if (!frame.contentWindow) return;
+  try {
+    frame.contentWindow.postMessage(buildCartridge(r), '*');
+  } catch (e) {
+    console.warn('cartridge post failed:', e);
+  }
+}
+
+// Listen for messages from the iframe. The rapp UI can:
+//   * { type: 'rapp:get_cartridge' }                  → re-request the envelope
+//   * { type: 'rapp:invoke', id, args }               → run perform(**args), reply with rapp:invoke:result
+//   * { type: 'rapp:chat', id, message }              → submit a chat turn, reply with rapp:chat:result
+//   * { type: 'rapp:fetch', id, url, init }           → proxy a fetch (used by tethered UIs that
+//                                                       want the parent's CORS / auth context)
+window.addEventListener('message', async (ev) => {
+  const frame = $('#rappFrame');
+  if (!frame || ev.source !== frame.contentWindow) return;
+  const msg = ev.data;
+  if (!msg || typeof msg !== 'object' || !msg.type) return;
+  const reply = (kind, data) => {
+    try { ev.source.postMessage({ type: kind, id: msg.id, ...data }, '*'); }
+    catch {}
+  };
+  try {
+    if (msg.type === 'rapp:get_cartridge') {
+      postCartridge(state.selectedRapp);
+      return;
+    }
+    if (msg.type === 'rapp:invoke') {
+      if (!state.loadedAgent) {
+        reply('rapp:invoke:result', { error: 'no agent loaded in vBrainstem' });
+        return;
+      }
+      const out = await runLoadedAgent(msg.args || {});
+      reply('rapp:invoke:result', { result: out });
+      return;
+    }
+    if (msg.type === 'rapp:chat') {
+      // Run a full chat turn (with tools) and send the assistant's reply back.
+      // Doesn't render in the parent's messages pane — this is the rapp
+      // UI's chat surface, not the user's. Implement minimally as a single
+      // round trip; richer hooks (streaming, multi-tool) are follow-ups.
+      const userMsg = String(msg.message || '');
+      if (!userMsg) { reply('rapp:chat:result', { error: 'empty message' }); return; }
+      // Reuse the same dispatch as the in-vBrainstem chat composer.
+      const before = state.conversation.length;
+      await chat(userMsg);
+      const last = state.conversation.slice(before).filter(m => m.role === 'assistant').pop();
+      reply('rapp:chat:result', { reply: last ? last.content : '' });
+      return;
+    }
+    if (msg.type === 'rapp:fetch') {
+      const r = await fetch(msg.url, msg.init || {});
+      const text = await r.text();
+      reply('rapp:fetch:result', { status: r.status, body: text });
+      return;
+    }
+  } catch (e) {
+    reply(msg.type + ':result', { error: String(e.message || e) });
+  }
+});
 
 function setView(view) {
   const main = document.querySelector('main.chat');
