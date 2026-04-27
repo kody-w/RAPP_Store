@@ -265,8 +265,16 @@
   <aside class="catalog">
     <h2>Resident</h2>
     <div id="residentList"></div>
-    <h2 style="margin-top: 18px;">Catalog</h2>
+    <h2 style="margin-top: 18px;" title="Bundled rapplications — agent + UI / service / eggs. From kody-w/RAPP_Store.">Rapplications <span style="color: var(--text-muted); font-weight: normal;" id="rappCount"></span></h2>
     <div id="rappList">
+      <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
+    </div>
+    <h2 style="margin-top: 18px;" title="Bare single-file agents from kody-w/RAR.">Agents <span style="color: var(--text-muted); font-weight: normal;" id="agentCount"></span></h2>
+    <div id="agentList">
+      <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
+    </div>
+    <h2 style="margin-top: 18px;" title="Per-channel output overlays from kody-w/RAPP_Sense_Store. Senses install into utils/senses/, not agents/, so they're previewed here but not loadable into this client-side runtime.">Senses <span style="color: var(--text-muted); font-weight: normal;" id="senseCount"></span></h2>
+    <div id="senseList">
       <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
     </div>
     <div id="tetheredSection" style="display: none;">
@@ -336,6 +344,13 @@
 const CATALOG_URL = './index.json';
 const RAW_BASE = 'https://raw.githubusercontent.com/kody-w/rapp_store/main/';
 
+// Sibling catalogs in the three-store ecosystem (Constitution Article XXXI;
+// Proposal 0002). The vBrainstem aggregates all three so a user can browse
+// agents (RAR), rapplications (this store), and senses (RAPP_Sense_Store)
+// from one chat surface.
+const RAR_REGISTRY_URL = 'https://raw.githubusercontent.com/kody-w/RAR/main/registry.json';
+const SENSESTORE_URL   = 'https://raw.githubusercontent.com/kody-w/RAPP_Sense_Store/main/index.json';
+
 // GitHub Models endpoint (newer URL — OpenAI-compatible, browser CORS works)
 const GH_MODELS_URL = 'https://models.github.ai/inference/chat/completions';
 
@@ -366,6 +381,12 @@ const NAVIGATOR_URL =
 const state = {
   catalog: null,
   rapps: [],
+  // Sibling catalogs (per Article XXXI three-store model). Pulled lazily
+  // and rendered as collapsible sidebar sections. Cross-store install URLs
+  // route through whatever the user has tethered to (or are pointed at as
+  // download links in cloud mode).
+  rarAgents: [],               // bare agents from kody-w/RAR
+  senses: [],                  // senses from kody-w/RAPP_Sense_Store
   selectedRapp: null,
   loadedAgent: null,           // { source, manifest, agentClass, metadata, filename }
   conversation: [],            // [{role, content, ...}]
@@ -650,6 +671,38 @@ async function loadCatalog() {
     $('#rappList').innerHTML =
       `<div style="color: var(--red); font-size: 12px;">Failed to load catalog: ${e.message}</div>`;
   }
+  // Pull the sibling catalogs in the background — failure on either is
+  // soft; rapplications still render even if RAR or sense store is down.
+  loadRarRegistry().catch(() => {});
+  loadSenseCatalog().catch(() => {});
+}
+
+async function loadRarRegistry() {
+  try {
+    const r = await fetch(RAR_REGISTRY_URL, { cache: 'no-store' });
+    const reg = await r.json();
+    // RAR's registry.json is large (~270 entries). Trim down to the @rapp/*
+    // namespace by default for the sidebar — the platform-curated ones —
+    // since browsing 270+ entries in a sidebar is its own UX problem.
+    // Other publishers are still searchable via the navigator's tools.
+    state.rarAgents = (reg.agents || []).filter(a => (a.name || '').startsWith('@rapp/'));
+    renderRarAgents();
+  } catch (e) {
+    $('#agentList').innerHTML =
+      `<div style="color: var(--red); font-size: 12px;">RAR fetch failed: ${e.message}</div>`;
+  }
+}
+
+async function loadSenseCatalog() {
+  try {
+    const r = await fetch(SENSESTORE_URL, { cache: 'no-store' });
+    const cat = await r.json();
+    state.senses = cat.senses || [];
+    renderSenses();
+  } catch (e) {
+    $('#senseList').innerHTML =
+      `<div style="color: var(--red); font-size: 12px;">Sense store fetch failed: ${e.message}</div>`;
+  }
 }
 
 function renderCatalog() {
@@ -673,6 +726,7 @@ function renderCatalog() {
   // Catalog — the rapp_store rapplications.
   const list = $('#rappList');
   list.innerHTML = '';
+  $('#rappCount').textContent = `(${state.rapps.length})`;
   for (const r of state.rapps) {
     const card = el('div', {
       class: 'rapp-card',
@@ -691,6 +745,86 @@ function renderCatalog() {
     ]);
     list.appendChild(card);
   }
+}
+
+function renderRarAgents() {
+  const list = $('#agentList');
+  list.innerHTML = '';
+  $('#agentCount').textContent = `(${state.rarAgents.length})`;
+  if (!state.rarAgents.length) {
+    list.innerHTML = `<div style="color: var(--text-dim); font-size: 12px; padding: 8px;">No @rapp/* agents — RAR may be unreachable.</div>`;
+    return;
+  }
+  for (const a of state.rarAgents) {
+    const slug = (a.name || '').split('/', 2)[1] || a.name;
+    const url = `https://raw.githubusercontent.com/kody-w/RAR/main/agents/${a.name}.py`;
+    const card = el('div', {
+      class: 'rapp-card',
+      'data-id': 'agent:' + a.name,
+      onclick: () => selectAgent(a, url),
+    }, [
+      el('div', { class: 'rapp-name', text: a.display_name || slug }),
+      el('div', { class: 'rapp-meta', text: `${a.name} · v${a.version || '?'}` }),
+      el('div', { class: 'rapp-summary', text: (a.description || '').slice(0, 140) }),
+      el('div', {}, [el('span', { class: 'pill has-svc', text: 'agent' })]),
+    ]);
+    list.appendChild(card);
+  }
+}
+
+function renderSenses() {
+  const list = $('#senseList');
+  list.innerHTML = '';
+  $('#senseCount').textContent = `(${state.senses.length})`;
+  if (!state.senses.length) {
+    list.innerHTML = `<div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Sense store empty.</div>`;
+    return;
+  }
+  for (const s of state.senses) {
+    const card = el('div', {
+      class: 'rapp-card',
+      'data-id': 'sense:' + s.name,
+      // Senses install into utils/senses/ on a real brainstem; this client-
+      // side runtime can't load them as agents. Click previews + offers
+      // the URL to copy/paste into a tethered brainstem's binder.
+      onclick: () => previewSense(s),
+    }, [
+      el('div', { class: 'rapp-name', text: s.name }),
+      el('div', { class: 'rapp-meta', text: `${s.publisher || '@rapp'} · v${s.version || '?'} · ${s.delimiter}` }),
+      el('div', { class: 'rapp-summary', text: (s.description || '').slice(0, 140) }),
+      el('div', {},
+        (s.surfaces || ['chat']).map(x => el('span', { class: 'pill has-eggs', text: x }))),
+    ]);
+    list.appendChild(card);
+  }
+}
+
+function selectAgent(a, url) {
+  // Bare agents from RAR install into agents/ directly. The client-side
+  // vBrainstem can fetch and load one as the active agent (Pyodide path)
+  // — same as a rapplication's singleton, but without the manifest wrapper.
+  const slug = (a.name || '').split('/', 2)[1] || a.name;
+  const filename = slug + (slug.endsWith('_agent') ? '' : '_agent') + '.py';
+  selectRapp({
+    id: 'agent:' + a.name,
+    name: a.display_name || slug,
+    version: a.version,
+    summary: a.description,
+    category: a.category || 'agent',
+    singleton_url: url,
+    singleton_filename: filename,
+    _from_rar: true,
+  });
+}
+
+function previewSense(s) {
+  addMessage('system',
+    `**Sense:** \`${s.publisher || '@rapp'}/${s.name}\` — \`${s.delimiter}\`. ` +
+    `Surfaces: \`${(s.surfaces || ['chat']).join(', ')}\`.\n\n` +
+    `> ${(s.description || '(no description)').slice(0, 280)}\n\n` +
+    `Senses install into a brainstem's \`utils/senses/\` directory, not \`agents/\` — they shape every reply by appending a delimited block (per Constitution Article XXIV). The vBrainstem can preview them but can't compose them into the system prompt of an agent it's running client-side.\n\n` +
+    `**Install on a tethered brainstem:** ask in chat *"add the ${s.name} sense"* — the binder agent (per kody-w/RAPP issue #22) handles it.\n\n` +
+    `**Manual install:** \`curl -fsSL ${s.url} -o ~/.brainstem/src/rapp_brainstem/utils/senses/${s.filename}\``);
 }
 
 function selectRapp(r) {
