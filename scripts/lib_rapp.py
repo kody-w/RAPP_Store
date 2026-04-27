@@ -38,10 +38,11 @@ SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 PUBLISHER_RE = re.compile(r"^@[a-zA-Z0-9][a-zA-Z0-9-]*$")
 
 RESERVED_IDS = frozenset({
-    "scripts", "tests", "versions", "eggs", "senses",
+    # Repo-internal directories that must not collide with rapp ids:
+    "scripts", "tests", "versions", "eggs", "senses", "docs",
+    # Live rapps in the catalog (id collisions reject):
     "binder", "dashboard", "kanban", "swarms", "webhook",
-    "vibe_builder", "learn_new", "swarm_factory",
-    "publish_to_rapp_store",
+    "bookfactory", "twin_workshop",
 })
 
 OFFICIAL_PUBLISHERS = frozenset({"@rapp", "@rarbookworld"})
