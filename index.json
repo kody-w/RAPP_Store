@@ -4,54 +4,10 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.0.0",
-  "generated_at": "2026-04-27T20:59:00Z",
+  "generated_at": "2026-04-27T21:04:01Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
-    {
-      "id": "twinworkshop",
-      "name": "Twin Workshop",
-      "version": "0.1.0",
-      "summary": "Workshop a personal twin in 60 minutes. Asks what you want to delegate, designs the agent in front of you, validates against your test input, hands you the .py. Runs everywhere a brainstem does.",
-      "tagline": "The full workshop loop, performed by the platform on itself, with the customer in the room.",
-      "category": "creative-pipeline",
-      "tags": [
-        "composite",
-        "killer-app",
-        "rapplication",
-        "has-ui",
-        "workshop"
-      ],
-      "manifest_name": "@rapp/twin-workshop-singleton",
-      "singleton_filename": "twin_workshop_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/twin_workshop/singleton/twin_workshop_agent.py",
-      "singleton_sha256": "d12076a8a41db9d3c240a388e0e8492626c408c9f8efa21fe46d51948ed518e8",
-      "singleton_lines": 436,
-      "singleton_bytes": 20069,
-      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/twin_workshop/ui/index.html",
-      "ui_filename": "index.html",
-      "egg_url": null,
-      "egg_note": "Stateless per workshop session — no shipped state.",
-      "produced_by": {
-        "method": "hand-built-then-converged",
-        "source_files_collapsed": 1,
-        "specialists": [
-          "@rapp/twin-intake",
-          "@rapp/twin-clarify",
-          "@rapp/twin-designer",
-          "@rapp/twin-validator",
-          "@rapp/twin-shipper"
-        ]
-      },
-      "example_call": {
-        "args": {
-          "stage": "intake",
-          "description": "I want an agent that answers prospect emails the way I would."
-        }
-      },
-      "license": "BSD-style",
-      "publisher": "@rapp"
-    },
     {
       "id": "bookfactoryagent",
       "name": "BookFactory",
@@ -487,6 +443,50 @@
           "repo_url": "https://github.com/alice/cool-rapps/tree/main/my_rapp"
         }
       }
+    },
+    {
+      "id": "twin_workshop",
+      "name": "TwinWorkshop",
+      "version": "0.1.0",
+      "summary": "Workshop a personal twin in 60 minutes. The platform performs the full workshop loop on itself, with the customer in the room: intake what they want to delegate, clarify the contract, design the agent live, validate against their test input, hand them the .py. Five stages, one rapplication.",
+      "category": "creative",
+      "tags": [
+        "composite",
+        "killer-app",
+        "rapplication",
+        "has-ui",
+        "workshop"
+      ],
+      "license": "BSD-style",
+      "publisher": "@rapp",
+      "tagline": "The full workshop loop, performed by the platform on itself, with the customer in the room.",
+      "manifest_name": "@rapp/twin-workshop-singleton",
+      "singleton_filename": "twin_workshop_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/twin_workshop/singleton/twin_workshop_agent.py",
+      "singleton_sha256": "d12076a8a41db9d3c240a388e0e8492626c408c9f8efa21fe46d51948ed518e8",
+      "singleton_lines": 435,
+      "singleton_bytes": 20069,
+      "ui_filename": "index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/twin_workshop/ui/index.html",
+      "produced_by": {
+        "method": "hand-built-then-converged",
+        "source_files_collapsed": 1,
+        "specialists": [
+          "@rapp/twin-intake",
+          "@rapp/twin-clarify",
+          "@rapp/twin-designer",
+          "@rapp/twin-validator",
+          "@rapp/twin-shipper"
+        ]
+      },
+      "example_call": {
+        "args": {
+          "stage": "intake",
+          "description": "I want an agent that answers prospect emails the way I would."
+        }
+      },
+      "egg_note": "Stateless per workshop session — no shipped state.",
+      "quality_tier": "official"
     }
   ],
   "senses": [
