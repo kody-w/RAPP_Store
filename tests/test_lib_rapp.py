@@ -137,6 +137,34 @@ class TestManifestRules:
         assert result.ok, (cat, result.errors)
 
 
+class TestQualityTierDowngrade:
+    @pytest.mark.parametrize("declared,expected", [
+        ("featured", "community"),
+        ("official", "community"),
+        ("verified", "community"),
+        ("community", "community"),
+        ("experimental", "experimental"),
+        ("deprecated", "deprecated"),
+        (None, "community"),
+        ("", "community"),
+    ])
+    def test_downgrade_caps_at_community(self, declared, expected):
+        assert lib_rapp.downgrade_tier_for_submission(declared) == expected
+
+    def test_build_index_entry_downgrades(self, make_rapp_dir):
+        rapp = make_rapp_dir(quality_tier="featured")
+        result = lib_rapp.validate_dir(rapp)
+        entry = lib_rapp.build_index_entry(result.manifest, result.integrity, "my_thing")
+        # Submitter declared 'featured' but the receiver downgrades to 'community'
+        assert entry["quality_tier"] == "community"
+
+    def test_build_index_entry_preserves_experimental(self, make_rapp_dir):
+        rapp = make_rapp_dir(quality_tier="experimental")
+        result = lib_rapp.validate_dir(rapp)
+        entry = lib_rapp.build_index_entry(result.manifest, result.integrity, "my_thing")
+        assert entry["quality_tier"] == "experimental"
+
+
 # ── Singleton AST contract ────────────────────────────────────────────────
 
 class TestSingletonContract:
