@@ -23,7 +23,7 @@ The bundled `ui/index.html` is the iframe-mounted UI that walks the user through
 
 ```bash
 curl -L -o ~/.brainstem/src/rapp_brainstem/agents/twin_workshop_agent.py \
-  https://raw.githubusercontent.com/kody-w/rapp_store/main/twin_workshop/singleton/twin_workshop_agent.py
+  https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/twin_workshop/singleton/twin_workshop_agent.py
 ```
 
 Or use the binder agent: *"Install the twin_workshop rapplication."* — the binder service fetches both the singleton and the UI.

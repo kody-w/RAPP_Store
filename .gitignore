@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+
+# staging/ holds in-flight rapp submissions during the receiver workflow.
+# The workflow commits its own changes; checked-in pending state from
+# earlier runs shouldn't leak into the repo.
+staging/

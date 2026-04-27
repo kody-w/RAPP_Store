@@ -82,13 +82,13 @@ The snippet to merge into `rapp_store/index.json` under `rapplications[]`. Requi
   "category": "analysis",
   "tags": ["..."],
   "singleton_filename": "spine_dag_agent.py",
-  "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/spine_dag/singleton/spine_dag_agent.py"
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/spine_dag/singleton/spine_dag_agent.py"
 }
 ```
 
 Integrity fields (`singleton_sha256`, `singleton_lines`, `singleton_bytes`, and the equivalents for `service_*` / `ui_*`) are **always recomputed by the receiver** from the actual on-disk files at promotion time. Whatever the submitter ships in `index_entry.json` for these fields is overwritten. The submitter does not need to compute them.
 
-`singleton_url` and other `*_url` fields are likewise rewritten by the receiver to point at `kody-w/rapp_store/main/<id>/...`. The submitter SHOULD ship them with the canonical value but is not required to.
+`singleton_url` and other `*_url` fields are likewise rewritten by the receiver to point at `kody-w/rapp_store/main/apps/@<publisher>/<id>/...` (Proposal 0002 — publisher namespacing). The submitter SHOULD ship them with the canonical value but is not required to.
 
 ## 4. Singleton contract
 
