@@ -127,15 +127,20 @@
   </div>
   <div class="controls">
     <a href="https://kody-w.github.io/RAPP/">← RAPP</a>
+    <a href="https://kody-w.github.io/RAR/" target="_blank">RAR (bare agents) ↗</a>
     <a href="https://github.com/kody-w/rapp_store" target="_blank">source ↗</a>
   </div>
 </header>
 
 <div class="help">
   <h2>What is a rapplication?</h2>
-  A rapplication (RAPP application) is a <strong>converged single-file agent.py</strong> — one self-contained Python file
-  that contains an entire AI workflow. Drop it in your local brainstem's <code>agents/</code> directory and it works.
+  A rapplication is a <strong>bundle</strong> — a single-file agent paired with at least one of: a UI, an HTTP service,
+  or a state cartridge (<code>.egg</code>). Drop the directory into your local brainstem and the whole experience works:
+  the agent for the LLM to call, the UI to render, the service to expose endpoints, the egg to seed state.
   No <code>pip install</code>. No native dependencies. Just <code>BasicAgent</code> and an LLM key in your environment.
+  <br><br>
+  <strong>Looking for a bare <code>agent.py</code>?</strong> Per <a href="https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md#article-xxvii--rar-holds-files-the-rapp-store-holds-bundles" target="_blank">Constitution Article XXVII</a>,
+  one-file agents live in <a href="https://kody-w.github.io/RAR/" target="_blank">kody-w/RAR</a>. The store hosts bundles; RAR hosts files.
   <br><br>
   Each rapplication was produced by the <strong>double-jump loop</strong>: claude vs framework,
   score head-to-head, encode the diagnosis as <code>agent.py</code> changes, re-run until convergence. Then collapse the

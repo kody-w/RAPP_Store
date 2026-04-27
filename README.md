@@ -1,8 +1,12 @@
 # rapp_store
 
-Public catalog of RAPP rapplications — single-file `*_agent.py` modules that drop into a local brainstem's `agents/` directory and run.
+**[📦 Browse the store](https://kody-w.github.io/RAPP_Store/)** · **[📋 SPEC](./SPEC.md)** · **[🔌 RAR (bare agents)](https://github.com/kody-w/RAR)** · **[⚙️ RAPP engine](https://github.com/kody-w/RAPP)**
 
-This repo was extracted from [`kody-w/RAPP`](https://github.com/kody-w/RAPP) on 2026-04-26 as the content layer of the platform. The engine (Tier 1 brainstem, Tier 2 swarm, Tier 3 worker) lives in `kody-w/RAPP`. Trust metadata (signing, identity, provenance) lives in the RAR registry. This repo is just **content** — agents you can fetch and run.
+Public catalog of RAPP **rapplications** — bundled directories that pair a single-file agent with a UI, a service, or a state cartridge. Drop them into your local brainstem and they work.
+
+> **Looking for bare agents?** A single `*_agent.py` with no UI / service / eggs belongs in **[kody-w/RAR](https://github.com/kody-w/RAR)** — the registry for one-file agents. Per [Constitution Article XXVII](https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md#article-xxvii--rar-holds-files-the-rapp-store-holds-bundles), bundle goes here, bare goes there.
+
+This repo was extracted from [`kody-w/RAPP`](https://github.com/kody-w/RAPP) on 2026-04-26 as the content layer of the platform. The engine (Tier 1 brainstem, Tier 2 swarm, Tier 3 worker) lives in `kody-w/RAPP`. Trust metadata (signing, identity, provenance) lives in the RAR registry. This repo is just **content** — rapplications you can fetch and run.
 
 ## Catalog
 
