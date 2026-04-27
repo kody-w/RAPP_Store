@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.0.0",
-  "generated_at": "2026-04-27T21:18:22Z",
+  "generated_at": "2026-04-27T23:07:41Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
@@ -24,7 +24,7 @@
       ],
       "manifest_name": "@rapp/book-factory-singleton",
       "singleton_filename": "bookfactory_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/bookfactory/singleton/bookfactory_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/bookfactory/singleton/bookfactory_agent.py",
       "singleton_sha256": "1224fe87e3cfbc569aa6d0aa5edf5f796247a9cdbcd5e26222399e68373e4f02",
       "singleton_lines": 522,
       "singleton_bytes": 23458,
@@ -73,7 +73,7 @@
       "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
       "shipped_in_commit": "ebb1648",
       "publisher": "@rarbookworld",
-      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/bookfactory/ui/index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/bookfactory/ui/index.html",
       "ui_filename": "index.html"
     },
     {
@@ -95,10 +95,10 @@
       ],
       "manifest_name": "@rapp/binder",
       "singleton_filename": "binder_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/binder/binder_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/binder/binder_agent.py",
       "singleton_sha256": "8751861575d207920fe98c53d5ab6d832fd2326f1f92fe7fe1ce2c625689ff9c",
       "service_filename": "binder_service.py",
-      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/binder/binder_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/binder/binder_service.py",
       "service_sha256": "a68e44bc2ef0085dfe1598fa224b655b24e91d329128cff2a7328f12a560714d",
       "produced_by": {
         "method": "agent-first",
@@ -127,10 +127,10 @@
       ],
       "manifest_name": "@rapp/swarms",
       "singleton_filename": "swarms_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/swarms/swarms_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/swarms/swarms_agent.py",
       "singleton_sha256": "a735fa8d9b65e127c114fc296d4cb37469308747ec8e8a33cb59efa1656ce67e",
       "service_filename": "swarms_service.py",
-      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/swarms/swarms_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/swarms/swarms_service.py",
       "service_sha256": "b80fae37fc64c054811da8a98f7c8454b7bdbac9c50fd92c6680ef875c230cfe",
       "produced_by": {
         "method": "agent-first",
@@ -158,9 +158,9 @@
       ],
       "manifest_name": "@rapp/kanban",
       "singleton_filename": "kanban_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/kanban/kanban_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/kanban/kanban_agent.py",
       "service_filename": "kanban_service.py",
-      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/kanban/kanban_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/kanban/kanban_service.py",
       "produced_by": {
         "method": "agent-first",
         "source_files_collapsed": 2
@@ -188,9 +188,9 @@
       ],
       "manifest_name": "@rapp/webhook",
       "singleton_filename": "webhook_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/webhook/webhook_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/webhook/webhook_agent.py",
       "service_filename": "webhook_service.py",
-      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/webhook/webhook_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/webhook/webhook_service.py",
       "produced_by": {
         "method": "agent-first",
         "source_files_collapsed": 2
@@ -217,9 +217,9 @@
       ],
       "manifest_name": "@rapp/dashboard",
       "singleton_filename": "dashboard_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/dashboard/dashboard_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/dashboard/dashboard_agent.py",
       "service_filename": "dashboard_service.py",
-      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/dashboard/dashboard_service.py",
+      "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/dashboard/dashboard_service.py",
       "produced_by": {
         "method": "agent-first",
         "source_files_collapsed": 2
@@ -246,12 +246,12 @@
       "tagline": "The full workshop loop, performed by the platform on itself, with the customer in the room.",
       "manifest_name": "@rapp/twin-workshop-singleton",
       "singleton_filename": "twin_workshop_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/twin_workshop/singleton/twin_workshop_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/twin_workshop/singleton/twin_workshop_agent.py",
       "singleton_sha256": "d12076a8a41db9d3c240a388e0e8492626c408c9f8efa21fe46d51948ed518e8",
       "singleton_lines": 435,
       "singleton_bytes": 20069,
       "ui_filename": "index.html",
-      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/twin_workshop/ui/index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/twin_workshop/ui/index.html",
       "produced_by": {
         "method": "hand-built-then-converged",
         "source_files_collapsed": 1,

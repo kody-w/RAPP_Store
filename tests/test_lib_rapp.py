@@ -31,10 +31,12 @@ class TestValidateZipGoldenSpineDag:
     def test_spine_dag_index_entry_built(self, spine_dag_zip_bytes, tmp_path):
         result = lib_rapp.validate_zip(spine_dag_zip_bytes, extract_to=tmp_path)
         entry = lib_rapp.build_index_entry(result.manifest, result.integrity, "spine_dag")
+        # Per Proposal 0002, URLs land under apps/@<publisher>/<id>/.
+        # spine_dag's manifest declares publisher @rapp.
         assert entry["singleton_url"] == \
-            "https://raw.githubusercontent.com/kody-w/rapp_store/main/spine_dag/singleton/spine_dag_agent.py"
+            "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/spine_dag/singleton/spine_dag_agent.py"
         assert entry["singleton_sha256"] == result.integrity["singleton_sha256"]
-        assert entry["ui_url"].endswith("/spine_dag/ui/index.html")
+        assert entry["ui_url"].endswith("/apps/@rapp/spine_dag/ui/index.html")
 
 
 class TestValidateBadBundle:
@@ -109,8 +111,11 @@ class TestManifestRules:
         assert any("E_NO_ENTRYPOINT" in e for e in result.errors)
 
     def test_reserved_id_rejected(self, make_rapp_dir):
-        rapp = make_rapp_dir(rapp_id="binder", id="binder",
-                             agent="singleton/binder_agent.py")
+        # Per Proposal 0002, RESERVED_IDS no longer needs to ban specific rapp
+        # ids (binder etc.) — those live under apps/@<publisher>/. Top-level
+        # repo dir names (scripts, tests, apps, ...) are still reserved.
+        rapp = make_rapp_dir(rapp_id="apps", id="apps",
+                             agent="singleton/apps_agent.py")
         result = lib_rapp.validate_dir(rapp)
         assert not result.ok
         assert any("E_RESERVED_ID" in e for e in result.errors)
