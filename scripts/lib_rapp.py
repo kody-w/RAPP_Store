@@ -219,6 +219,19 @@ def validate_dir(rapp_dir: Path, *,
 
     integrity = compute_integrity(rapp_dir, manifest) if singleton_path else {}
 
+    # Constitution Article XXVII: bare agent.py belongs in RAR, not the rapp store.
+    # A rapplication must declare at least one of ui / service / eggs.
+    has_ui = bool(manifest.get("ui"))
+    has_service = bool(manifest.get("service"))
+    has_eggs = (rapp_dir / "eggs").is_dir() and any((rapp_dir / "eggs").iterdir())
+    if not (has_ui or has_service or has_eggs):
+        errors.append(
+            "E_BARE_AGENT_BELONGS_IN_RAR: manifest declares neither ui nor service "
+            "and ships no eggs/. Per Constitution Article XXVII, bare agent.py files "
+            "belong in kody-w/RAR (open an [AGENT] @<publisher>/<slug> issue). The "
+            "rapp store hosts bundles only."
+        )
+
     if errors:
         return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest,
                                 index_entry=index_entry, integrity=integrity, errors=errors)
@@ -414,6 +427,16 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
                 errors.append(f"E_UI_TOO_LARGE: {len(ui_blob)} bytes")
             integrity["ui_sha256"] = hashlib.sha256(ui_blob).hexdigest()
             integrity["ui_bytes"] = len(ui_blob)
+
+    # Constitution Article XXVII bundle test (federation can't see eggs/ remotely
+    # without an extra fetch; we accept ui or service as sufficient surface).
+    if not (ui_rel or service_rel):
+        errors.append(
+            "E_BARE_AGENT_BELONGS_IN_RAR: manifest declares neither ui nor "
+            "service. Per Constitution Article XXVII, bare agent.py files "
+            "belong in kody-w/RAR. Submit via [AGENT] @<publisher>/<slug> "
+            "issue at https://github.com/kody-w/RAR/issues/new."
+        )
 
     commit_sha: str | None = None
     try:
