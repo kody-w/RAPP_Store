@@ -38,11 +38,9 @@ SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 PUBLISHER_RE = re.compile(r"^@[a-zA-Z0-9][a-zA-Z0-9-]*$")
 
 RESERVED_IDS = frozenset({
-    # Repo-internal directories that must not collide with rapp ids:
-    "scripts", "tests", "versions", "eggs", "senses", "docs",
-    # Live rapps in the catalog (id collisions reject):
-    "binder", "dashboard", "kanban", "swarms", "webhook",
-    "bookfactory", "twin_workshop",
+    # Repo-internal directories that must not collide with rapp ids
+    # (top-level only — rapp directories now live under apps/@<publisher>/):
+    "scripts", "tests", "versions", "eggs", "senses", "docs", "apps",
 })
 
 OFFICIAL_PUBLISHERS = frozenset({"@rapp", "@rarbookworld"})
@@ -327,11 +325,17 @@ def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str
         if opt in manifest:
             entry[opt] = manifest[opt]
 
+    # Per Proposal 0002, rapps live under apps/@<publisher>/<id>/ in the
+    # catalog. The publisher comes from the manifest. URLs reflect the new
+    # path; old root-level URLs are gone after step D.
+    publisher = manifest.get("publisher", "@rapp")
+    base_path = f"apps/{publisher}/{rapp_id}"
+
     if manifest.get("agent"):
         agent_rel = manifest["agent"]
         agent_filename = Path(agent_rel).name
         entry["singleton_filename"] = agent_filename
-        entry["singleton_url"] = f"{CATALOG_RAW_BASE}/{rapp_id}/{agent_rel}"
+        entry["singleton_url"] = f"{CATALOG_RAW_BASE}/{base_path}/{agent_rel}"
         if "singleton_sha256" in integrity:
             entry["singleton_sha256"] = integrity["singleton_sha256"]
         if "singleton_lines" in integrity:
@@ -342,14 +346,14 @@ def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str
     if manifest.get("service"):
         svc_rel = manifest["service"]
         entry["service_filename"] = Path(svc_rel).name
-        entry["service_url"] = f"{CATALOG_RAW_BASE}/{rapp_id}/{svc_rel}"
+        entry["service_url"] = f"{CATALOG_RAW_BASE}/{base_path}/{svc_rel}"
         if "service_sha256" in integrity:
             entry["service_sha256"] = integrity["service_sha256"]
 
     if manifest.get("ui"):
         ui_rel = manifest["ui"]
         entry["ui_filename"] = Path(ui_rel).name
-        entry["ui_url"] = f"{CATALOG_RAW_BASE}/{rapp_id}/{ui_rel}"
+        entry["ui_url"] = f"{CATALOG_RAW_BASE}/{base_path}/{ui_rel}"
 
     return entry
 
