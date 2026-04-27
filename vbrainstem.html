@@ -123,6 +123,29 @@
   .loaded-bar .agent-name { font-weight: 700; }
   .loaded-bar .agent-tools { color: var(--text-dim); font-size: 11px; }
   .loaded-bar .right { margin-left: auto; }
+  .loaded-bar .tabs { display: flex; gap: 0; margin-left: 16px; }
+  .loaded-bar .tab {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 4px 12px; cursor: pointer; font-size: 11px; font-family: inherit;
+    border-right-width: 0;
+  }
+  .loaded-bar .tab:last-child { border-right-width: 1px; border-radius: 0 6px 6px 0; }
+  .loaded-bar .tab:first-child { border-radius: 6px 0 0 6px; }
+  .loaded-bar .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .loaded-bar .tab:hover:not(.active) { color: var(--text); }
+
+  /* Rapp UI iframe — replaces or sides the messages area depending on view */
+  #rappFrame {
+    flex: 1; border: 0; background: #fff;
+    width: 100%; min-height: 0;
+  }
+  /* When view = split, the chat takes top half and the iframe takes bottom */
+  main.chat.view-chat #rappFrame { display: none !important; }
+  main.chat.view-ui  .messages,
+  main.chat.view-ui  .composer { display: none !important; }
+  main.chat.view-ui  #rappFrame { display: block !important; }
+  main.chat.view-split #rappFrame { display: block; flex: 1; min-height: 200px; border-top: 1px solid var(--border); }
+  main.chat.view-split .messages { flex: 1; min-height: 150px; }
   .btn {
     background: var(--surface2); border: 1px solid var(--border); color: var(--text);
     padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
@@ -288,10 +311,16 @@
       <span class="pill" id="loadedPill">no agent loaded</span>
       <span class="agent-name" id="loadedName">—</span>
       <span class="agent-tools" id="loadedTools"></span>
+      <div class="tabs" id="viewTabs" style="display: none;">
+        <button class="tab" data-view="chat" id="tabChat">Chat</button>
+        <button class="tab" data-view="ui" id="tabUI">UI</button>
+        <button class="tab" data-view="split" id="tabSplit">Split</button>
+      </div>
       <div class="right">
         <button class="btn" id="unloadBtn" style="display:none;">Unload</button>
       </div>
     </div>
+    <iframe id="rappFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" style="display: none;"></iframe>
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
         <h1>Talk to the catalog</h1>
@@ -831,12 +860,44 @@ function selectRapp(r) {
   state.selectedRapp = r;
   document.querySelectorAll('.rapp-card').forEach(c => c.classList.toggle(
     'active', c.getAttribute('data-id') === r.id));
+  // Mount the rapp's UI iframe if it has one. Bookfactory, twin_workshop,
+  // SpineDAG etc. ship a ui_url — that's the primary surface for the rapp.
+  // Default view = ui when present (the UI is what the user came for);
+  // chat stays available behind the tab.
+  mountRappFrame(r);
   if (!r.singleton_url) {
     addMessage('error', `**${r.name}** has no \`singleton_url\` — likely a service-only rapp (binder, dashboard, etc.) that needs a running brainstem to host its HTTP service. The vBrainstem can chat with agents, not host services.`);
     return;
   }
   loadAgent(r);
 }
+
+function mountRappFrame(r) {
+  const frame = $('#rappFrame');
+  const tabs = $('#viewTabs');
+  if (r && r.ui_url) {
+    frame.src = r.ui_url;
+    tabs.style.display = '';
+    setView('ui');
+  } else {
+    frame.removeAttribute('src');
+    frame.src = 'about:blank';
+    tabs.style.display = 'none';
+    setView('chat');
+  }
+}
+
+function setView(view) {
+  const main = document.querySelector('main.chat');
+  main.classList.remove('view-chat', 'view-ui', 'view-split');
+  main.classList.add('view-' + view);
+  document.querySelectorAll('#viewTabs .tab').forEach(t =>
+    t.classList.toggle('active', t.getAttribute('data-view') === view));
+}
+
+// Wire the tab clicks.
+document.querySelectorAll('#viewTabs .tab').forEach(t =>
+  t.addEventListener('click', () => setView(t.getAttribute('data-view'))));
 
 // ─── Agent loading ──────────────────────────────────────────────────────
 
@@ -893,6 +954,7 @@ function unloadAgent() {
   $('#unloadBtn').style.display = 'none';
   document.querySelectorAll('.rapp-card').forEach(c => c.classList.remove('active'));
   state.selectedRapp = null;
+  mountRappFrame(null);  // also clears the iframe
   updateInputState();
 }
 $('#unloadBtn').addEventListener('click', unloadAgent);
