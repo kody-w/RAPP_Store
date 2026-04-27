@@ -184,6 +184,97 @@ Both modes can be triggered any of three ways:
 - `manifest.version` is the source of truth for the live version.
 - On promotion, the receiver SHOULD copy the previous live files (if any) to `<id>/versions/<old_version>/` so old SHAs in the catalog's `available_versions` list keep resolving. This makes pinned installs reproducible.
 
-## 9. Reserved IDs
+## 9. Cartridge protocol (rapp UIs ↔ parent runtime)
+
+`schema: rapp-cartridge/1.0`
+
+When a rapp's UI is mounted in a parent runtime (the vBrainstem at `kody-w.github.io/RAPP_Store/vbrainstem.html`, the local brainstem's `/binder/ui/<id>` mount, or any other host that follows this protocol), the parent posts a structured **cartridge** to the iframe via `window.postMessage` and acts as a runtime bridge for any agent / chat / fetch calls the UI wants to make.
+
+Standalone rapps (UIs loaded directly at their `ui_url`) ignore the protocol and run with whatever defaults they ship. The cartridge is purely additive.
+
+### 9.1 The envelope
+
+The parent posts (target origin `*`) once on iframe load, and again any time the UI re-requests it:
+
+```jsonc
+{
+  "type": "rapp:cartridge",
+  "schema": "rapp-cartridge/1.0",
+  "rapp": { /* full catalog entry — id, name, version, publisher, manifest_name,
+                singleton_url, ui_url, egg_url, summary, tagline, category,
+                tags, surfaces, ... */ },
+  "context": {
+    "user":   { "login": "kody-w", "name": "Kody Wildfeuer", "avatar_url": "..." } | null,
+    "tether": { "active": true, "base": "http://localhost:7071" } | { "active": false, "base": null },
+    "session": { "id": "vbs-...", "conversation_history": [{"role":"user","content":"..."}, ...] },
+    "origin":  { "vbrainstem": "https://...", "catalog_source": "kody-w/RAPP_Store" }
+  },
+  "capabilities": {
+    "can_invoke_agent": true | false,
+    "can_proxy_fetch":  true,
+    "can_post_chat":    true
+  }
+}
+```
+
+**No auth token crosses the boundary.** UIs that need authenticated network access call `rapp:fetch` (§9.3) — the parent decides what to proxy.
+
+### 9.2 UI → parent messages
+
+The UI can post these back via `window.parent.postMessage(msg, '*')`:
+
+| Message | Reply | Purpose |
+|---|---|---|
+| `{type: "rapp:get_cartridge"}` | `rapp:cartridge` envelope | UI loaded after the parent's first post (or wants a fresh copy after state changes) |
+| `{type: "rapp:invoke", id, args}` | `{type: "rapp:invoke:result", id, result \| error}` | Run the loaded agent's `perform(**args)`. The parent runs it via Pyodide (cloud mode) or the tethered brainstem. |
+| `{type: "rapp:chat", id, message}` | `{type: "rapp:chat:result", id, reply \| error}` | Submit a chat turn (including the agent as a tool) and get the assistant reply. |
+| `{type: "rapp:fetch", id, url, init}` | `{type: "rapp:fetch:result", id, status, body \| error}` | Proxy a fetch through the parent (uses parent's auth + CORS context). |
+
+`id` is an opaque string the UI sends so it can match async replies to requests. The parent echoes it verbatim.
+
+### 9.3 Minimal listening UI (in any rapp's `ui/index.html`)
+
+```html
+<script>
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  if (ev.data && ev.data.type === 'rapp:cartridge') {
+    cartridge = ev.data;
+    onCartridgeLoaded();
+  }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function onCartridgeLoaded() {
+  // cartridge.rapp.id, cartridge.rapp.name, cartridge.context.user.login, etc.
+  // Render the UI using these values instead of fetching them yourself.
+}
+
+function runAgent(args) {
+  return new Promise((resolve, reject) => {
+    const id = Math.random().toString(36).slice(2);
+    const handler = (ev) => {
+      if (ev.data && ev.data.type === 'rapp:invoke:result' && ev.data.id === id) {
+        window.removeEventListener('message', handler);
+        ev.data.error ? reject(new Error(ev.data.error)) : resolve(ev.data.result);
+      }
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+</script>
+```
+
+A UI written this way works in three contexts without code changes:
+- Standalone (no parent posts a cartridge → falls back to defaults).
+- vBrainstem cloud mode (parent runs `perform()` in Pyodide).
+- vBrainstem tether mode (parent forwards to the local brainstem's `/chat` and `/api/binder/agent`).
+
+### 9.4 Why this lives in SPEC.md
+
+The cartridge is part of the rapplication contract — UIs that adopt it get free upgrades whenever the parent runtime adds capabilities (better LLM routing, multi-agent tool loops, voice, etc.) without any change to the UI's own code. New parent runtimes (third-party brainstems, CI test harnesses, agent-driven testing tools) implement the same protocol and become drop-in hosts.
+
+## 10. Reserved IDs
 
 The following IDs are reserved by the platform and cannot be claimed by community publishers: `binder`, `dashboard`, `kanban`, `swarms`, `webhook`, `vibe_builder`, `learn_new`, `swarm_factory`, `senses`, `publish_to_rapp_store`. The reserved list lives in `scripts/lib_rapp.py`.
