@@ -331,6 +331,103 @@ class TestFederation:
         assert any("E_BAD_REPO" in e for e in result.errors)
 
 
+# ── Bare-agent rejection (Constitution XXVII) ────────────────────────────
+
+class TestBareAgentRejection:
+    def test_no_ui_no_service_no_eggs_rejected(self, make_rapp_dir, tmp_path):
+        # make_rapp_dir defaults to declaring a ui — strip it to make a bare rapp.
+        rapp = make_rapp_dir()
+        manifest_path = rapp / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        del manifest["ui"]
+        manifest_path.write_text(json.dumps(manifest))
+        # Also remove the ui file so it doesn't accidentally count.
+        import shutil
+        shutil.rmtree(rapp / "ui", ignore_errors=True)
+        result = lib_rapp.validate_dir(rapp)
+        assert not result.ok
+        assert any("E_BARE_AGENT_BELONGS_IN_RAR" in e for e in result.errors)
+
+    def test_with_ui_declared_passes(self, make_rapp_dir):
+        rapp = make_rapp_dir()  # default has ui
+        result = lib_rapp.validate_dir(rapp)
+        assert result.ok, result.errors
+
+    def test_with_service_declared_passes(self, make_rapp_dir):
+        rapp = make_rapp_dir(service="service/my_thing_service.py")
+        # Strip default ui, add the service file
+        manifest_path = rapp / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        del manifest["ui"]
+        manifest_path.write_text(json.dumps(manifest))
+        import shutil
+        shutil.rmtree(rapp / "ui", ignore_errors=True)
+        svc_path = rapp / manifest["service"]
+        svc_path.parent.mkdir(parents=True, exist_ok=True)
+        svc_path.write_text(
+            'name = "my_thing"\n'
+            'def handle(method, path, body): return {}, 200\n'
+        )
+        result = lib_rapp.validate_dir(rapp)
+        assert result.ok, result.errors
+
+    def test_with_eggs_dir_passes(self, make_rapp_dir):
+        rapp = make_rapp_dir()
+        manifest_path = rapp / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        del manifest["ui"]
+        manifest_path.write_text(json.dumps(manifest))
+        import shutil
+        shutil.rmtree(rapp / "ui", ignore_errors=True)
+        # An egg makes it a bundle even without ui/service.
+        (rapp / "eggs").mkdir()
+        (rapp / "eggs" / "demo.egg").write_bytes(b"PK\x03\x04fake-zip")
+        result = lib_rapp.validate_dir(rapp)
+        assert result.ok, result.errors
+
+    def test_rejection_message_points_to_RAR(self, make_rapp_dir):
+        rapp = make_rapp_dir()
+        manifest_path = rapp / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        del manifest["ui"]
+        manifest_path.write_text(json.dumps(manifest))
+        import shutil
+        shutil.rmtree(rapp / "ui", ignore_errors=True)
+        result = lib_rapp.validate_dir(rapp)
+        bare_err = next((e for e in result.errors if "E_BARE_AGENT" in e), "")
+        assert "kody-w/RAR" in bare_err
+        assert "Constitution Article XXVII" in bare_err
+
+    def test_federation_bare_agent_rejected(self, fake_fetcher):
+        # Build a manifest with no ui, no service.
+        bare_manifest = json.dumps({
+            "schema": "rapp-application/1.0",
+            "id": "bare_thing",
+            "name": "BareThing",
+            "version": "0.1.0",
+            "publisher": "@alice",
+            "summary": "no surface",
+            "category": "analysis",
+            "tags": ["rapplication"],
+            "agent": "singleton/bare_thing_agent.py",
+        }).encode()
+        bare_agent = (
+            'from agents.basic_agent import BasicAgent\n'
+            '__manifest__ = {"schema": "rapp-agent/1.0", "name": "x", "version": "0.1.0", "description": "x"}\n'
+            'class BareThingAgent(BasicAgent):\n'
+            '    def perform(self, **kw): return "ok"\n'
+        ).encode()
+        routes = {
+            "https://raw.githubusercontent.com/alice/repo/main/manifest.json": bare_manifest,
+            "https://raw.githubusercontent.com/alice/repo/main/singleton/bare_thing_agent.py": bare_agent,
+            "https://api.github.com/repos/alice/repo/commits/main": json.dumps({"sha": "x" * 40}).encode(),
+        }
+        result = lib_rapp.validate_federation("alice/repo",
+                                                fetcher=fake_fetcher(routes))
+        assert not result.ok
+        assert any("E_BARE_AGENT_BELONGS_IN_RAR" in e for e in result.errors)
+
+
 # ── Catalog merge ─────────────────────────────────────────────────────────
 
 class TestCatalogMerge:

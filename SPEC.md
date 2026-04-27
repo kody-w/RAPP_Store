@@ -123,6 +123,7 @@ A submission is **accepted** iff all of the following pass:
 8. `publisher` matches `@<issue_author_github_login>` UNLESS the issue title declares an explicit override AND a maintainer has approved it.
 9. Total bundle size < 5 MB. Singleton < 200 KB. UI < 500 KB.
 10. No file in the bundle escapes the bundle root (no `..` path traversal).
+11. The manifest declares at least one of `ui`, `service`, or ships an `eggs/` directory. Per Constitution Article XXVII, a bare `agent.py` with no application surface belongs in `kody-w/RAR`, not the rapp store. Error code: `E_BARE_AGENT_BELONGS_IN_RAR`. The rejection comment links the submitter to RAR's `[AGENT]` issue flow.
 
 A failure on any rule rejects the submission with a specific error code (see `scripts/lib_rapp.py`).
 

@@ -83,6 +83,9 @@ def make_rapp_dir(tmp_path):
             "category": "analysis",
             "tags": ["rapplication", "test"],
             "agent": f"singleton/{rapp_id}_agent.py",
+            # Default to declaring a UI so the bundle test passes; tests that
+            # need a bare agent override this.
+            "ui": "ui/index.html",
         }
         manifest.update(overrides)
         (rapp_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
@@ -115,6 +118,10 @@ class {rapp_id.title().replace("_", "")}Agent(BasicAgent):
             "singleton_url": f"https://raw.githubusercontent.com/kody-w/rapp_store/main/{rapp_id}/singleton/{rapp_id}_agent.py",
         }, indent=2))
         (rapp_dir / "README.md").write_text(f"# {manifest['name']}\n\nA test rapp.\n")
+        if manifest.get("ui"):
+            ui_path = rapp_dir / manifest["ui"]
+            ui_path.parent.mkdir(parents=True, exist_ok=True)
+            ui_path.write_text("<html><body>test</body></html>")
         return rapp_dir
     return _make
 
