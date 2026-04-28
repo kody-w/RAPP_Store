@@ -1,6 +1,6 @@
 # rapp_store
 
-**[📦 Browse the store](https://kody-w.github.io/RAPP_Store/)** · **[📋 SPEC](./SPEC.md)** · **[🔌 RAR (bare agents)](https://github.com/kody-w/RAR)** · **[⚙️ RAPP engine](https://github.com/kody-w/RAPP)**
+**[📦 Browse the store](https://kody-w.github.io/RAPP_Store/)** · **[📋 SPEC](./SPEC.md)** · **[🔌 RAPP Agent Registry](https://github.com/kody-w/RAR)** · **[⚙️ RAPP engine](https://github.com/kody-w/RAPP)**
 
 Public catalog of RAPP **rapplications** — bundled directories that pair a single-file agent with a UI, a service, or a state cartridge. Drop them into your local brainstem and they work.
 

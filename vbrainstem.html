@@ -277,7 +277,7 @@
   <div class="header-spacer"></div>
   <a class="header-link" href="./">← catalog</a>
   <a class="header-link" href="https://github.com/kody-w/RAPP_Store" target="_blank">source ↗</a>
-  <a class="header-link" href="https://github.com/kody-w/RAR" target="_blank">RAR (bare agents) ↗</a>
+  <a class="header-link" href="https://github.com/kody-w/RAR" target="_blank">RAPP Agent Registry ↗</a>
   <button class="btn" id="settingsBtn">⚙ Settings</button>
   <div class="gh-pill" id="ghPill">
     <span class="gh-dot off"></span>
@@ -293,7 +293,7 @@
     <div id="rappList">
       <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
     </div>
-    <h2 style="margin-top: 18px;" title="Bare single-file agents from kody-w/RAR.">Agents <span style="color: var(--text-muted); font-weight: normal;" id="agentCount"></span></h2>
+    <h2 style="margin-top: 18px;" title="Bare single-file agents from the RAPP Agent Registry (kody-w/RAR).">Agents <span style="color: var(--text-muted); font-weight: normal;" id="agentCount"></span></h2>
     <div id="agentList">
       <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
     </div>
@@ -324,7 +324,7 @@
       <div class="welcome" id="welcome">
         <h1>Talk to the catalog</h1>
         <p>This is the resident vBrainstem for <a href="https://github.com/kody-w/RAPP_Store">kody-w/RAPP_Store</a>. Pick a rapplication from the sidebar, load it, and chat with it. Pure browser — your code, your token, your conversation.</p>
-        <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default). On sign-in, the <strong>StoreNavigator</strong> agent (hosted in <a href="https://github.com/kody-w/RAR">RAR</a>) auto-loads — ask it "what should I install for X?" and it'll search the catalog for you.</div>
+        <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default). On sign-in, the <strong>StoreNavigator</strong> agent (hosted in the <a href="https://github.com/kody-w/RAR">RAPP Agent Registry</a>) auto-loads — ask it "what should I install for X?" and it'll search the catalog for you.</div>
         <div class="step"><span class="num">2</span><strong>Pick a rapp.</strong> Sidebar lists every rapplication in the catalog. Click one and it loads into the browser — its UI iframe mounts, its agent's <code>perform()</code> registers as a tool the model can call.</div>
         <div class="step"><span class="num">3</span><strong>Chat.</strong> The model has the loaded rapp's <code>perform()</code> as a tool — it calls into Pyodide to run real Python in the browser. Your code, your token, your conversation; nothing routes through a server.</div>
       </div>
