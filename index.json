@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.0.0",
-  "generated_at": "2026-04-28T00:30:55Z",
+  "generated_at": "2026-04-28T01:07:18Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
@@ -281,6 +281,49 @@
       },
       "egg_note": "Stateless per workshop session — no shipped state.",
       "quality_tier": "official"
+    },
+    {
+      "id": "wildhaven_ceo",
+      "name": "WildhavenCEO",
+      "version": "0.1.0",
+      "summary": "A CEO workspace agent. Drop a vault of strategy / legal / budget / pitch / playbook documents in, then ask questions and get answers in a confident operator's voice. Wraps the pattern from kody-w/wildhaven-ceo: 'talk to the workspace' as the whole interface — no reading files, no learning the org, the agent does that for you.",
+      "category": "productivity",
+      "tags": [
+        "rapplication",
+        "ceo",
+        "persona",
+        "workspace",
+        "vault",
+        "operator",
+        "has-ui"
+      ],
+      "license": "BSD-style",
+      "publisher": "@blazingbeard",
+      "quality_tier": "community",
+      "tagline": "Talk to your workspace.",
+      "manifest_name": "@blazingbeard/wildhaven-ceo-singleton",
+      "produced_by": {
+        "method": "hand-built-from-vault-pattern",
+        "source_files_collapsed": 1,
+        "bundled_at": "2026-04-28T00:00:00Z",
+        "based_on": "kody-w/wildhaven-ceo"
+      },
+      "singleton_filename": "wildhaven_ceo_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@blazingbeard/wildhaven_ceo/singleton/wildhaven_ceo_agent.py",
+      "singleton_sha256": "bf65ce435f4e247474beccded2b50e5a8721dd80b8ca0efbd349c20a49476c96",
+      "singleton_lines": 280,
+      "singleton_bytes": 11902,
+      "ui_filename": "index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@blazingbeard/wildhaven_ceo/ui/index.html",
+      "egg_url": null,
+      "egg_note": "Stateless per call. The workspace context is supplied at invoke time; no shipped state.",
+      "example_call": {
+        "args": {
+          "action": "ask",
+          "question": "How are the rentals doing this month?",
+          "workspace_context": "(paste your latest property-summary CSV + budget notes here)"
+        }
+      }
     }
   ],
   "senses": [
