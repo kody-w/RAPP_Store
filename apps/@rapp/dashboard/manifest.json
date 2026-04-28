@@ -6,7 +6,7 @@
   "publisher": "@rapp",
   "manifest_name": "@rapp/dashboard",
   "summary": "Track and query metrics through conversation with any LLM. Optional HTTP service for charting UIs and external data ingestion.",
-  "category": "analytics",
+  "category": "analysis",
   "tags": [
     "analytics",
     "metrics",
