@@ -688,7 +688,7 @@ function renderHero() {
   }, ['View details']));
   if (pick.kind === 'rapp' && pick.ui_url) {
     $('#heroActions').appendChild(el('a', {
-      class: 'btn', href: `./vbrainstem.html`,
+      class: 'btn', href: `./vbrainstem.html#rapp=${pick.id}`,
     }, ['💬 Open in vBrainstem']));
   }
   $('#heroActions').appendChild(el('a', {
@@ -883,11 +883,14 @@ function openModal(r) {
 
   const actions = el('div', { class: 'modal-actions' });
   if (r.kind === 'rapp' && r.ui_url) {
-    actions.appendChild(el('a', { class: 'btn primary', href: './vbrainstem.html' },
+    actions.appendChild(el('a', { class: 'btn primary', href: `./vbrainstem.html#rapp=${r.id}` },
       ['💬 Open in vBrainstem']));
-  } else if (r.kind === 'rapp' || r.kind === 'agent') {
-    actions.appendChild(el('a', { class: 'btn primary', href: './vbrainstem.html' },
+  } else if (r.kind === 'rapp') {
+    actions.appendChild(el('a', { class: 'btn primary', href: `./vbrainstem.html#rapp=${r.id}` },
       ['💬 Chat with it']));
+  } else if (r.kind === 'agent') {
+    actions.appendChild(el('a', { class: 'btn primary', href: 'https://kody-w.github.io/RAR/', target: '_blank' },
+      ['💬 Open in RAR']));
   }
   if (r.raw_url) {
     actions.appendChild(el('a', { class: 'btn', href: r.raw_url, target: '_blank' },

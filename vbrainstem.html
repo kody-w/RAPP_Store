@@ -340,7 +340,6 @@
   <div class="header-spacer"></div>
   <a class="header-link" href="./">← catalog</a>
   <a class="header-link" href="https://kody-w.github.io/RAPP_Store/" target="_blank">source ↗</a>
-  <a class="header-link" href="https://kody-w.github.io/RAR/" target="_blank">RAPP Agent Registry ↗</a>
   <button class="btn" id="settingsBtn">⚙ Settings</button>
   <div class="gh-pill" id="ghPill">
     <span class="gh-dot off"></span>
@@ -350,22 +349,12 @@
 
 <div class="layout">
   <aside class="catalog">
-    <h2>Resident</h2>
-    <div id="residentList"></div>
     <div class="section-head">
       <h2 title="Bundled rapplications — agent + UI / service / eggs. From kody-w/RAPP_Store.">Rapplications <span style="color: var(--text-muted); font-weight: normal;" id="rappCount"></span></h2>
       <button class="import-btn" id="importBtn" title="Import a .rapplication.egg file from disk (or drag-drop one anywhere on the page).">↑ import .egg</button>
       <input type="file" id="importInput" accept=".egg,.rapplication" style="display:none">
     </div>
     <div id="rappList">
-      <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
-    </div>
-    <h2 style="margin-top: 18px;" title="Bare single-file agents from the RAPP Agent Registry (kody-w/RAR).">Agents <span style="color: var(--text-muted); font-weight: normal;" id="agentCount"></span></h2>
-    <div id="agentList">
-      <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
-    </div>
-    <h2 style="margin-top: 18px;" title="Per-channel output overlays from kody-w/RAPP_Sense_Store. Senses install into utils/senses/, not agents/, so they're previewed here but not loadable into this client-side runtime.">Senses <span style="color: var(--text-muted); font-weight: normal;" id="senseCount"></span></h2>
-    <div id="senseList">
       <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
     </div>
   </aside>
@@ -391,7 +380,7 @@
       <div class="welcome" id="welcome">
         <h1>Talk to the catalog</h1>
         <p>This is the resident vBrainstem for <a href="https://kody-w.github.io/RAPP_Store/">the RAPP Store</a>. Pick a rapplication from the sidebar, load it, and chat with it. Pure browser — your code, your token, your conversation.</p>
-        <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default). On sign-in, the <strong>StoreNavigator</strong> agent (hosted in the <a href="https://kody-w.github.io/RAR/">RAPP Agent Registry</a>) auto-loads — ask it "what should I install for X?" and it'll search the catalog for you.</div>
+        <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default).</div>
         <div class="step"><span class="num">2</span><strong>Pick a rapp.</strong> Sidebar lists every rapplication in the catalog. Click one and it loads into the browser — its UI iframe mounts, its agent's <code>perform()</code> registers as a tool the model can call.</div>
         <div class="step"><span class="num">3</span><strong>Chat.</strong> The model has the loaded rapp's <code>perform()</code> as a tool — it calls into Pyodide to run real Python in the browser. Your code, your token, your conversation; nothing routes through a server.</div>
         <div class="step"><span class="num">4</span><strong>Take it home, bring it back.</strong> Each rapp card has an <strong>↓ export</strong> button that bundles the singleton (+ service / UI when present) into a <code>&lt;id&gt;.rapplication.egg</code>. POST it as <code>{"egg_b64": "&lt;base64&gt;"}</code> to <code>/api/binder/import</code> on your local brainstem, OR drag the <code>.egg</code> file back onto this page to re-load it into a fresh vBrainstem session.</div>
@@ -440,13 +429,6 @@
 const CATALOG_URL = './index.json';
 const RAW_BASE = 'https://raw.githubusercontent.com/kody-w/rapp_store/main/';
 
-// Sibling catalogs in the three-store ecosystem (Constitution Article XXXI;
-// Proposal 0002). The vBrainstem aggregates all three so a user can browse
-// agents (RAR), rapplications (this store), and senses (RAPP_Sense_Store)
-// from one chat surface.
-const RAR_REGISTRY_URL = 'https://raw.githubusercontent.com/kody-w/RAR/main/registry.json';
-const SENSESTORE_URL   = 'https://raw.githubusercontent.com/kody-w/RAPP_Sense_Store/main/index.json';
-
 // GitHub Models endpoint (newer URL — OpenAI-compatible, browser CORS works)
 const GH_MODELS_URL = 'https://models.github.ai/inference/chat/completions';
 
@@ -457,21 +439,11 @@ const AUTH_WORKER_URL = 'https://rappterbook-auth.kwildfeuer.workers.dev';
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
 
-// The store_navigator is hosted in RAR (per Constitution Article XXVII —
-// bare agents → RAR, not the rapp store). The vBrainstem auto-loads it on
-// boot so users have a chat-driven catalog browser without picking anything.
-const NAVIGATOR_URL =
-  'https://raw.githubusercontent.com/kody-w/RAR/main/agents/%40rapp/store_navigator_agent.py';
-
 // ─── State ──────────────────────────────────────────────────────────────
 
 const state = {
   catalog: null,
   rapps: [],
-  // Sibling catalogs (per Article XXXI three-store model). Pulled lazily
-  // and rendered as collapsible sidebar sections.
-  rarAgents: [],               // bare agents from kody-w/RAR
-  senses: [],                  // senses from kody-w/RAPP_Sense_Store
   selectedRapp: null,
   loadedAgent: null,           // { source, manifest, agentClass, metadata, filename }
   conversation: [],            // [{role, content, ...}]
@@ -479,21 +451,6 @@ const state = {
   ghUser: null,
   pyodide: null,
   pyodideLoading: null,
-  // Resident agents — pinned to the top of the sidebar regardless of catalog.
-  // store_navigator is loaded from RAR per Article XXVII.
-  resident: [
-    {
-      id: 'store_navigator',
-      name: 'StoreNavigator',
-      version: '0.1.0',
-      summary: 'Navigate the catalog: list, search, describe, recommend, install commands. Loaded from kody-w/RAR.',
-      category: 'platform',
-      tagline: 'Ask the store what you should install.',
-      singleton_url: NAVIGATOR_URL,
-      singleton_filename: 'store_navigator_agent.py',
-      _resident: true,
-    },
-  ],
   settings: {
     model: localStorage.getItem('vbs_model') || 'gpt-4o-mini',
     byoKey: localStorage.getItem('vbs_byo_key') || '',
@@ -621,59 +578,9 @@ async function loadCatalog() {
     $('#rappList').innerHTML =
       `<div style="color: var(--red); font-size: 12px;">Failed to load catalog: ${e.message}</div>`;
   }
-  // Pull the sibling catalogs in the background — failure on either is
-  // soft; rapplications still render even if RAR or sense store is down.
-  loadRarRegistry().catch(() => {});
-  loadSenseCatalog().catch(() => {});
-}
-
-async function loadRarRegistry() {
-  try {
-    const r = await fetch(RAR_REGISTRY_URL, { cache: 'no-store' });
-    const reg = await r.json();
-    // RAR's registry.json is large (~270 entries). Trim down to the @rapp/*
-    // namespace by default for the sidebar — the platform-curated ones —
-    // since browsing 270+ entries in a sidebar is its own UX problem.
-    // Other publishers are still searchable via the navigator's tools.
-    state.rarAgents = (reg.agents || []).filter(a => (a.name || '').startsWith('@rapp/'));
-    renderRarAgents();
-  } catch (e) {
-    $('#agentList').innerHTML =
-      `<div style="color: var(--red); font-size: 12px;">RAR fetch failed: ${e.message}</div>`;
-  }
-}
-
-async function loadSenseCatalog() {
-  try {
-    const r = await fetch(SENSESTORE_URL, { cache: 'no-store' });
-    const cat = await r.json();
-    state.senses = cat.senses || [];
-    renderSenses();
-  } catch (e) {
-    $('#senseList').innerHTML =
-      `<div style="color: var(--red); font-size: 12px;">Sense store fetch failed: ${e.message}</div>`;
-  }
 }
 
 function renderCatalog() {
-  // Resident agents — pinned at top, always visible.
-  const resList = $('#residentList');
-  resList.innerHTML = '';
-  for (const r of state.resident) {
-    const card = el('div', {
-      class: 'rapp-card',
-      'data-id': r.id,
-      onclick: () => selectRapp(r),
-    }, [
-      el('div', { class: 'rapp-name', text: r.name }),
-      el('div', { class: 'rapp-meta', text: `v${r.version} · resident · from RAR` }),
-      el('div', { class: 'rapp-summary', text: r.summary }),
-      el('div', {}, [el('span', { class: 'pill has-svc', text: 'agent' })]),
-    ]);
-    resList.appendChild(card);
-  }
-
-  // Catalog — the rapp_store rapplications.
   const list = $('#rappList');
   list.innerHTML = '';
   $('#rappCount').textContent = `(${state.rapps.length})`;
@@ -706,85 +613,6 @@ function renderCatalog() {
     ]);
     list.appendChild(card);
   }
-}
-
-function renderRarAgents() {
-  const list = $('#agentList');
-  list.innerHTML = '';
-  $('#agentCount').textContent = `(${state.rarAgents.length})`;
-  if (!state.rarAgents.length) {
-    list.innerHTML = `<div style="color: var(--text-dim); font-size: 12px; padding: 8px;">No @rapp/* agents — RAR may be unreachable.</div>`;
-    return;
-  }
-  for (const a of state.rarAgents) {
-    const slug = (a.name || '').split('/', 2)[1] || a.name;
-    const url = `https://raw.githubusercontent.com/kody-w/RAR/main/agents/${a.name}.py`;
-    const card = el('div', {
-      class: 'rapp-card',
-      'data-id': 'agent:' + a.name,
-      onclick: () => selectAgent(a, url),
-    }, [
-      el('div', { class: 'rapp-name', text: a.display_name || slug }),
-      el('div', { class: 'rapp-meta', text: `${a.name} · v${a.version || '?'}` }),
-      el('div', { class: 'rapp-summary', text: (a.description || '').slice(0, 140) }),
-      el('div', {}, [el('span', { class: 'pill has-svc', text: 'agent' })]),
-    ]);
-    list.appendChild(card);
-  }
-}
-
-function renderSenses() {
-  const list = $('#senseList');
-  list.innerHTML = '';
-  $('#senseCount').textContent = `(${state.senses.length})`;
-  if (!state.senses.length) {
-    list.innerHTML = `<div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Sense store empty.</div>`;
-    return;
-  }
-  for (const s of state.senses) {
-    const card = el('div', {
-      class: 'rapp-card',
-      'data-id': 'sense:' + s.name,
-      // Senses install into utils/senses/ on a real brainstem; this client-
-      // side runtime can't load them as agents. Click previews + offers
-      // a manual install URL.
-      onclick: () => previewSense(s),
-    }, [
-      el('div', { class: 'rapp-name', text: s.name }),
-      el('div', { class: 'rapp-meta', text: `${s.publisher || '@rapp'} · v${s.version || '?'} · ${s.delimiter}` }),
-      el('div', { class: 'rapp-summary', text: (s.description || '').slice(0, 140) }),
-      el('div', {},
-        (s.surfaces || ['chat']).map(x => el('span', { class: 'pill has-eggs', text: x }))),
-    ]);
-    list.appendChild(card);
-  }
-}
-
-function selectAgent(a, url) {
-  // Bare agents from RAR install into agents/ directly. The client-side
-  // vBrainstem can fetch and load one as the active agent (Pyodide path)
-  // — same as a rapplication's singleton, but without the manifest wrapper.
-  const slug = (a.name || '').split('/', 2)[1] || a.name;
-  const filename = slug + (slug.endsWith('_agent') ? '' : '_agent') + '.py';
-  selectRapp({
-    id: 'agent:' + a.name,
-    name: a.display_name || slug,
-    version: a.version,
-    summary: a.description,
-    category: a.category || 'agent',
-    singleton_url: url,
-    singleton_filename: filename,
-    _from_rar: true,
-  });
-}
-
-function previewSense(s) {
-  addMessage('system',
-    `**Sense:** \`${s.publisher || '@rapp'}/${s.name}\` — \`${s.delimiter}\`. ` +
-    `Surfaces: \`${(s.surfaces || ['chat']).join(', ')}\`.\n\n` +
-    `> ${(s.description || '(no description)').slice(0, 280)}\n\n` +
-    `Senses install into a brainstem's \`utils/senses/\` directory, not \`agents/\` — they shape every reply by appending a delimited block (per Constitution Article XXIV). The vBrainstem can preview them but can't compose them into the system prompt of an agent it's running client-side.\n\n` +
-    `**Manual install on a local brainstem:** \`curl -fsSL ${s.url} -o ~/.brainstem/src/rapp_brainstem/utils/senses/${s.filename}\``);
 }
 
 // ─── Export — produce a .rapplication.egg zip the binder's _import_egg
@@ -1509,7 +1337,7 @@ function buildSystemPrompt() {
 
   return `${intro}${toolBlurb}
 
-You can speak about the catalog itself (the seven rapps in kody-w/RAPP_Store), Constitution Article XXVII (RAR holds files; the rapp store holds bundles), how to install a rapplication into a local brainstem, or how to interpret the loaded agent's output.
+You can speak about the catalog itself (the rapplications in kody-w/RAPP_Store), how to install a rapplication into a local brainstem, or how to interpret the loaded agent's output.
 
 Be concise. Return the agent's actual output verbatim when it's the answer; explain only when explaining adds something the raw output doesn't.`;
 }
@@ -1855,14 +1683,15 @@ $('#settingsSave').addEventListener('click', () => {
   updateGHPill();
   await loadCatalog();
 
-  // After GitHub sign-in, pre-load the navigator so the user has a
-  // chat-driven catalog browser ready to go.
-  if (state.ghToken) {
-    const nav = state.resident.find(r => r.id === 'store_navigator');
-    if (nav) {
-      try { await loadAgent(nav); }
-      catch (e) { console.warn('navigator auto-load failed:', e.message); }
-    }
+  // Deep-link: ./vbrainstem.html#rapp=<id> auto-selects that rapplication
+  // so featured-card links land users directly on the rapp instead of the
+  // empty default state.
+  const hash = (window.location.hash || '').replace(/^#/, '');
+  const params = new URLSearchParams(hash);
+  const wantId = params.get('rapp');
+  if (wantId) {
+    const r = state.rapps.find(x => x.id === wantId);
+    if (r) selectRapp(r);
   }
 
   updateInputState();
@@ -1876,8 +1705,6 @@ $('#settingsSave').addEventListener('click', () => {
 window.vb = {
   state: () => ({
     rapps: state.rapps.length,
-    rarAgents: state.rarAgents.length,
-    senses: state.senses.length,
     selected: state.selectedRapp ? state.selectedRapp.id : null,
     loaded: state.loadedAgent ? {
       id: state.loadedAgent.rapp && state.loadedAgent.rapp.id,
@@ -1892,36 +1719,22 @@ window.vb = {
   }),
 
   list: (filter) => {
-    const all = [
-      ...(state.resident || []).map(r => ({ kind: 'resident', id: r.id, name: r.name, version: r.version })),
-      ...state.rapps.map(r => ({ kind: 'rapp', id: r.id, name: r.name, version: r.version, surfaces: [r.singleton_url && 'agent', r.ui_url && 'ui', r.service_url && 'service'].filter(Boolean) })),
-      ...state.rarAgents.map(a => ({ kind: 'agent', id: a.name, name: a.display_name || a.name, version: a.version })),
-      ...state.senses.map(s => ({ kind: 'sense', id: s.name, version: s.version, delimiter: s.delimiter })),
-    ];
+    const all = state.rapps.map(r => ({
+      kind: 'rapp', id: r.id, name: r.name, version: r.version,
+      surfaces: [r.singleton_url && 'agent', r.ui_url && 'ui', r.service_url && 'service'].filter(Boolean),
+    }));
     if (!filter) return all;
     const re = new RegExp(filter, 'i');
     return all.filter(x => re.test(x.id || '') || re.test(x.name || ''));
   },
 
-  find: (id) => {
-    return state.rapps.find(r => r.id === id)
-        || (state.resident || []).find(r => r.id === id)
-        || state.rarAgents.find(a => a.name === id)
-        || state.senses.find(s => s.name === id)
-        || null;
-  },
+  find: (id) => state.rapps.find(r => r.id === id) || null,
 
   load: async (id) => {
-    const rapp = state.rapps.find(r => r.id === id)
-              || (state.resident || []).find(r => r.id === id);
-    if (rapp) { selectRapp(rapp); return { kind: 'rapp', id: rapp.id }; }
-    const ag = state.rarAgents.find(a => a.name === id);
-    if (ag) {
-      const url = `https://raw.githubusercontent.com/kody-w/RAR/main/agents/${ag.name}.py`;
-      selectAgent(ag, url);
-      return { kind: 'agent', id: ag.name };
-    }
-    throw new Error(`no rapp/agent with id "${id}" — try vb.list()`);
+    const rapp = state.rapps.find(r => r.id === id);
+    if (!rapp) throw new Error(`no rapp with id "${id}" — try vb.list()`);
+    selectRapp(rapp);
+    return { kind: 'rapp', id: rapp.id };
   },
 
   unload: () => { unloadAgent(); return { unloaded: true }; },
