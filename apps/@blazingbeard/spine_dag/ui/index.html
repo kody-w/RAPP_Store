@@ -178,8 +178,8 @@ Tip: In Windows Explorer, Shift+Right-Click a file/folder → 'Copy as path', th
     <h2>Try one</h2>
     <div class="examples" id="examples"></div>
 
-    <h2>Brainstem</h2>
-    <div class="row">
+    <h2>Host</h2>
+    <div class="row" id="endpointRow" style="display:none">
       <input id="endpoint" value="http://localhost:7071/chat" />
     </div>
     <div style="color:var(--dim);font-size:11.5px;margin-top:6px" id="health">checking…</div>
@@ -196,8 +196,8 @@ Tip: In Windows Explorer, Shift+Right-Click a file/folder → 'Copy as path', th
 </main>
 
 <footer>
-  <div>SpineDAG agent → <code>POST /chat</code> → renders <code>&lt;spine-dag-json&gt;</code> envelope</div>
-  <div>brainstem · <span id="model">…</span></div>
+  <div>SpineDAG agent → host (cartridge or local brainstem) → renders <code>&lt;spine-dag-json&gt;</code> envelope</div>
+  <div>host · <span id="model">…</span></div>
 </footer>
 
 <script>
@@ -226,14 +226,77 @@ examples.forEach(e=>{
   ex.appendChild(b);
 });
 
+// ─── Cartridge — when mounted in a vBrainstem (rapp_store cloud, or a local
+// brainstem's binder UI), the parent posts a structured envelope describing
+// the host. Iframe mode → use the cartridge `rapp:chat` protocol so the
+// parent decides routing. Standalone (opened directly in a tab) → fall back
+// to a direct localhost:7071 brainstem.
+const inIframe = (() => { try { return window.parent && window.parent !== window; } catch { return false; } })();
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d?.type === 'rapp:cartridge') { cartridge = d; onCartridge(); }
+});
+if (inIframe) {
+  try { window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*'); } catch {}
+}
+
+function onCartridge(){
+  const t = cartridge?.context?.tether;
+  if (t?.active) {
+    $('#health').textContent = `🔗 tethered · ${t.base}`;
+  } else {
+    $('#health').textContent = `☁️ vBrainstem (cloud)`;
+  }
+  const m = cartridge?.rapp?.version ? `SpineDAG v${cartridge.rapp.version}` : 'cartridge';
+  $('#model').textContent = m;
+}
+
+// Unified chat dispatch. In iframe mode we go through `rapp:chat` so the
+// host (vBrainstem or local brainstem) controls LLM dispatch. In standalone
+// mode we POST directly to a local brainstem — only useful if you've got
+// one running.
+function postChat(userInput, sessionId){
+  if (inIframe) {
+    return new Promise((resolve, reject) => {
+      const id = 'sd-' + Math.random().toString(36).slice(2);
+      const handler = (ev) => {
+        const d = ev.data;
+        if (!d || d.type !== 'rapp:chat:result' || d.id !== id) return;
+        window.removeEventListener('message', handler);
+        if (d.error) return reject(new Error(d.error));
+        resolve({ response: d.reply || '' });
+      };
+      window.addEventListener('message', handler);
+      try {
+        window.parent.postMessage({ type: 'rapp:chat', id, message: userInput }, '*');
+      } catch (e) {
+        window.removeEventListener('message', handler);
+        reject(e);
+      }
+    });
+  }
+  return fetch($('#endpoint').value, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({user_input: userInput, conversation_history: [], session_id: sessionId})
+  }).then(r => r.json());
+}
+
 async function checkHealth(){
+  if (inIframe) {
+    // Cartridge will populate health; show a placeholder until it lands.
+    $('#health').textContent = 'connecting to host…';
+    return;
+  }
+  // Standalone — show the endpoint input and probe a local brainstem.
+  $('#endpointRow').style.display = '';
   try{
     const r = await fetch('http://localhost:7071/health');
     const j = await r.json();
-    $('#health').textContent = `✅ brainstem online · ${j.agents_loaded||0} agents · model ${j.model||'?'}`;
+    $('#health').textContent = `✅ local brainstem · ${j.agents_loaded||0} agents · model ${j.model||'?'}`;
     $('#model').textContent = j.model || 'unknown';
   }catch(e){
-    $('#health').innerHTML = '❌ brainstem unreachable. Start it with <code>start.ps1</code>';
+    $('#health').innerHTML = '❌ no host. Open via the <a href="https://kody-w.github.io/RAPP_Store/vbrainstem.html#rapp=spine_dag" style="color:var(--accent2)">RAPPstore vBrainstem</a> or start a local brainstem.';
   }
 }
 checkHealth();
@@ -256,20 +319,15 @@ async function run(){
   if(!target){ alert('Enter a path or some text first.'); return; }
 
   canvas.innerHTML = `<div class="loading"><div class="spinner"></div>
-    Asking brainstem to invoke <b>SpineDAG</b> on <code>${escapeHtml(target).slice(0,90)}</code>…</div>`;
+    Asking the host to invoke <b>SpineDAG</b> on <code>${escapeHtml(target).slice(0,90)}</code>…</div>`;
 
   const prompt = `Use the SpineDAG tool to analyse this target. Pass target=${JSON.stringify(target)} and mode=${JSON.stringify(mode)}. Then briefly narrate (3-5 sentences) what the spine reveals — call out hubs, cycles, orphans, and the critical path. Do not omit or alter the SpineDAG tool output; include the full tool result above your narration.`;
 
   let payload;
   try{
-    const res = await fetch($('#endpoint').value, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({user_input: prompt, conversation_history: [],
-                            session_id: 'spine-dag-demo'})
-    });
-    payload = await res.json();
+    payload = await postChat(prompt, 'spine-dag-demo');
   }catch(e){
-    canvas.innerHTML = `<div class="err">Network error: ${escapeHtml(e.message)}</div>`;
+    canvas.innerHTML = `<div class="err">Host error: ${escapeHtml(e.message)}</div>`;
     return;
   }
 
@@ -277,8 +335,8 @@ async function run(){
   const big = blobs.join('\n');
   const m = big.match(/<spine-dag-json>\s*([\s\S]*?)\s*<\/spine-dag-json>/);
   if(!m){
-    canvas.innerHTML = `<div class="err">Brainstem returned a response but no SpineDAG envelope was found.
-      The model may have answered without calling the tool — try rephrasing or restart brainstem to pick up the new agent.</div>
+    canvas.innerHTML = `<div class="err">Host returned a response but no SpineDAG envelope was found.
+      The model may have answered without calling the tool — try rephrasing.</div>
       <details open><summary>Raw response</summary><pre class="raw">${escapeHtml(JSON.stringify(payload,null,2))}</pre></details>`;
     return;
   }
@@ -414,11 +472,7 @@ ${layers}
 In **plain English, 4–6 sentences, no jargon**: explain what \`${hub.label}\` likely is, why so many other things depend on it, what would happen if it broke or changed, and one concrete recommendation. If the path looks like a real file you can read, read it for accuracy; otherwise reason from the name and graph position. Do NOT call SpineDAG again. Do NOT include any tool envelopes — just the explanation.`;
 
   try{
-    const res = await fetch($('#endpoint').value, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({user_input: prompt, conversation_history: [], session_id:'spine-dag-explain'})
-    });
-    const j = await res.json();
+    const j = await postChat(prompt, 'spine-dag-explain');
     const txt = (j.response||'').trim() || '(no response)';
     panel.innerHTML = '<b style="color:var(--accent2)">💬 Why this is the spine</b><br>' +
       escapeHtml(txt).split('\n').map(p=>p?`<p style="margin:8px 0 0">${p}</p>`:'').join('');
