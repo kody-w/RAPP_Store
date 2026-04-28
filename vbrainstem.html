@@ -430,14 +430,20 @@ const state = {
   ghUser: null,
   pyodide: null,
   pyodideLoading: null,
-  // Tether state — if a local brainstem is reachable, routing changes:
-  // chat goes through localhost:7071/chat (which has the user's keys,
-  // memory, agents) instead of GitHub Models + Pyodide.
+  // Tether state. Experimental — off by default. The vBrainstem's primary
+  // path is the authenticated cloud mode (GitHub sign-in + GitHub Models +
+  // Pyodide for agent execution). Tether is only enabled when the user
+  // explicitly clicks the pill AND a local brainstem is reachable.
+  // (Earlier behavior: probed localhost:7071 every 30s on boot, which
+  // generated console noise and a misleading "Local brainstem detected"
+  // pill for users with the brainstem repo cloned but not the brainstem
+  // running. Disabled until a future proposal makes it stable.)
   tether: {
-    enabled: localStorage.getItem('vbs_tether_enabled') === '1',
+    enabled: false,
+    opted_in: localStorage.getItem('vbs_tether_optin') === '1',  // user toggled the pill at some point
     base: localStorage.getItem('vbs_tether_base') || TETHER_DEFAULT_BASE,
-    health: null,        // last /health response when reachable
-    detected: false,     // probe succeeded
+    health: null,
+    detected: false,
   },
   // Resident agents — pinned to the top of the sidebar regardless of catalog.
   // store_navigator is loaded from RAR per Article XXVII.
@@ -614,15 +620,20 @@ function updateTetherPill() {
     $('#tetherPill').title = `A brainstem is running at ${t.base}. Click to tether — chat will route through it instead of cloud GitHub Models.`;
   } else {
     dot.className = 'gh-dot off';
-    lbl.textContent = 'No local brainstem';
-    $('#tetherPill').title = `Start a brainstem on localhost:${TETHER_DEFAULT_PORT} (kody-w/RAPP/rapp_brainstem) to enable tether mode and bring local memory + installed agents + model preferences into this vBrainstem.`;
+    lbl.textContent = 'Tether (experimental)';
+    $('#tetherPill').title = `Tether to a local brainstem at localhost:${TETHER_DEFAULT_PORT} for full local capabilities (your soul, memory, installed agents). Experimental — off by default. Click to attempt connection.`;
   }
 }
 
 $('#tetherPill').addEventListener('click', async () => {
+  // Mark the user as having opted in to tether at least once. This unlocks
+  // the auto-probe on subsequent loads. Tether is experimental (Article
+  // XXVIII deferral) — purely opt-in.
+  state.tether.opted_in = true;
+  localStorage.setItem('vbs_tether_optin', '1');
   await probeTether();
   if (!state.tether.detected) {
-    toast(`No brainstem at ${state.tether.base}. Start one and try again.`, 'err');
+    toast(`No brainstem at ${state.tether.base}. Start one and try again. (Tether is experimental.)`, 'err');
     return;
   }
   state.tether.enabled = !state.tether.enabled;
@@ -897,7 +908,7 @@ const FETCH_SHIM_HTML = `<script>
     const u = String(url);
     if (/^(https?:)?\\/\\/(localhost|127\\.0\\.0\\.1):7071\\b/.test(u)) return true;
     // Relative paths the bookfactory / rapplications UIs hit.
-    if (/^\\/(chat|health|api\\/binder|api\\/twin|tether|voice|models|login)\\b/.test(u)) return true;
+    if (/^\\/(chat|health|version|api\\/binder|api\\/twin|tether|voice|models|login|debug\\/auth|copilot|swarm)\\b/.test(u)) return true;
     return false;
   }
   window.fetch = function(input, init) {
@@ -1098,6 +1109,20 @@ async function proxyBrainstemFetch(msg) {
         agents,
         copilot: 'cloud',
         brainstem_dir: '(simulated by vBrainstem)',
+      }),
+    };
+  }
+
+  // /version is what bookfactory's UI probes to clear its "Brainstem
+  // unreachable" banner. Return a minimal version envelope.
+  if (/^\/version(\?|$)/.test(path)) {
+    return {
+      status: 200,
+      body: JSON.stringify({
+        version: 'vbrainstem-cloud',
+        runtime: 'browser',
+        model:   state.settings.model,
+        host:    location.host,
       }),
     };
   }
@@ -1791,30 +1816,27 @@ $('#settingsSave').addEventListener('click', () => {
   updateGHPill();
   await loadCatalog();
 
-  // Probe local brainstem in parallel with catalog rendering. Probe is
-  // silent on failure — the absence of a brainstem is the common case.
-  probeTether().catch(() => {});
+  // Tether: experimental, off by default. Only probe if the user has
+  // previously opted in via the pill. New users land in pure cloud mode
+  // — sign in with GitHub, work; no console noise from failing probes.
+  if (state.tether.opted_in) {
+    probeTether().catch(() => {});
+    setInterval(() => probeTether().catch(() => {}), 30000);
+  } else {
+    updateTetherPill();
+  }
 
-  // If the user has signed in (cloud mode), pre-select the navigator so
-  // they have a chat-driven catalog browser without picking anything.
-  // In tether mode the local brainstem already has its own agent toolbelt
-  // so we skip the auto-load.
-  if (state.ghToken && !state.tether.enabled) {
+  // After GitHub sign-in, pre-load the navigator so the user has a
+  // chat-driven catalog browser ready to go.
+  if (state.ghToken) {
     const nav = state.resident.find(r => r.id === 'store_navigator');
     if (nav) {
-      try {
-        await loadAgent(nav);
-      } catch (e) {
-        console.warn('navigator auto-load failed (will be available manually):', e.message);
-      }
+      try { await loadAgent(nav); }
+      catch (e) { console.warn('navigator auto-load failed:', e.message); }
     }
   }
 
   updateInputState();
-
-  // Re-probe tether every 30s so users who start the brainstem after the
-  // page is open see the pill light up without a refresh.
-  setInterval(() => probeTether().catch(() => {}), 30000);
 })();
 </script>
 
