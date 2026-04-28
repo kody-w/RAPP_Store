@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.0.0",
-  "generated_at": "2026-04-28T01:27:26Z",
+  "generated_at": "2026-04-28T16:04:59Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
@@ -386,6 +386,28 @@
           "workspace_context": "(paste your latest property-summary CSV + budget notes here)"
         }
       }
+    },
+    {
+      "id": "pipeline_e2e_check",
+      "name": "Pipeline E2E Check",
+      "version": "0.1.0",
+      "summary": "Throwaway rapplication used to e2e-test the rapp_store submission pipeline.",
+      "category": "platform",
+      "tags": [
+        "test",
+        "pipeline",
+        "e2e"
+      ],
+      "license": "BSD-style",
+      "publisher": "@kody-w",
+      "quality_tier": "experimental",
+      "singleton_filename": "pipeline_e2e_check_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/pipeline_e2e_check/pipeline_e2e_check_agent.py",
+      "singleton_sha256": "2c4e47d292a0f00a570027280aa77d2e054f68598aa2ae197c25772ceb908b58",
+      "singleton_lines": 28,
+      "singleton_bytes": 809,
+      "ui_filename": "index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/pipeline_e2e_check/ui/index.html"
     }
   ],
   "senses": [
