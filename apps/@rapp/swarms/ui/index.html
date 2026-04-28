@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Swarms — group your agents</title>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d; --text:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#d29922; --purple:#bc8cff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 0; min-height: 100vh; line-height: 1.5; }
+  header { padding: 18px 22px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 14px; position: sticky; top: 0; }
+  header h1 { font-size: 16px; font-weight: 700; }
+  header .sub { color: var(--dim); font-size: 11px; font-family: ui-monospace, monospace; }
+  header .actions { margin-left: auto; }
+  button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 12px; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger  { color: var(--red); border-color: rgba(248,81,73,.3); }
+  main { padding: 18px 22px; max-width: 1100px; margin: 0 auto; }
+  .form { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+  .form .row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 10px; margin-bottom: 8px; align-items: end; }
+  @media (max-width: 720px) { .form .row { grid-template-columns: 1fr; } }
+  .form label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 4px; font-weight: 700; }
+  .form input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 7px; font: inherit; font-size: 13px; }
+  .form input:focus { outline: 0; border-color: var(--accent); }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .swarm { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .swarm.active { border-left: 3px solid var(--green); }
+  .swarm .name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .swarm .agents { font-size: 11px; color: var(--dim); font-family: ui-monospace, monospace; margin-bottom: 10px; word-break: break-word; }
+  .swarm .actions { display: flex; gap: 6px; }
+  .pill { display: inline-block; font-size: 9px; padding: 1px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; font-family: ui-monospace, monospace; margin-bottom: 8px; }
+  .pill.active { background: rgba(63,185,80,.13); color: var(--green); }
+  .pill.idle   { background: var(--surface2); color: var(--dim); }
+  .empty { color: var(--dim); padding: 30px; text-align: center; font-size: 13px; background: var(--surface); border-radius: 10px; border: 1px dashed var(--border); }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; font-size: 12px; opacity: 0; transition: opacity .25s; }
+  .toast.show { opacity: 1; }
+  .toast.ok  { border-color: var(--green); }
+  .toast.err { border-color: var(--red); }
+  .ctx-banner { padding: 9px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--dim); }
+  .ctx-banner code { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🐝 Swarms</h1>
+    <div class="sub">group agents · activate per turn · talk to a team</div>
+  </div>
+  <div class="actions">
+    <button onclick="loadSwarms()">↻ Reload</button>
+  </div>
+</header>
+
+<div class="ctx-banner" id="ctxBanner"></div>
+
+<main>
+  <form class="form" onsubmit="createSwarm(event)">
+    <div class="row">
+      <div>
+        <label>Swarm name</label>
+        <input id="s-name" placeholder="e.g. research-team" required />
+      </div>
+      <div>
+        <label>Agents (comma-separated)</label>
+        <input id="s-agents" placeholder="HackerNews, ManageMemory, ContextMemory" required />
+      </div>
+      <button class="primary" type="submit">+ Create</button>
+    </div>
+  </form>
+
+  <div id="grid"><div class="empty">Loading swarms…</div></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d?.type === 'rapp:cartridge') { cartridge = d; onCartridge(); }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function onCartridge() {
+  const banner = document.getElementById('ctxBanner');
+  const t = cartridge?.context?.tether;
+  const u = cartridge?.context?.user;
+  const parts = [];
+  if (u) parts.push(`signed in as <code>@${u.login}</code>`);
+  parts.push(t?.active ? `tethered to <code>${t.base}</code>` : `cloud mode`);
+  banner.innerHTML = parts.join(' · ');
+}
+
+async function invoke(args) {
+  return new Promise((resolve, reject) => {
+    const id = 'inv-' + Math.random().toString(36).slice(2);
+    const handler = (ev) => {
+      const d = ev.data;
+      if (!d || d.type !== 'rapp:invoke:result' || d.id !== id) return;
+      window.removeEventListener('message', handler);
+      d.error ? reject(new Error(d.error)) : resolve(d.result);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+
+async function loadSwarms() {
+  try {
+    const out = await invoke({ action: 'list' });
+    const parsed = parseSafe(out, { swarms: [], active: null });
+    render(parsed.swarms || [], parsed.active);
+  } catch (e) {
+    document.getElementById('grid').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+function render(swarms, active) {
+  const grid = document.getElementById('grid');
+  if (!swarms.length) {
+    grid.innerHTML = `<div class="empty">No swarms yet. Create one above.</div>`;
+    return;
+  }
+  grid.innerHTML = '';
+  for (const s of swarms) {
+    const isActive = active === s.name || s.active;
+    const card = document.createElement('div');
+    card.className = 'swarm' + (isActive ? ' active' : '');
+    card.innerHTML = `
+      <div class="name">${esc(s.name)}</div>
+      <div class="pill ${isActive ? 'active' : 'idle'}">${isActive ? 'active' : 'idle'}</div>
+      <div class="agents">${(s.agents || []).map(esc).join(', ') || '<i>(empty)</i>'}</div>
+      <div class="actions">
+        ${isActive
+          ? `<button onclick='deactivate(${JSON.stringify(s.name)})'>Deactivate</button>`
+          : `<button class="primary" onclick='activate(${JSON.stringify(s.name)})'>Activate</button>`}
+        <button class="danger" onclick='del(${JSON.stringify(s.name)})'>Delete</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+async function createSwarm(ev) {
+  ev.preventDefault();
+  const name = document.getElementById('s-name').value.trim();
+  const agents = document.getElementById('s-agents').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!name || !agents.length) return;
+  try {
+    await invoke({ action: 'create', name, agents });
+    document.getElementById('s-name').value = '';
+    document.getElementById('s-agents').value = '';
+    toast(`Created ${name}`, 'ok');
+    await loadSwarms();
+  } catch (e) { toast(`Failed: ${e.message}`, 'err'); }
+}
+async function activate(name)   { try { await invoke({ action:'activate',   name }); toast(`Activated ${name}`, 'ok'); await loadSwarms(); } catch (e) { toast(`Failed: ${e.message}`,'err'); } }
+async function deactivate(name) { try { await invoke({ action:'deactivate', name }); toast(`Deactivated ${name}`, 'ok'); await loadSwarms(); } catch (e) { toast(`Failed: ${e.message}`,'err'); } }
+async function del(name) { if (!confirm(`Delete swarm ${name}?`)) return; try { await invoke({ action:'delete', name }); toast(`Deleted ${name}`,'ok'); await loadSwarms(); } catch (e) { toast(`Failed: ${e.message}`,'err'); } }
+
+function parseSafe(s, fb) { try { return JSON.parse(s); } catch { return fb; } }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + (kind || '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+loadSwarms();
+</script>
+
+</body>
+</html>

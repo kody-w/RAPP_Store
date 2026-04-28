@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Webhook — events you talk to</title>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d; --text:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#d29922; --purple:#bc8cff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 0; min-height: 100vh; line-height: 1.5; }
+  header { padding: 18px 22px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 14px; position: sticky; top: 0; }
+  header h1 { font-size: 16px; font-weight: 700; }
+  header .sub { color: var(--dim); font-size: 11px; font-family: ui-monospace, monospace; }
+  header .actions { margin-left: auto; }
+  button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 12px; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { padding: 18px 22px; max-width: 1100px; margin: 0 auto; }
+  .form { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 18px; display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 10px; align-items: end; }
+  @media (max-width: 760px) { .form { grid-template-columns: 1fr; } }
+  .form label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 4px; font-weight: 700; }
+  .form input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 7px; font: inherit; font-size: 13px; }
+  .form input:focus { outline: 0; border-color: var(--accent); }
+  section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  section h2 .count { font-family: ui-monospace, monospace; color: var(--text); }
+  .event { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; font-family: ui-monospace, monospace; font-size: 11px; }
+  .event .ts { color: var(--accent); font-weight: 600; }
+  .event .source { color: var(--orange); margin-left: 6px; }
+  .event .body { color: var(--dim); margin-top: 4px; word-break: break-all; white-space: pre-wrap; max-height: 80px; overflow-y: auto; }
+  .empty { color: var(--dim); padding: 30px; text-align: center; font-size: 13px; background: var(--surface); border-radius: 10px; border: 1px dashed var(--border); }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; font-size: 12px; opacity: 0; transition: opacity .25s; }
+  .toast.show { opacity: 1; }
+  .toast.ok  { border-color: var(--green); }
+  .toast.err { border-color: var(--red); }
+  .ctx-banner { padding: 9px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--dim); }
+  .ctx-banner code { color: var(--accent); }
+  .endpoint-info { background: var(--surface2); border: 1px solid var(--border); padding: 12px 14px; border-radius: 8px; font-size: 12px; color: var(--dim); margin-bottom: 18px; }
+  .endpoint-info code { color: var(--accent); font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🔌 Webhook</h1>
+    <div class="sub">capture inbound events · trigger from chat</div>
+  </div>
+  <div class="actions">
+    <button onclick="loadEvents()">↻ Reload</button>
+  </div>
+</header>
+
+<div class="ctx-banner" id="ctxBanner"></div>
+
+<main>
+  <div class="endpoint-info" id="epInfo">
+    Webhook events POSTed to your brainstem land here. Endpoint shown once cartridge loads.
+  </div>
+
+  <form class="form" onsubmit="fireTest(event)">
+    <div>
+      <label>Source label</label>
+      <input id="w-source" value="manual" />
+    </div>
+    <div>
+      <label>Event name</label>
+      <input id="w-name" placeholder="test_event" required />
+    </div>
+    <div>
+      <label>Body (JSON or text)</label>
+      <input id="w-body" placeholder='{"foo":"bar"}' />
+    </div>
+    <button class="primary" type="submit">Fire</button>
+  </form>
+
+  <section>
+    <h2>Recent events <span class="count" id="cnt">0</span></h2>
+    <div id="events"><div class="empty">Loading…</div></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d?.type === 'rapp:cartridge') { cartridge = d; onCartridge(); }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function onCartridge() {
+  const banner = document.getElementById('ctxBanner');
+  const t = cartridge?.context?.tether;
+  const u = cartridge?.context?.user;
+  const parts = [];
+  if (u) parts.push(`signed in as <code>@${u.login}</code>`);
+  parts.push(t?.active ? `tethered to <code>${t.base}</code>` : `cloud mode`);
+  banner.innerHTML = parts.join(' · ');
+  // Suggest the inbound URL when tethered.
+  const ep = document.getElementById('epInfo');
+  if (t?.active) {
+    ep.innerHTML = `Send POST events to <code>${esc(t.base)}/api/webhook/in</code>. Headers and JSON body are captured to history.`;
+  } else {
+    ep.innerHTML = `Cloud mode — webhook captures simulated locally. Tether to a brainstem at <code>localhost:7071</code> to capture real inbound POSTs at <code>/api/webhook/in</code>.`;
+  }
+}
+
+async function invoke(args) {
+  return new Promise((resolve, reject) => {
+    const id = 'inv-' + Math.random().toString(36).slice(2);
+    const handler = (ev) => {
+      const d = ev.data;
+      if (!d || d.type !== 'rapp:invoke:result' || d.id !== id) return;
+      window.removeEventListener('message', handler);
+      d.error ? reject(new Error(d.error)) : resolve(d.result);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+
+async function loadEvents() {
+  try {
+    const out = await invoke({ action: 'list' });
+    const parsed = parseSafe(out, { events: [] });
+    render(parsed.events || []);
+  } catch (e) {
+    document.getElementById('events').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+function render(events) {
+  document.getElementById('cnt').textContent = events.length;
+  const root = document.getElementById('events');
+  if (!events.length) {
+    root.innerHTML = `<div class="empty">No events yet. Fire one above, or POST to your brainstem's webhook endpoint.</div>`;
+    return;
+  }
+  root.innerHTML = events.slice(0, 50).map(e => `
+    <div class="event">
+      <span class="ts">${esc(e.at || e.timestamp || '?')}</span>
+      <span class="source">${esc(e.source || '?')}</span>
+      ${e.name ? '· <strong>' + esc(e.name) + '</strong>' : ''}
+      ${e.body ? '<div class="body">' + esc(typeof e.body === 'string' ? e.body : JSON.stringify(e.body, null, 2)) + '</div>' : ''}
+    </div>
+  `).join('');
+}
+
+async function fireTest(ev) {
+  ev.preventDefault();
+  const name = document.getElementById('w-name').value.trim();
+  const source = document.getElementById('w-source').value.trim() || 'manual';
+  const bodyRaw = document.getElementById('w-body').value;
+  let body = bodyRaw;
+  try { body = JSON.parse(bodyRaw); } catch {}
+  try {
+    await invoke({ action: 'fire', name, source, body });
+    toast(`Fired ${name}`, 'ok');
+    document.getElementById('w-name').value = '';
+    document.getElementById('w-body').value = '';
+    await loadEvents();
+  } catch (e) { toast(`Failed: ${e.message}`, 'err'); }
+}
+
+function parseSafe(s, fb) { try { return JSON.parse(s); } catch { return fb; } }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + (kind || '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+loadEvents();
+</script>
+
+</body>
+</html>

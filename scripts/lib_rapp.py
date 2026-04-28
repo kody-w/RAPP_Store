@@ -251,17 +251,27 @@ def validate_dir(rapp_dir: Path, *,
 
     integrity = compute_integrity(rapp_dir, manifest) if singleton_path else {}
 
-    # Constitution Article XXVII: bare agent.py belongs in RAR, not the rapp store.
-    # A rapplication must declare at least one of ui / service / eggs.
+    # Rapplications are agent + UI bundles by definition (SPEC §6 rule 11).
+    # The agent runs headless via any standard brainstem invocation; the UI
+    # is what makes it a rapplication and not a swarm-agent.
+    has_agent = bool(manifest.get("agent"))
     has_ui = bool(manifest.get("ui"))
     has_service = bool(manifest.get("service"))
     has_eggs = (rapp_dir / "eggs").is_dir() and any((rapp_dir / "eggs").iterdir())
-    if not (has_ui or has_service or has_eggs):
+    if not has_ui:
         errors.append(
-            "E_BARE_AGENT_BELONGS_IN_RAR: manifest declares neither ui nor service "
-            "and ships no eggs/. Per Constitution Article XXVII, bare agent.py files "
-            "belong in kody-w/RAR (open an [AGENT] @<publisher>/<slug> issue). The "
-            "rapp store hosts bundles only."
+            "E_NO_UI: rapplication manifest must declare `ui` — every "
+            "rapplication ships a default UI for its agent. Without a UI, "
+            "the artifact is a swarm-agent and belongs in kody-w/RAR via "
+            "the [AGENT] issue flow. Headless invocation of the agent works "
+            "identically with or without a UI (it's just an installed "
+            "*_agent.py the brainstem auto-discovers)."
+        )
+    if not (has_agent or has_service or has_eggs):
+        errors.append(
+            "E_BARE_AGENT_BELONGS_IN_RAR: manifest declares neither agent "
+            "nor service and ships no eggs/. The rapp store hosts bundles "
+            "only — submit to kody-w/RAR instead."
         )
 
     if errors:
@@ -479,14 +489,11 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
             integrity["ui_sha256"] = hashlib.sha256(ui_blob).hexdigest()
             integrity["ui_bytes"] = len(ui_blob)
 
-    # Constitution Article XXVII bundle test (federation can't see eggs/ remotely
-    # without an extra fetch; we accept ui or service as sufficient surface).
-    if not (ui_rel or service_rel):
+    # Same UI-mandatory rule as the bundle path (SPEC §6 rule 11).
+    if not ui_rel:
         errors.append(
-            "E_BARE_AGENT_BELONGS_IN_RAR: manifest declares neither ui nor "
-            "service. Per Constitution Article XXVII, bare agent.py files "
-            "belong in kody-w/RAR. Submit via [AGENT] @<publisher>/<slug> "
-            "issue at https://github.com/kody-w/RAR/issues/new."
+            "E_NO_UI: rapplication manifest must declare `ui`. Without a UI, "
+            "submit to kody-w/RAR instead via the [AGENT] issue flow."
         )
 
     commit_sha: str | None = None
