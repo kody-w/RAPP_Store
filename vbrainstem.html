@@ -279,10 +279,6 @@
   <a class="header-link" href="https://github.com/kody-w/RAPP_Store" target="_blank">source ↗</a>
   <a class="header-link" href="https://github.com/kody-w/RAR" target="_blank">RAR (bare agents) ↗</a>
   <button class="btn" id="settingsBtn">⚙ Settings</button>
-  <div class="gh-pill" id="tetherPill" title="Tether to a local brainstem on localhost:7071 for full local capabilities (your memory, your installed agents, your model preferences).">
-    <span class="gh-dot off"></span>
-    <span id="tetherLabel">No local brainstem</span>
-  </div>
   <div class="gh-pill" id="ghPill">
     <span class="gh-dot off"></span>
     <span id="ghLabel">Sign in with GitHub</span>
@@ -304,10 +300,6 @@
     <h2 style="margin-top: 18px;" title="Per-channel output overlays from kody-w/RAPP_Sense_Store. Senses install into utils/senses/, not agents/, so they're previewed here but not loadable into this client-side runtime.">Senses <span style="color: var(--text-muted); font-weight: normal;" id="senseCount"></span></h2>
     <div id="senseList">
       <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
-    </div>
-    <div id="tetheredSection" style="display: none;">
-      <h2 style="margin-top: 18px;">Tethered (local)</h2>
-      <div id="tetheredList"></div>
     </div>
   </aside>
 
@@ -333,8 +325,8 @@
         <h1>Talk to the catalog</h1>
         <p>This is the resident vBrainstem for <a href="https://github.com/kody-w/RAPP_Store">kody-w/RAPP_Store</a>. Pick a rapplication from the sidebar, load it, and chat with it. Pure browser — your code, your token, your conversation.</p>
         <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default). On sign-in, the <strong>StoreNavigator</strong> agent (hosted in <a href="https://github.com/kody-w/RAR">RAR</a>) auto-loads — ask it "what should I install for X?" and it'll search the catalog for you.</div>
-        <div class="step"><span class="num">2</span><strong>Or tether to a local brainstem.</strong> Run <code>kody-w/RAPP/rapp_brainstem</code> (default port 7071) and click the <em>tether pill</em> to route chat through it. You get the operator's soul, memory, model preferences, and every locally installed agent — not just rapp_store ones.</div>
-        <div class="step"><span class="num">3</span><strong>Chat.</strong> In cloud mode the model has the loaded rapp's <code>perform()</code> as a tool — it calls into Pyodide to run real Python in the browser. In tether mode the local brainstem owns the tool loop end-to-end.</div>
+        <div class="step"><span class="num">2</span><strong>Pick a rapp.</strong> Sidebar lists every rapplication in the catalog. Click one and it loads into the browser — its UI iframe mounts, its agent's <code>perform()</code> registers as a tool the model can call.</div>
+        <div class="step"><span class="num">3</span><strong>Chat.</strong> The model has the loaded rapp's <code>perform()</code> as a tool — it calls into Pyodide to run real Python in the browser. Your code, your token, your conversation; nothing routes through a server.</div>
       </div>
     </div>
     <div class="composer">
@@ -397,15 +389,6 @@ const AUTH_WORKER_URL = 'https://rappterbook-auth.kwildfeuer.workers.dev';
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
 
-// Tether: optional connection to a local brainstem running on its default
-// port (7071). When detected the vBrainstem can route chat through the
-// brainstem's /chat endpoint, getting full local capabilities — the user's
-// soul.md, their memory, their installed agents (not just rapp_store ones),
-// their preferred model. The brainstem.py at kody-w/RAPP already CORS-allows
-// `https://kody-w.github.io` so this works from the hosted vBrainstem.
-const TETHER_DEFAULT_PORT = 7071;
-const TETHER_DEFAULT_BASE = `http://localhost:${TETHER_DEFAULT_PORT}`;
-
 // The store_navigator is hosted in RAR (per Constitution Article XXVII —
 // bare agents → RAR, not the rapp store). The vBrainstem auto-loads it on
 // boot so users have a chat-driven catalog browser without picking anything.
@@ -418,9 +401,7 @@ const state = {
   catalog: null,
   rapps: [],
   // Sibling catalogs (per Article XXXI three-store model). Pulled lazily
-  // and rendered as collapsible sidebar sections. Cross-store install URLs
-  // route through whatever the user has tethered to (or are pointed at as
-  // download links in cloud mode).
+  // and rendered as collapsible sidebar sections.
   rarAgents: [],               // bare agents from kody-w/RAR
   senses: [],                  // senses from kody-w/RAPP_Sense_Store
   selectedRapp: null,
@@ -430,21 +411,6 @@ const state = {
   ghUser: null,
   pyodide: null,
   pyodideLoading: null,
-  // Tether state. Experimental — off by default. The vBrainstem's primary
-  // path is the authenticated cloud mode (GitHub sign-in + GitHub Models +
-  // Pyodide for agent execution). Tether is only enabled when the user
-  // explicitly clicks the pill AND a local brainstem is reachable.
-  // (Earlier behavior: probed localhost:7071 every 30s on boot, which
-  // generated console noise and a misleading "Local brainstem detected"
-  // pill for users with the brainstem repo cloned but not the brainstem
-  // running. Disabled until a future proposal makes it stable.)
-  tether: {
-    enabled: false,
-    opted_in: localStorage.getItem('vbs_tether_optin') === '1',  // user toggled the pill at some point
-    base: localStorage.getItem('vbs_tether_base') || TETHER_DEFAULT_BASE,
-    health: null,
-    detected: false,
-  },
   // Resident agents — pinned to the top of the sidebar regardless of catalog.
   // store_navigator is loaded from RAR per Article XXVII.
   resident: [
@@ -575,137 +541,6 @@ $('#ghPill').addEventListener('click', () => {
   }
 });
 
-// ─── Tether (local brainstem on localhost:7071) ────────────────────────
-
-async function probeTether() {
-  // Probe is fire-and-forget: if a brainstem is running, we light up the
-  // pill; if not, we silently stay in cloud mode.
-  try {
-    const r = await fetch(state.tether.base + '/health', {
-      method: 'GET',
-      cache: 'no-store',
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const h = await r.json();
-    state.tether.health = h;
-    state.tether.detected = true;
-  } catch {
-    state.tether.detected = false;
-    state.tether.health = null;
-    // If user had previously enabled tether but the brainstem is now down,
-    // turn it off so chat falls back to cloud. They can re-enable.
-    if (state.tether.enabled) {
-      state.tether.enabled = false;
-      localStorage.setItem('vbs_tether_enabled', '0');
-      toast('Local brainstem unreachable — falling back to cloud.', 'err');
-    }
-  }
-  updateTetherPill();
-  updateTetheredList();
-}
-
-function updateTetherPill() {
-  const dot = $('#tetherPill .gh-dot');
-  const lbl = $('#tetherLabel');
-  const t = state.tether;
-  if (t.enabled && t.detected) {
-    dot.className = 'gh-dot on';
-    const v = (t.health && t.health.version) || '';
-    const model = (t.health && t.health.model) || '';
-    lbl.textContent = `Tethered · ${model || 'localhost:' + TETHER_DEFAULT_PORT}`;
-    $('#tetherPill').title = `Tethered to local brainstem (${t.base}). Chat routes through /chat with full local capabilities (soul, memory, installed agents, model preferences). Click to disconnect.`;
-  } else if (t.detected) {
-    dot.className = 'gh-dot off';
-    lbl.textContent = 'Local brainstem detected · click to tether';
-    $('#tetherPill').title = `A brainstem is running at ${t.base}. Click to tether — chat will route through it instead of cloud GitHub Models.`;
-  } else {
-    dot.className = 'gh-dot off';
-    lbl.textContent = 'Tether (experimental)';
-    $('#tetherPill').title = `Tether to a local brainstem at localhost:${TETHER_DEFAULT_PORT} for full local capabilities (your soul, memory, installed agents). Experimental — off by default. Click to attempt connection.`;
-  }
-}
-
-$('#tetherPill').addEventListener('click', async () => {
-  // Mark the user as having opted in to tether at least once. This unlocks
-  // the auto-probe on subsequent loads. Tether is experimental (Article
-  // XXVIII deferral) — purely opt-in.
-  state.tether.opted_in = true;
-  localStorage.setItem('vbs_tether_optin', '1');
-  await probeTether();
-  if (!state.tether.detected) {
-    toast(`No brainstem at ${state.tether.base}. Start one and try again. (Tether is experimental.)`, 'err');
-    return;
-  }
-  state.tether.enabled = !state.tether.enabled;
-  localStorage.setItem('vbs_tether_enabled', state.tether.enabled ? '1' : '0');
-  if (state.tether.enabled) {
-    state.conversation = []; // reset conversation on context switch
-    clearMessages();
-    addMessage('system',
-      `**Tethered to local brainstem.** Chat now routes through \`${state.tether.base}/chat\`. ` +
-      `You get the operator's soul.md, memory store, installed agents (${(state.tether.health.agents || []).length} loaded locally: ${(state.tether.health.agents || []).slice(0, 8).join(', ')}${(state.tether.health.agents || []).length > 8 ? ', …' : ''}), and the brainstem's preferred model. ` +
-      `Loading a rapp from the catalog still works for client-side execution; tethered chat ignores the loaded rapp and uses the brainstem's full agent toolbelt instead.`);
-  } else {
-    state.conversation = [];
-    clearMessages();
-    addMessage('system', 'Tether off. Chat goes back to cloud (GitHub Models + Pyodide).');
-  }
-  updateTetherPill();
-  updateInputState();
-  updateTetheredList();
-});
-
-async function fetchTetheredAgents() {
-  if (!state.tether.detected) return [];
-  try {
-    const r = await fetch(state.tether.base + '/binder');
-    if (r.ok) {
-      const d = await r.json();
-      return (d.installed || d.rapps || []).map(x => ({
-        id: x.id || x.name,
-        name: x.name || x.id,
-        version: x.version,
-        summary: `Locally installed via binder. Filename: ${x.agent_filename || x.filename || '?'}`,
-        category: 'local',
-        _tethered: true,
-        _local_filename: x.agent_filename || x.filename,
-      }));
-    }
-  } catch {}
-  return [];
-}
-
-async function updateTetheredList() {
-  const sec = $('#tetheredSection');
-  const list = $('#tetheredList');
-  if (!state.tether.enabled || !state.tether.detected) {
-    sec.style.display = 'none';
-    list.innerHTML = '';
-    return;
-  }
-  const items = await fetchTetheredAgents();
-  if (!items.length) {
-    sec.style.display = 'none';
-    return;
-  }
-  sec.style.display = '';
-  list.innerHTML = '';
-  for (const r of items) {
-    const card = el('div', {
-      class: 'rapp-card',
-      'data-id': 'tethered:' + r.id,
-      onclick: () => {
-        toast(`'${r.name}' is loaded in the local brainstem — tethered chat will call it automatically when relevant.`);
-      },
-    }, [
-      el('div', { class: 'rapp-name', text: r.name }),
-      el('div', { class: 'rapp-meta', text: `v${r.version || '?'} · local` }),
-      el('div', { class: 'rapp-summary', text: r.summary }),
-    ]);
-    list.appendChild(card);
-  }
-}
-
 // ─── Catalog loading + rendering ────────────────────────────────────────
 
 async function loadCatalog() {
@@ -833,7 +668,7 @@ function renderSenses() {
       'data-id': 'sense:' + s.name,
       // Senses install into utils/senses/ on a real brainstem; this client-
       // side runtime can't load them as agents. Click previews + offers
-      // the URL to copy/paste into a tethered brainstem's binder.
+      // a manual install URL.
       onclick: () => previewSense(s),
     }, [
       el('div', { class: 'rapp-name', text: s.name }),
@@ -870,8 +705,7 @@ function previewSense(s) {
     `Surfaces: \`${(s.surfaces || ['chat']).join(', ')}\`.\n\n` +
     `> ${(s.description || '(no description)').slice(0, 280)}\n\n` +
     `Senses install into a brainstem's \`utils/senses/\` directory, not \`agents/\` — they shape every reply by appending a delimited block (per Constitution Article XXIV). The vBrainstem can preview them but can't compose them into the system prompt of an agent it's running client-side.\n\n` +
-    `**Install on a tethered brainstem:** ask in chat *"add the ${s.name} sense"* — the binder agent (per kody-w/RAPP issue #22) handles it.\n\n` +
-    `**Manual install:** \`curl -fsSL ${s.url} -o ~/.brainstem/src/rapp_brainstem/utils/senses/${s.filename}\``);
+    `**Manual install on a local brainstem:** \`curl -fsSL ${s.url} -o ~/.brainstem/src/rapp_brainstem/utils/senses/${s.filename}\``);
 }
 
 function selectRapp(r) {
@@ -891,13 +725,13 @@ function selectRapp(r) {
 }
 
 // Fetch shim injected into the rapp UI iframe BEFORE the page's own scripts
-// run. Captures any calls to brainstem endpoints (localhost:7071, relative
-// /api/binder/*, /chat, /health, /tether) and routes them to the parent via
-// postMessage. The parent dispatches: tether mode → forward to the local
-// brainstem; cloud mode → fulfill from Pyodide / GitHub Models / canned
-// brainstem-shaped responses for /health & /api/binder. The rapp UI's own
-// fetch code is unmodified — it just gets the responses it expected from
-// a "running brainstem" without one having to actually exist.
+// run. Captures any calls to brainstem endpoints (legacy localhost:7071
+// hardcodes plus the standard relative paths /api/binder/*, /chat, /health,
+// /version) and routes them to the parent via postMessage. The parent
+// fulfills from Pyodide / GitHub Models / canned brainstem-shaped responses
+// for /health & /api/binder. The rapp UI's own fetch code is unmodified —
+// it just gets the responses it expected from a "running brainstem"
+// without one having to actually exist.
 const FETCH_SHIM_HTML = `<script>
 (function(){
   if (window.__rapp_fetch_shimmed) return;
@@ -968,9 +802,8 @@ const FETCH_SHIM_HTML = `<script>
 // "cartridge" envelope containing the rapp's manifest, the user's
 // context, and the parent's capabilities. The iframe can postMessage
 // back to invoke its backing agent's perform() — the parent runs it via
-// Pyodide (cloud mode) or the tether (local brainstem mode). New UIs
-// opt in by listening for `rapp:cartridge`; existing UIs that ignore
-// postMessage keep working as standalone pages.
+// Pyodide. New UIs opt in by listening for `rapp:cartridge`; existing UIs
+// that ignore postMessage keep working as standalone pages.
 async function mountRappFrame(r) {
   const frame = $('#rappFrame');
   const tabs = $('#viewTabs');
@@ -992,9 +825,10 @@ async function mountRappFrame(r) {
     const baseTag = `<base href="${base}">`;
     // The fetch shim runs BEFORE any of the rapp UI's own scripts so it
     // captures their fetch references and reroutes brainstem-bound calls
-    // (localhost:7071, /api/binder, /chat, /health) to the parent. Without
-    // this, UIs that hardcode the local brainstem can't run inside the
-    // cloud vBrainstem — bookfactory's "Brainstem unreachable" banner.
+    // (legacy localhost:7071 hardcodes, /api/binder, /chat, /health) to the
+    // parent. Without this, UIs that hardcode the local brainstem can't
+    // run inside the vBrainstem — bookfactory's "Brainstem unreachable"
+    // banner.
     const headInject = baseTag + FETCH_SHIM_HTML;
     if (/<head[^>]*>/i.test(html)) {
       html = html.replace(/<head([^>]*)>/i, `<head$1>${headInject}`);
@@ -1033,10 +867,6 @@ function buildCartridge(r) {
       // Auth token is NEVER shipped across the iframe boundary. UIs that
       // need to make authenticated calls postMessage back to us with
       // `rapp:fetch` and we proxy.
-      tether: {
-        active: !!(state.tether.enabled && state.tether.detected),
-        base:   state.tether.detected ? state.tether.base : null,
-      },
       session: {
         id: state._session_id || (state._session_id = 'vbs-' + Math.random().toString(36).slice(2, 10)),
         conversation_history: state.conversation || [],
@@ -1056,10 +886,8 @@ function buildCartridge(r) {
 
 // Dispatcher for `rapp:proxy_fetch` messages. The rapp UI's fetch shim
 // (FETCH_SHIM_HTML, injected before the UI's own scripts) sends every
-// brainstem-bound call here. We:
-//   * tether mode → forward verbatim to the local brainstem (it has
-//     real auth / agents / state).
-//   * cloud mode → fulfill from what the vBrainstem actually has:
+// brainstem-bound call here, and we fulfill from what the vBrainstem
+// actually has:
 //       /health             → 200, brainstem-shaped status
 //       /api/binder         → list of "installed" entries (just the
 //                              currently-loaded rapp)
@@ -1072,28 +900,8 @@ async function proxyBrainstemFetch(msg) {
   const headers = msg.headers || {};
   const body = msg.body;
 
-  // ── tether: forward straight through ───────────────
-  if (state.tether.enabled && state.tether.detected) {
-    let target = url;
-    if (/^\/[^/]/.test(url)) target = state.tether.base + url;
-    if (/^https?:\/\/(localhost|127\.0\.0\.1):7071/.test(url)) {
-      target = url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):7071/, state.tether.base);
-    }
-    try {
-      const r = await fetch(target, {
-        method, body: (method === 'GET' || method === 'HEAD') ? undefined : body, headers,
-      });
-      const text = await r.text();
-      return {
-        status: r.status, body: text,
-        headers: { 'content-type': r.headers.get('content-type') || 'application/json' },
-      };
-    } catch (e) {
-      return { status: 502, body: JSON.stringify({ error: 'tether forward failed: ' + e.message }) };
-    }
-  }
-
-  // ── cloud: simulate the brainstem ──────────────────
+  // Strip any legacy localhost:7071 prefix so a hardcoded URL in an old
+  // rapp UI lands on the same simulator path as a relative one.
   const path = url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):7071/, '');
 
   if (/^\/health(\?|$)/.test(path)) {
@@ -1195,7 +1003,7 @@ async function proxyBrainstemFetch(msg) {
   return {
     status: 404,
     body: JSON.stringify({
-      error: `vBrainstem cloud mode does not simulate ${path}. Tether to a local brainstem on localhost:7071 to use full brainstem features.`,
+      error: `vBrainstem does not simulate ${path}. Run a local brainstem (kody-w/RAPP) for the full surface.`,
       path, method,
     }),
   };
@@ -1215,8 +1023,8 @@ function postCartridge(r) {
 //   * { type: 'rapp:get_cartridge' }                  → re-request the envelope
 //   * { type: 'rapp:invoke', id, args }               → run perform(**args), reply with rapp:invoke:result
 //   * { type: 'rapp:chat', id, message }              → submit a chat turn, reply with rapp:chat:result
-//   * { type: 'rapp:fetch', id, url, init }           → proxy a fetch (used by tethered UIs that
-//                                                       want the parent's CORS / auth context)
+//   * { type: 'rapp:fetch', id, url, init }           → proxy a fetch (so the iframe can use
+//                                                       the parent's CORS / auth context)
 window.addEventListener('message', async (ev) => {
   const frame = $('#rappFrame');
   if (!frame || ev.source !== frame.contentWindow) return;
@@ -1449,47 +1257,7 @@ function buildTools() {
 }
 
 async function chat(userMsg) {
-  // Tether mode: route through the local brainstem's /chat. The brainstem
-  // has the user's keys, soul, memory, and full agent toolbelt — we just
-  // forward the message and render the response.
-  if (state.tether.enabled && state.tether.detected) {
-    state.conversation.push({ role: 'user', content: userMsg });
-    addMessage('user', userMsg);
-    addActivity('→ POST ' + state.tether.base + '/chat');
-    try {
-      const r = await fetch(state.tether.base + '/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_input: userMsg,
-          conversation_history: state.conversation
-            .filter(m => m.role === 'user' || m.role === 'assistant')
-            .slice(0, -1), // exclude the just-pushed user msg (brainstem appends it)
-        }),
-      });
-      if (!r.ok) {
-        const t = await r.text();
-        addMessage('error', `brainstem ${r.status}: ${t.slice(0, 400)}`);
-        return;
-      }
-      const d = await r.json();
-      const text = d.response || d.message || d.content || JSON.stringify(d);
-      // Strip RAPP's |||VOICE|||/|||TWIN||| separators if present
-      const main = String(text).split('|||VOICE|||')[0].split('|||TWIN|||')[0];
-      state.conversation.push({ role: 'assistant', content: main });
-      addMessage('assistant', main);
-      // Surface tool logs from the brainstem (if returned)
-      const logs = d.agent_logs || d.tool_logs || [];
-      for (const lg of logs.slice(0, 5)) {
-        addActivity(`local agent → ${lg.name || lg.tool || '?'}`);
-      }
-    } catch (e) {
-      addMessage('error', `tether error: ${e.message}. Disable tether or restart your brainstem.`);
-    }
-    return;
-  }
-
-  // Cloud mode: GitHub Models + Pyodide.
+  // GitHub Models + Pyodide. The vBrainstem is the runtime.
   if (!state.ghToken && !state.settings.byoKey) {
     toast('Sign in first', 'err');
     return;
@@ -1750,18 +1518,11 @@ const input = $('#input');
 const sendBtn = $('#sendBtn');
 
 function updateInputState() {
-  // Tether mode: input is enabled as long as the local brainstem is up.
-  // The local brainstem owns auth + agents, so neither GH sign-in nor a
-  // loaded rapp is required.
-  const tetherReady = state.tether.enabled && state.tether.detected;
-  const cloudReady = (state.ghToken || state.settings.byoKey) && state.loadedAgent;
-  const ready = tetherReady || cloudReady;
+  const ready = (state.ghToken || state.settings.byoKey) && state.loadedAgent;
   input.disabled = !ready;
   sendBtn.disabled = !ready;
-  if (tetherReady) {
-    input.placeholder = `Tethered chat — ask anything (routed to ${state.tether.base})`;
-  } else if (!state.ghToken && !state.settings.byoKey) {
-    input.placeholder = 'Sign in with GitHub or start a local brainstem (tether)…';
+  if (!state.ghToken && !state.settings.byoKey) {
+    input.placeholder = 'Sign in with GitHub to start chatting…';
   } else if (!state.loadedAgent) {
     input.placeholder = 'Pick a rapp from the sidebar to load it…';
   } else {
@@ -1822,16 +1583,6 @@ $('#settingsSave').addEventListener('click', () => {
   if (state.ghToken && !state.ghUser) await fetchGHUser();
   updateGHPill();
   await loadCatalog();
-
-  // Tether: experimental, off by default. Only probe if the user has
-  // previously opted in via the pill. New users land in pure cloud mode
-  // — sign in with GitHub, work; no console noise from failing probes.
-  if (state.tether.opted_in) {
-    probeTether().catch(() => {});
-    setInterval(() => probeTether().catch(() => {}), 30000);
-  } else {
-    updateTetherPill();
-  }
 
   // After GitHub sign-in, pre-load the navigator so the user has a
   // chat-driven catalog browser ready to go.
