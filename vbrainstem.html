@@ -1867,6 +1867,125 @@ $('#settingsSave').addEventListener('click', () => {
 
   updateInputState();
 })();
+
+// ─── window.vb — devtools CLI for headless / programmatic testing.
+// Open the browser console and run vb.help() to see available commands.
+// Designed so an external operator (or an AI assistant pasting one-liners)
+// can drive the vBrainstem without clicking through the UI.
+
+window.vb = {
+  state: () => ({
+    rapps: state.rapps.length,
+    rarAgents: state.rarAgents.length,
+    senses: state.senses.length,
+    selected: state.selectedRapp ? state.selectedRapp.id : null,
+    loaded: state.loadedAgent ? {
+      id: state.loadedAgent.rapp && state.loadedAgent.rapp.id,
+      name: state.loadedAgent.rapp && state.loadedAgent.rapp.name,
+      class: state.loadedAgent.agentClass,
+      tool: state.loadedAgent.metadata && state.loadedAgent.metadata.name,
+      lines: state.loadedAgent.source ? state.loadedAgent.source.split('\n').length : 0,
+    } : null,
+    conversation: state.conversation.length,
+    auth: state.ghToken ? 'github' : (state.settings.byoKey ? 'byo' : null),
+    model: state.settings.model,
+  }),
+
+  list: (filter) => {
+    const all = [
+      ...(state.resident || []).map(r => ({ kind: 'resident', id: r.id, name: r.name, version: r.version })),
+      ...state.rapps.map(r => ({ kind: 'rapp', id: r.id, name: r.name, version: r.version, surfaces: [r.singleton_url && 'agent', r.ui_url && 'ui', r.service_url && 'service'].filter(Boolean) })),
+      ...state.rarAgents.map(a => ({ kind: 'agent', id: a.name, name: a.display_name || a.name, version: a.version })),
+      ...state.senses.map(s => ({ kind: 'sense', id: s.name, version: s.version, delimiter: s.delimiter })),
+    ];
+    if (!filter) return all;
+    const re = new RegExp(filter, 'i');
+    return all.filter(x => re.test(x.id || '') || re.test(x.name || ''));
+  },
+
+  find: (id) => {
+    return state.rapps.find(r => r.id === id)
+        || (state.resident || []).find(r => r.id === id)
+        || state.rarAgents.find(a => a.name === id)
+        || state.senses.find(s => s.name === id)
+        || null;
+  },
+
+  load: async (id) => {
+    const rapp = state.rapps.find(r => r.id === id)
+              || (state.resident || []).find(r => r.id === id);
+    if (rapp) { selectRapp(rapp); return { kind: 'rapp', id: rapp.id }; }
+    const ag = state.rarAgents.find(a => a.name === id);
+    if (ag) {
+      const url = `https://raw.githubusercontent.com/kody-w/RAR/main/agents/${ag.name}.py`;
+      selectAgent(ag, url);
+      return { kind: 'agent', id: ag.name };
+    }
+    throw new Error(`no rapp/agent with id "${id}" — try vb.list()`);
+  },
+
+  unload: () => { unloadAgent(); return { unloaded: true }; },
+
+  chat: async (msg) => {
+    if (!state.loadedAgent) throw new Error('no agent loaded — vb.load(id) first');
+    const before = state.conversation.length;
+    await chat(msg);
+    const tail = state.conversation.slice(before).filter(m => m.role === 'assistant');
+    return tail.length ? tail[tail.length - 1].content : '(no assistant reply captured)';
+  },
+
+  history: (n = 10) => state.conversation.slice(-n),
+
+  clearHistory: () => { state.conversation = []; clearMessages(); return { cleared: true }; },
+
+  exportRapp: async (id) => {
+    const r = state.rapps.find(x => x.id === id);
+    if (!r) throw new Error(`no rapp "${id}"`);
+    return await exportRapp(r);
+  },
+
+  importEgg: async (urlOrFile) => {
+    if (urlOrFile instanceof File || urlOrFile instanceof Blob) {
+      return await importEggFile(urlOrFile);
+    }
+    const resp = await fetch(urlOrFile);
+    if (!resp.ok) throw new Error(`fetch ${resp.status}`);
+    const blob = await resp.blob();
+    const file = new File([blob], urlOrFile.split('/').pop() || 'imported.rapplication.egg');
+    return await importEggFile(file);
+  },
+
+  help: () => {
+    const lines = [
+      'vBrainstem CLI — try these in the console:',
+      '',
+      '  vb.state()              quick snapshot (auth, loaded, counts)',
+      '  vb.list([regex])        list everything (rapps + agents + senses)',
+      '  vb.find(id)             find a specific entry by id',
+      '  vb.load(id)             select + load by id',
+      '  vb.unload()             unload current agent',
+      '  vb.chat("msg")          send a message, await assistant reply (returns string)',
+      '  vb.history(n=10)        last N messages',
+      '  vb.clearHistory()       reset conversation',
+      '  vb.exportRapp(id)       trigger .rapplication.egg download',
+      '  vb.importEgg(urlOrFile) import a .egg from a URL or File object',
+      '  vb._state               raw state object (for spelunking)',
+      '',
+      'Examples:',
+      '  await vb.load("bookfactory")',
+      '  await vb.chat("write a chapter about wolves")',
+      '  vb.list("book")',
+    ];
+    console.log(lines.join('\n'));
+    return lines;
+  },
+
+  _state: state,
+  _select: (r) => selectRapp(r),
+};
+
+console.log('%cvBrainstem CLI ready', 'color:#58a6ff;font-weight:bold;');
+console.log('Type %cvb.help()%c for available commands.', 'color:#58a6ff', '');
 </script>
 
 </body>
