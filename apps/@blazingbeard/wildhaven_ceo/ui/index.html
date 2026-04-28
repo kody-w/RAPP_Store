@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WildhavenCEO — talk to your workspace</title>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d; --text:#e6edf3; --dim:#8b949e; --mute:#6e7681; --accent:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#d29922; --pink:#f778ba; --purple:#bc8cff; --gold:#ffd166; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+
+  header { padding: 16px 22px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 5; }
+  header .glyph { font-size: 22px; }
+  header h1 { font-size: 16px; font-weight: 700; }
+  header .sub { color: var(--dim); font-size: 11px; font-family: ui-monospace, monospace; }
+  header .ctx { margin-left: auto; font-size: 11px; color: var(--dim); }
+  header .ctx code { color: var(--accent); }
+
+  main { display: grid; grid-template-columns: 360px 1fr; gap: 16px; padding: 18px 22px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+
+  section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+  section h2 .help { font-weight: 400; font-size: 10px; color: var(--mute); text-transform: none; letter-spacing: 0; }
+
+  /* Vault panel */
+  .vault textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 7px; font-family: ui-monospace, monospace;
+    font-size: 12px; line-height: 1.55; resize: vertical; min-height: 280px;
+  }
+  .vault textarea:focus { outline: 0; border-color: var(--accent); }
+  .vault .hint { font-size: 11px; color: var(--mute); margin-top: 8px; line-height: 1.5; }
+  .vault .hint code { color: var(--accent); background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 10px; }
+
+  /* Workflow tabs */
+  .workflows { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-bottom: 14px; }
+  .wf {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--dim);
+    padding: 9px 8px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px;
+    text-align: center; transition: all .15s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .wf:hover { color: var(--text); border-color: var(--accent); }
+  .wf.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .wf .icon { font-size: 16px; }
+  .wf .label { font-size: 11px; font-weight: 600; }
+
+  /* Composer */
+  .composer label { display: block; font-size: 11px; color: var(--dim); margin: 8px 0 4px; }
+  .composer input,
+  .composer textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 7px; font: inherit; font-size: 13px; resize: vertical;
+  }
+  .composer textarea { min-height: 110px; line-height: 1.55; }
+  .composer input:focus, .composer textarea:focus { outline: 0; border-color: var(--accent); }
+  .composer .actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+  button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 9px 18px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); color: #fff; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .composer .hint { color: var(--mute); font-size: 11px; font-family: ui-monospace, monospace; }
+
+  /* Output */
+  .output { font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; min-height: 60px; }
+  .output.empty { color: var(--mute); font-style: italic; padding: 30px 0; text-align: center; white-space: normal; }
+  .output h1, .output h2, .output h3 { font-weight: 700; margin: 18px 0 10px; }
+  .output h1 { font-size: 20px; }
+  .output h2 { font-size: 16px; color: var(--dim); }
+  .output p { margin-bottom: 12px; }
+  .output code { background: var(--bg); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); }
+  .output pre { background: var(--bg); border: 1px solid var(--border); padding: 12px; border-radius: 7px; overflow-x: auto; font-size: 12px; margin: 12px 0; }
+  .output strong { color: var(--gold); }
+  .output ul, .output ol { padding-left: 22px; margin-bottom: 12px; }
+  .output li { margin-bottom: 4px; }
+  .output blockquote { border-left: 3px solid var(--accent); padding-left: 12px; margin: 12px 0; color: var(--dim); font-style: italic; }
+
+  .out-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+  .err { background: rgba(248,81,73,.1); border: 1px solid var(--red); border-radius: 7px; padding: 10px 14px; color: var(--red); font-size: 13px; }
+
+  .running { display: inline-flex; align-items: center; gap: 8px; color: var(--orange); font-size: 12px; }
+  .running .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; font-size: 12px; opacity: 0; transition: opacity .25s; z-index: 100; }
+  .toast.show { opacity: 1; }
+  .toast.ok  { border-color: var(--green); }
+  .toast.err { border-color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="glyph">🎩</div>
+  <div>
+    <h1>WildhavenCEO</h1>
+    <div class="sub">talk to your workspace · operator voice</div>
+  </div>
+  <div class="ctx" id="ctxBanner"></div>
+</header>
+
+<main>
+  <!-- Left: vault panel ───────────────────────────────────────── -->
+  <section class="vault">
+    <h2>Vault context <span class="help">paste docs here</span></h2>
+    <textarea id="vault" placeholder="Paste your strategy, legal, budget, pitch, or playbook documents. The agent reads this as the source of truth and answers in your voice. Optional — without it the agent flags it's inferring."></textarea>
+    <div class="hint">
+      💡 Drop in <code>property-summary-2026-04.csv</code>, your latest <code>weekly-tracker</code>, the relevant <code>pitch/</code> doc, or any markdown notes. Plain text wins. The agent will quote exact numbers when they're here.
+    </div>
+  </section>
+
+  <!-- Right: composer + output ─────────────────────────────────── -->
+  <section class="composer">
+    <h2>Workflow</h2>
+    <div class="workflows" id="workflows">
+      <button class="wf active" data-action="ask">
+        <span class="icon">💬</span><span class="label">Ask</span>
+      </button>
+      <button class="wf" data-action="decide">
+        <span class="icon">⚖️</span><span class="label">Decide</span>
+      </button>
+      <button class="wf" data-action="respond_to">
+        <span class="icon">📨</span><span class="label">Respond</span>
+      </button>
+      <button class="wf" data-action="daily_brief">
+        <span class="icon">☀️</span><span class="label">Daily brief</span>
+      </button>
+      <button class="wf" data-action="quarterly_review">
+        <span class="icon">📈</span><span class="label">Quarterly</span>
+      </button>
+    </div>
+
+    <div id="askerRow" style="display:none">
+      <label for="asker">Who asked</label>
+      <input id="asker" placeholder="e.g. an investor, the team, a tenant">
+    </div>
+
+    <label for="question" id="qLabel">Question</label>
+    <textarea id="question" placeholder="What's the question? Plain language. The agent answers grounded in the vault."></textarea>
+
+    <div class="actions">
+      <button class="primary" id="runBtn" onclick="run()">Ask the workspace</button>
+      <span class="hint" id="runHint">⌘⏎ to send</span>
+    </div>
+
+    <h2 style="margin-top: 22px;" id="outputHeader">Answer</h2>
+    <div class="output empty" id="output">Pick a workflow, drop your vault on the left, ask a question — get a vault-grounded answer in operator voice.</div>
+    <div class="out-actions" id="outActions" style="display:none">
+      <button onclick="copyOutput()">📋 Copy</button>
+      <button onclick="downloadOutput()">⬇ Download .md</button>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ─── Cartridge ──────────────────────────────────────────────────────────
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d?.type === 'rapp:cartridge') { cartridge = d; onCartridge(); }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function onCartridge() {
+  const t = cartridge?.context?.tether;
+  const u = cartridge?.context?.user;
+  const parts = [];
+  if (u) parts.push(`<code>@${u.login}</code>`);
+  parts.push(t?.active ? `tethered <code>${t.base}</code>` : `cloud`);
+  document.getElementById('ctxBanner').innerHTML = parts.join(' · ');
+}
+
+// ─── Workflow state ─────────────────────────────────────────────────────
+let activeAction = 'ask';
+const WORKFLOW_LABELS = {
+  ask: { btn: 'Ask the workspace', q: 'Question', placeholder: 'What\'s the question? Plain language.' },
+  decide: { btn: 'Frame the decision', q: 'Decision to frame', placeholder: 'Should we [do this thing]?' },
+  respond_to: { btn: 'Draft the response', q: 'What did they ask?', placeholder: 'What did they say to you?' },
+  daily_brief: { btn: 'Generate today\'s brief', q: 'Anything specific? (optional)', placeholder: 'Empty = full brief. Or focus: "I\'m short on time, just the #1 today."' },
+  quarterly_review: { btn: 'Close out the quarter', q: 'Anything specific? (optional)', placeholder: 'Empty = full review. Or scope: "Just the property numbers."' },
+};
+
+document.querySelectorAll('.wf').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.wf').forEach(x => x.classList.toggle('active', x === b));
+  activeAction = b.getAttribute('data-action');
+  const cfg = WORKFLOW_LABELS[activeAction];
+  document.getElementById('runBtn').textContent = cfg.btn;
+  document.getElementById('qLabel').textContent = cfg.q;
+  document.getElementById('question').placeholder = cfg.placeholder;
+  document.getElementById('askerRow').style.display = activeAction === 'respond_to' ? '' : 'none';
+}));
+
+// Cmd/Ctrl+Enter from the question box runs.
+document.getElementById('question').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); run(); }
+});
+
+// ─── Run ────────────────────────────────────────────────────────────────
+let running = false;
+async function run() {
+  if (running) return;
+  const question = document.getElementById('question').value.trim();
+  const asker = document.getElementById('asker').value.trim();
+  const workspace_context = document.getElementById('vault').value.trim();
+
+  if (['ask', 'decide', 'respond_to'].includes(activeAction) && !question) {
+    toast('A question is required for this workflow', 'err');
+    return;
+  }
+
+  running = true;
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = 'Thinking…';
+  document.getElementById('outputHeader').innerHTML =
+    `<span>Answer</span> <span class="running"><span class="pulse"></span> running</span>`;
+  document.getElementById('output').className = 'output empty';
+  document.getElementById('output').textContent = 'reading the vault, drafting…';
+  document.getElementById('outActions').style.display = 'none';
+
+  const args = { action: activeAction };
+  if (question) args.question = question;
+  if (asker) args.asker = asker;
+  if (workspace_context) args.workspace_context = workspace_context;
+
+  try {
+    const result = await invoke(args);
+    showOutput(String(result));
+    document.getElementById('outputHeader').textContent = 'Answer';
+  } catch (e) {
+    document.getElementById('output').className = 'output';
+    document.getElementById('output').innerHTML = `<div class="err">${esc(e.message || e)}</div>`;
+    document.getElementById('outputHeader').textContent = 'Answer';
+  } finally {
+    running = false;
+    btn.disabled = false;
+    btn.textContent = WORKFLOW_LABELS[activeAction].btn;
+  }
+}
+
+function showOutput(text) {
+  const out = document.getElementById('output');
+  out.className = 'output';
+  // Unwrap a JSON envelope if the agent returned an error object
+  let display = text;
+  try {
+    const j = JSON.parse(text);
+    if (j && typeof j === 'object' && j.error) {
+      out.innerHTML = `<div class="err">${esc(j.error)}</div>`;
+      return;
+    }
+  } catch {}
+  out.innerHTML = renderMarkdown(display);
+  document.getElementById('outActions').style.display = 'flex';
+  out._raw = display;
+}
+
+function copyOutput() {
+  const text = document.getElementById('output')._raw || '';
+  navigator.clipboard.writeText(text).then(
+    () => toast('Copied', 'ok'),
+    () => toast('Copy failed', 'err'),
+  );
+}
+
+function downloadOutput() {
+  const text = document.getElementById('output')._raw || '';
+  const blob = new Blob([text], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `wildhaven-ceo-${activeAction}-${Date.now()}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Cartridge invoke ───────────────────────────────────────────────────
+function invoke(args) {
+  return new Promise((resolve, reject) => {
+    const id = 'inv-' + Math.random().toString(36).slice(2);
+    const handler = (ev) => {
+      const d = ev.data;
+      if (!d || d.type !== 'rapp:invoke:result' || d.id !== id) return;
+      window.removeEventListener('message', handler);
+      d.error ? reject(new Error(d.error)) : resolve(d.result);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+
+// ─── Markdown ───────────────────────────────────────────────────────────
+function renderMarkdown(s) {
+  s = String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  s = s.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => `<pre><code class="lang-${lang}">${code}</code></pre>`);
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  s = s.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  s = s.replace(/^[\*\-] (.+)$/gm, '<li>$1</li>');
+  s = s.replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  s = s.replace(/\n\n+/g, '</p><p>');
+  s = '<p>' + s + '</p>';
+  s = s.replace(/<p>(\s*<(?:h[1-6]|pre|ul|blockquote)[^>]*>)/g, '$1');
+  s = s.replace(/(<\/(?:h[1-6]|pre|ul|blockquote)>)\s*<\/p>/g, '$1');
+  return s;
+}
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + (kind || '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+</script>
+
+</body>
+</html>
