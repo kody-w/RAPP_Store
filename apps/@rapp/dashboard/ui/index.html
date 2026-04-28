@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard — metrics you talk to</title>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d; --text:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#d29922; --purple:#bc8cff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 0; min-height: 100vh; line-height: 1.5; }
+  header { padding: 18px 22px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 14px; position: sticky; top: 0; }
+  header h1 { font-size: 16px; font-weight: 700; }
+  header .sub { color: var(--dim); font-size: 11px; font-family: ui-monospace, monospace; }
+  header .actions { margin-left: auto; }
+  button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 12px; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { padding: 18px 22px; max-width: 1100px; margin: 0 auto; }
+  .form { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 18px; display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: end; }
+  @media (max-width: 760px) { .form { grid-template-columns: 1fr; } }
+  .form label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 4px; font-weight: 700; }
+  .form input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 7px; font: inherit; font-size: 13px; }
+  .form input:focus { outline: 0; border-color: var(--accent); }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+  }
+  .metric .name { font-size: 12px; color: var(--dim); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .metric .val  { font-size: 28px; font-weight: 800; font-family: ui-monospace, monospace; color: var(--accent); margin-bottom: 8px; line-height: 1; }
+  .metric .meta { font-size: 11px; color: var(--dim); font-family: ui-monospace, monospace; }
+  .metric .spark { display: flex; align-items: flex-end; gap: 2px; height: 32px; margin: 8px 0; }
+  .metric .spark .bar { flex: 1; background: var(--accent); opacity: .6; min-height: 1px; border-radius: 1px 1px 0 0; }
+  .metric .spark .bar:last-child { opacity: 1; }
+  .empty { color: var(--dim); padding: 30px; text-align: center; font-size: 13px; background: var(--surface); border-radius: 10px; border: 1px dashed var(--border); }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; font-size: 12px; opacity: 0; transition: opacity .25s; }
+  .toast.show { opacity: 1; }
+  .toast.ok  { border-color: var(--green); }
+  .toast.err { border-color: var(--red); }
+  .ctx-banner { padding: 9px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--dim); }
+  .ctx-banner code { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 Dashboard</h1>
+    <div class="sub">log a metric · query history · talk numbers</div>
+  </div>
+  <div class="actions">
+    <button onclick="loadMetrics()">↻ Reload</button>
+  </div>
+</header>
+
+<div class="ctx-banner" id="ctxBanner"></div>
+
+<main>
+  <form class="form" onsubmit="logMetric(event)">
+    <div>
+      <label>Metric name</label>
+      <input id="m-name" placeholder="e.g. api_latency_ms" required />
+    </div>
+    <div>
+      <label>Value</label>
+      <input id="m-value" type="number" step="any" placeholder="230" required />
+    </div>
+    <div>
+      <label>Tag (optional)</label>
+      <input id="m-tag" placeholder="prod" />
+    </div>
+    <button class="primary" type="submit">Log</button>
+  </form>
+
+  <div id="grid"><div class="empty">Loading metrics…</div></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d?.type === 'rapp:cartridge') { cartridge = d; onCartridge(); }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function onCartridge() {
+  const banner = document.getElementById('ctxBanner');
+  const t = cartridge?.context?.tether;
+  const u = cartridge?.context?.user;
+  const parts = [];
+  if (u) parts.push(`signed in as <code>@${u.login}</code>`);
+  parts.push(t?.active ? `tethered to <code>${t.base}</code>` : `cloud mode`);
+  banner.innerHTML = parts.join(' · ');
+}
+
+// All Dashboard ops go through the agent's perform via the parent's
+// rapp:invoke (cloud) or via the local brainstem (tether). Either way
+// the iframe doesn't care — it just calls invoke(args) and gets a result.
+async function invoke(args) {
+  return new Promise((resolve, reject) => {
+    const id = 'inv-' + Math.random().toString(36).slice(2);
+    const handler = (ev) => {
+      const d = ev.data;
+      if (!d || d.type !== 'rapp:invoke:result' || d.id !== id) return;
+      window.removeEventListener('message', handler);
+      d.error ? reject(new Error(d.error)) : resolve(d.result);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+
+async function loadMetrics() {
+  try {
+    const out = await invoke({ action: 'list' });
+    let parsed; try { parsed = JSON.parse(out); } catch { parsed = { metrics: {} }; }
+    renderMetrics(parsed.metrics || {});
+  } catch (e) {
+    document.getElementById('grid').innerHTML = `<div class="empty">Couldn't load metrics: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderMetrics(metrics) {
+  const grid = document.getElementById('grid');
+  const names = Object.keys(metrics);
+  if (!names.length) {
+    grid.innerHTML = `<div class="empty">No metrics yet. Log one above, or ask the brainstem in chat:<br><code>"log api latency at 230ms"</code></div>`;
+    return;
+  }
+  grid.innerHTML = '';
+  for (const name of names.sort()) {
+    const points = metrics[name] || [];
+    const latest = points[points.length - 1];
+    const card = document.createElement('div');
+    card.className = 'metric';
+    const max = Math.max(...points.map(p => Number(p.value || 0))) || 1;
+    const sparkBars = points.slice(-30).map(p => {
+      const h = Math.max(1, Math.round((Number(p.value || 0) / max) * 30));
+      return `<div class="bar" style="height:${h}px" title="${esc(p.value)} @ ${esc(p.at || '')}"></div>`;
+    }).join('');
+    card.innerHTML = `
+      <div class="name">${esc(name)}</div>
+      <div class="val">${esc(latest ? latest.value : '—')}</div>
+      <div class="spark">${sparkBars}</div>
+      <div class="meta">${points.length} point${points.length === 1 ? '' : 's'}${latest?.at ? ' · last ' + esc(latest.at) : ''}</div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+async function logMetric(ev) {
+  ev.preventDefault();
+  const name = document.getElementById('m-name').value.trim();
+  const value = document.getElementById('m-value').value;
+  const tag = document.getElementById('m-tag').value.trim();
+  if (!name || value === '') return;
+  try {
+    await invoke({ action: 'log', name, value: Number(value), tag: tag || undefined });
+    toast(`Logged ${name} = ${value}`, 'ok');
+    document.getElementById('m-name').value = '';
+    document.getElementById('m-value').value = '';
+    document.getElementById('m-tag').value = '';
+    await loadMetrics();
+  } catch (e) {
+    toast(`Failed: ${e.message}`, 'err');
+  }
+}
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + (kind || '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+loadMetrics();
+</script>
+
+</body>
+</html>

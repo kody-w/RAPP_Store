@@ -61,9 +61,9 @@ The submission unit is **the `<id>/` directory zipped**. The `.zip` filename SHO
 | `summary` | string | yes | One paragraph. |
 | `category` | string | yes | Locked enum: `productivity`, `creative`, `analysis`, `data`, `integration`, `platform`, `workspace`. New categories require a proposal. |
 | `tags` | string[] | yes | At least `"rapplication"`. |
-| `agent` | string | yes if no `service` | Relative path to the singleton, e.g. `singleton/<id>_agent.py`. |
-| `service` | string | yes if no `agent` | Relative path to the service module, e.g. `service/<id>_service.py`. |
-| `ui` | string | no | Relative path to the iframe entrypoint. |
+| `agent` | string | **yes** | Relative path to the singleton, e.g. `singleton/<id>_agent.py`. The agent runs **headless** through any standard brainstem invocation path (LLM tool call, `/chat`, the generic `/api/binder/agent` endpoint) — same as any installed agent. The binder agent is for install/uninstall, not invocation. |
+| `ui` | string | **yes** | Relative path to the iframe entrypoint. The UI is the rapplication's user-facing surface; without it the artifact is just a swarm-agent and belongs in RAR. The UI talks to its agent via the cartridge protocol (§9) — `rapp:invoke` for one-shot, `rapp:chat` for conversational. |
+| `service` | string | no | Relative path to an HTTP service module. Optional — most rapplications don't need one. |
 | `license` | string | no | SPDX or free-form. |
 | `quality_tier` | string | no | `featured` / `official` / `verified` / `community` / `experimental` / `deprecated`. Submitters cannot self-declare above `community` (or `experimental` / `deprecated` — those are submitter-allowed self-marks). The receiver's `build_index_entry()` downgrades anything higher to `community`. Tier promotions to `verified`, `official`, or `featured` happen via maintainer-merged PR only. |
 
@@ -123,7 +123,11 @@ A submission is **accepted** iff all of the following pass:
 8. `publisher` matches `@<issue_author_github_login>` UNLESS the issue title declares an explicit override AND a maintainer has approved it.
 9. Total bundle size < 5 MB. Singleton < 200 KB. UI < 500 KB.
 10. No file in the bundle escapes the bundle root (no `..` path traversal).
-11. The manifest declares at least one of `ui`, `service`, or ships an `eggs/` directory. Per Constitution Article XXVII, a bare `agent.py` with no application surface belongs in `kody-w/RAR`, not the rapp store. Error code: `E_BARE_AGENT_BELONGS_IN_RAR`. The rejection comment links the submitter to RAR's `[AGENT]` issue flow.
+11. The manifest declares **both** `agent` AND `ui` (rapplications are agent + UI bundles by definition). A bundle missing either is rejected:
+    - No `ui` → `E_NO_UI`. Without a UI, the artifact is just a swarm-agent — submit to `kody-w/RAR` instead.
+    - No `agent` AND no `service` → `E_BARE_AGENT_BELONGS_IN_RAR` (the original Article XXVII rule, kept for the no-app-surface case).
+
+    **Headless invocation** of a rapplication's agent is automatic and requires no extra plumbing — once installed, the agent is in the brainstem's `agents/` dir and callable via any standard path (LLM tool call, `/chat`, `/api/binder/agent` generic invoke). UI presence does not constrain headless usability.
 
 A failure on any rule rejects the submission with a specific error code (see `scripts/lib_rapp.py`).
 
