@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SpineDAG · Universal Dependency Visualiser</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#070713; --bg2:#0e0e25; --pane:#11122a; --line:#262749;
+    --ink:#e7e8ff; --dim:#8b8fc0; --accent:#7c5cfc; --accent2:#22d3ee;
+    --good:#34d399; --warn:#fbbf24; --bad:#fb7185;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 'Inter',system-ui,sans-serif}
+  body{background:
+    radial-gradient(1200px 600px at 10% -10%, #20114c 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, #0a3a4d 0%, transparent 60%),
+    var(--bg)}
+  header{padding:24px 32px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:18px;backdrop-filter:blur(8px)}
+  .logo{font-size:28px;font-weight:800;letter-spacing:-.5px;
+    background:linear-gradient(90deg,#a78bfa,#22d3ee);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{color:var(--dim);font-size:13px}
+  main{display:grid;grid-template-columns:380px 1fr;gap:0;
+    min-height:calc(100vh - 73px)}
+  aside{padding:22px;border-right:1px solid var(--line);background:rgba(7,7,19,.6)}
+  aside h2{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--dim);margin:18px 0 8px}
+  aside h2:first-child{margin-top:0}
+  textarea,input,select,button{
+    background:var(--pane);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:10px 12px;font:inherit;width:100%}
+  textarea{min-height:88px;resize:vertical;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px}
+  button{cursor:pointer;background:linear-gradient(135deg,var(--accent),#5b3df4);
+    border:none;font-weight:700;letter-spacing:.3px;padding:12px 14px;margin-top:10px}
+  button:hover{filter:brightness(1.15)}
+  button.ghost{background:transparent;border:1px solid var(--line);font-weight:500;color:var(--dim)}
+  .row{display:flex;gap:8px}
+  .row > *{flex:1}
+  .examples{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .examples button{background:transparent;border:1px solid var(--line);
+    color:var(--dim);text-align:left;padding:8px 10px;font-size:12.5px;font-weight:500;margin:0}
+  .examples button:hover{color:var(--ink);border-color:var(--accent)}
+  section.canvas{padding:28px 36px;overflow:auto}
+  .empty{color:var(--dim);font-size:15px;max-width:540px;margin:80px auto;text-align:center}
+  .empty h1{font-size:36px;margin:0 0 8px;color:var(--ink);letter-spacing:-1px}
+  .empty .gradient{background:linear-gradient(90deg,#a78bfa,#22d3ee);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+  .stat{background:var(--pane);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;position:relative;overflow:hidden}
+  .stat .num{font-size:28px;font-weight:800;letter-spacing:-1px}
+  .stat .lbl{color:var(--dim);font-size:11px;letter-spacing:1.2px;text-transform:uppercase}
+  .stat.good .num{color:var(--good)} .stat.warn .num{color:var(--warn)}
+  .stat.bad .num{color:var(--bad)}
+  .health{display:flex;align-items:center;gap:18px;background:var(--pane);
+    border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin-bottom:22px}
+  .ring{--p:0;--c:var(--good);width:84px;height:84px;border-radius:50%;
+    background:conic-gradient(var(--c) calc(var(--p)*1%),#1d1e3c 0);
+    display:grid;place-items:center;flex-shrink:0;position:relative}
+  .ring::after{content:"";position:absolute;inset:8px;background:var(--pane);border-radius:50%}
+  .ring span{position:relative;z-index:1;font-weight:800;font-size:22px}
+  .health h3{margin:0 0 4px;font-size:18px}
+  .health p{margin:0;color:var(--dim);font-size:13px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;
+    font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-left:8px}
+  .pill.good{background:#0d3a2f;color:var(--good)}
+  .pill.warn{background:#3a2c0d;color:var(--warn)}
+  .pill.bad{background:#3a0d18;color:var(--bad)}
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+  .card{background:var(--pane);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;margin-bottom:18px}
+  .card h3{margin:0 0 12px;font-size:15px;letter-spacing:.3px}
+  .card .sub{color:var(--dim);font-size:12px;margin-top:-8px;margin-bottom:14px}
+  .lst{margin:0;padding:0;list-style:none}
+  .lst li{padding:6px 0;border-bottom:1px dashed var(--line);
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;
+    display:flex;justify-content:space-between;gap:12px}
+  .lst li:last-child{border:0}
+  .badge{background:#1d1e3c;color:var(--accent2);padding:1px 8px;border-radius:6px;font-size:11px}
+  button.explain{background:transparent;border:1px solid var(--line);color:var(--accent2);
+    padding:1px 8px;border-radius:6px;font-size:12px;cursor:pointer;margin:0}
+  button.explain:hover{border-color:var(--accent2);background:rgba(34,211,238,.1)}
+  .hub-explain{margin-top:10px;padding:12px 14px;background:rgba(34,211,238,.06);
+    border-left:3px solid var(--accent2);border-radius:6px;font-size:13px;line-height:1.6;color:#cffafe}
+  .hub-explain .hub-loading{color:var(--dim);font-style:italic}
+  .crit{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;
+    background:#0a0a1f;border:1px solid var(--line);border-radius:8px;
+    padding:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+  .mermaid-wrap{background:#0a0a1f;border:1px solid var(--line);border-radius:12px;
+    padding:18px;overflow:auto;min-height:280px}
+  .mermaid{font-size:13px}
+  .narrative{color:var(--dim);font-size:13.5px;line-height:1.7}
+  .narrative p{margin:0 0 10px}
+  .loading{display:flex;align-items:center;gap:14px;color:var(--dim);
+    margin:60px auto;justify-content:center}
+  .spinner{width:18px;height:18px;border:2px solid var(--line);
+    border-top-color:var(--accent2);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{background:#3a0d18;border:1px solid #fb7185;color:#fecdd3;
+    padding:14px 18px;border-radius:10px;margin-bottom:20px}
+  details{margin-top:14px}
+  summary{cursor:pointer;color:var(--dim);font-size:12px}
+  pre.raw{background:#04040f;border:1px solid var(--line);border-radius:8px;
+    padding:14px;font-size:11.5px;max-height:380px;overflow:auto}
+  footer{padding:14px 32px;border-top:1px solid var(--line);
+    color:var(--dim);font-size:11.5px;display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🧬 SpineDAG</div>
+  <div class="tag">Universal Directed-Acyclic-Graph analyser · powered by your local Brainstem</div>
+</header>
+
+<main>
+  <aside>
+    <h2>Target — file, folder, or text</h2>
+    <textarea id="target" placeholder="Paste any of these:
+
+  • a file path:    C:\path\to\workbook.xlsm
+  • a folder path:  C:\path\to\your\code
+  • inline text:    A -> B; B depends on C
+
+Tip: In Windows Explorer, Shift+Right-Click a file/folder → 'Copy as path', then paste here."></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="ghost" id="paste" type="button">📋 Paste path from clipboard</button>
+      <button class="ghost" id="clear" type="button">✕ Clear</button>
+    </div>
+
+    <h2>Mode</h2>
+    <select id="mode">
+      <option value="auto">auto-detect</option>
+      <option>python</option>
+      <option>javascript</option>
+      <option>excel</option>
+      <option>json</option>
+      <option>yaml</option>
+      <option>generic-folder</option>
+      <option>text</option>
+    </select>
+
+    <button id="go">⚡ Analyse spine</button>
+
+    <h2>Try one</h2>
+    <div class="examples" id="examples"></div>
+
+    <h2>Brainstem</h2>
+    <div class="row">
+      <input id="endpoint" value="http://localhost:7071/chat" />
+    </div>
+    <div style="color:var(--dim);font-size:11.5px;margin-top:6px" id="health">checking…</div>
+  </aside>
+
+  <section class="canvas" id="canvas">
+    <div class="empty">
+      <h1>Map the <span class="gradient">spine</span> of anything.</h1>
+      <p>Point SpineDAG at a code folder, an Excel workbook, a JSON config, or even a paragraph of prose.
+      It builds the dependency graph, scores its <b>Spine Health</b>, finds hubs, leaves, orphans and cycles, and
+      hands you a Mermaid diagram you can paste anywhere.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div>SpineDAG agent → <code>POST /chat</code> → renders <code>&lt;spine-dag-json&gt;</code> envelope</div>
+  <div>brainstem · <span id="model">…</span></div>
+</footer>
+
+<script>
+mermaid.initialize({startOnLoad:false, theme:'dark', themeVariables:{
+  primaryColor:'#1d1e3c', primaryTextColor:'#e7e8ff',
+  primaryBorderColor:'#7c5cfc', lineColor:'#8b8fc0',
+  fontSize:'13px'}});
+
+const $ = sel => document.querySelector(sel);
+const canvas = $('#canvas');
+
+const examples = [
+  {label:'🧠 The brainstem agents folder',
+    target:'C:\\Users\\howardh\\.brainstem\\src\\rapp_brainstem\\agents', mode:'auto'},
+  {label:'🐍 This brainstem repo (python)',
+    target:'C:\\Users\\howardh\\.brainstem\\src\\rapp_brainstem', mode:'python'},
+  {label:'📝 Inline text demo',
+    target:'Inputs -> Engine; Engine -> Output; Output -> Report; Inputs -> Report; Engine depends on Calibration',
+    mode:'text'},
+];
+const ex = $('#examples');
+examples.forEach(e=>{
+  const b=document.createElement('button');
+  b.textContent = e.label;
+  b.onclick = ()=>{ $('#target').value=e.target; $('#mode').value=e.mode; run(); };
+  ex.appendChild(b);
+});
+
+async function checkHealth(){
+  try{
+    const r = await fetch('http://localhost:7071/health');
+    const j = await r.json();
+    $('#health').textContent = `✅ brainstem online · ${j.agents_loaded||0} agents · model ${j.model||'?'}`;
+    $('#model').textContent = j.model || 'unknown';
+  }catch(e){
+    $('#health').innerHTML = '❌ brainstem unreachable. Start it with <code>start.ps1</code>';
+  }
+}
+checkHealth();
+
+$('#go').onclick = run;
+
+$('#paste').onclick = async ()=>{
+  try{
+    const t = await navigator.clipboard.readText();
+    if(t){ $('#target').value = t.trim().replace(/^"|"$/g,''); }
+  }catch(e){
+    alert('Clipboard blocked by browser. Just Ctrl+V into the box.');
+  }
+};
+$('#clear').onclick = ()=>{ $('#target').value=''; };
+
+async function run(){
+  const target = $('#target').value.trim();
+  const mode = $('#mode').value;
+  if(!target){ alert('Enter a path or some text first.'); return; }
+
+  canvas.innerHTML = `<div class="loading"><div class="spinner"></div>
+    Asking brainstem to invoke <b>SpineDAG</b> on <code>${escapeHtml(target).slice(0,90)}</code>…</div>`;
+
+  const prompt = `Use the SpineDAG tool to analyse this target. Pass target=${JSON.stringify(target)} and mode=${JSON.stringify(mode)}. Then briefly narrate (3-5 sentences) what the spine reveals — call out hubs, cycles, orphans, and the critical path. Do not omit or alter the SpineDAG tool output; include the full tool result above your narration.`;
+
+  let payload;
+  try{
+    const res = await fetch($('#endpoint').value, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({user_input: prompt, conversation_history: [],
+                            session_id: 'spine-dag-demo'})
+    });
+    payload = await res.json();
+  }catch(e){
+    canvas.innerHTML = `<div class="err">Network error: ${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  const blobs = [payload.agent_logs||'', payload.response||''];
+  const big = blobs.join('\n');
+  const m = big.match(/<spine-dag-json>\s*([\s\S]*?)\s*<\/spine-dag-json>/);
+  if(!m){
+    canvas.innerHTML = `<div class="err">Brainstem returned a response but no SpineDAG envelope was found.
+      The model may have answered without calling the tool — try rephrasing or restart brainstem to pick up the new agent.</div>
+      <details open><summary>Raw response</summary><pre class="raw">${escapeHtml(JSON.stringify(payload,null,2))}</pre></details>`;
+    return;
+  }
+
+  let env;
+  try{ env = JSON.parse(m[1]); }
+  catch(e){ canvas.innerHTML = `<div class="err">Bad JSON envelope: ${escapeHtml(e.message)}</div>`; return; }
+
+  render(env, payload.response || '');
+}
+
+function render(env, narrative){
+  window._env = env;
+  const me = env.metrics;
+  const score = me.health_score;
+  const band = me.health_band;
+  const ringColor = score>=70?'var(--good)':score>=45?'var(--warn)':'var(--bad)';
+  const pillCls = score>=70?'good':score>=45?'warn':'bad';
+
+  const html = `
+    <div class="health">
+      <div class="ring" style="--p:${score};--c:${ringColor}"><span>${score}</span></div>
+      <div>
+        <h3>Spine Health: ${score}/100 <span class="pill ${pillCls}">${band}</span></h3>
+        <p>Target: <code>${escapeHtml(env.target)}</code> · mode <b>${env.mode}</b> · parsed in ${env.elapsed_s}s</p>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat"><div class="num">${me.nodes}</div><div class="lbl">nodes</div></div>
+      <div class="stat"><div class="num">${me.edges}</div><div class="lbl">edges</div></div>
+      <div class="stat ${me.cycles?'bad':'good'}"><div class="num">${me.cycles}</div><div class="lbl">cycles</div></div>
+      <div class="stat"><div class="num">${me.max_depth}</div><div class="lbl">layers deep</div></div>
+    </div>
+
+    ${narrative ? `<div class="card"><h3>🎙️ LLM narrative</h3>
+      <div class="narrative">${escapeHtml(narrative).split('\n').map(p=>`<p>${p}</p>`).join('')}</div></div>` : ''}
+
+    <div class="card">
+      <h3>🧭 Mermaid graph</h3>
+      <div class="sub">Hubs are violet. Nodes inside cycles are coral.</div>
+      <div class="mermaid-wrap"><div class="mermaid" id="mer">${escapeHtml(env.mermaid)}</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>🌟 Top hubs</h3>
+        <div class="sub">Most depended-on nodes — touch carefully.</div>
+        <ul class="lst">
+          ${env.hubs.map((h,i)=>`<li><span>${escapeHtml(h.label)}</span>
+            <span style="display:flex;gap:6px;align-items:center">
+              <span class="badge">${h.in_refs} in</span>
+              <button class="explain" data-hub="${i}" title="Explain this hub in plain English">💬</button>
+            </span></li>`).join('') || '<li>—</li>'}
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🍃 Top leaves</h3>
+        <div class="sub">Files with most outgoing references — entry points and orchestrators.</div>
+        <ul class="lst">
+          ${env.leaves.map(h=>`<li><span>${escapeHtml(h.label)}</span><span class="badge">${h.out_refs} out</span></li>`).join('') || '<li>—</li>'}
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>🛤️ Critical path</h3>
+        <div class="sub">Longest acyclic chain — the spine of the spine.</div>
+        <div class="crit">${env.critical_path.length ? env.critical_path.map(escapeHtml).join('  →  ') : '_(empty or fully cyclic)_'}</div>
+      </div>
+      <div class="card">
+        <h3>${me.cycles?'🔁 Cycles ⚠️':'✅ No cycles'}</h3>
+        <div class="sub">${me.cycles ? 'These dependency loops should be broken.' : 'Pure DAG — no circular references.'}</div>
+        <ul class="lst">
+          ${env.cycles.map(c=>`<li>${c.map(escapeHtml).join(' → ')}</li>`).join('') || '<li>—</li>'}
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🕳️ Orphans (${me.orphans})</h3>
+      <div class="sub">No incoming and no outgoing references. Dead code or top-level entries.</div>
+      <ul class="lst">
+        ${env.orphans.length ? env.orphans.map(o=>`<li>${escapeHtml(o)}</li>`).join('') : '<li>None — every node is wired in.</li>'}
+      </ul>
+    </div>
+
+    <details>
+      <summary>Show raw envelope JSON</summary>
+      <pre class="raw">${escapeHtml(JSON.stringify(env,null,2))}</pre>
+    </details>
+  `;
+  canvas.innerHTML = html;
+
+  try{
+    mermaid.run({nodes:[document.getElementById('mer')]});
+  }catch(e){
+    document.getElementById('mer').textContent = '(mermaid render failed: '+e.message+')';
+  }
+
+  canvas.querySelectorAll('button.explain').forEach(btn=>{
+    btn.onclick = ()=>explainHub(parseInt(btn.dataset.hub,10), btn);
+  });
+}
+
+async function explainHub(idx, btn){
+  const env = window._env; if(!env) return;
+  const hub = env.hubs[idx]; if(!hub) return;
+  const li = btn.closest('li');
+  let panel = li.nextElementSibling;
+  if(!panel || !panel.classList.contains('hub-explain')){
+    panel = document.createElement('div');
+    panel.className = 'hub-explain';
+    li.after(panel);
+  }
+  panel.innerHTML = `<span class="hub-loading">🤔 asking the model why <b>${escapeHtml(hub.label)}</b> is the spine…</span>`;
+  btn.disabled = true;
+
+  const layers = (env.layers||[]).slice(0,5).map((l,i)=>`L${i}: ${l.slice(0,8).join(', ')}`).join('\n');
+  const upstream = (env.leaves||[]).map(l=>l.label).slice(0,5).join(', ');
+  const prompt = `A SpineDAG analysis was just run on \`${env.target}\` (mode: ${env.mode}).
+The hub being asked about is **${hub.label}** with ${hub.in_refs} incoming references.
+
+Graph context:
+- Total nodes: ${env.metrics.nodes}, edges: ${env.metrics.edges}
+- Spine Health: ${env.metrics.health_score}/100 (${env.metrics.health_band})
+- Other top hubs: ${env.hubs.filter((_,i)=>i!==idx).map(h=>h.label+' ('+h.in_refs+')').join(', ')}
+- Top leaves (callers): ${upstream}
+- Topological layers (first few):
+${layers}
+
+In **plain English, 4–6 sentences, no jargon**: explain what \`${hub.label}\` likely is, why so many other things depend on it, what would happen if it broke or changed, and one concrete recommendation. If the path looks like a real file you can read, read it for accuracy; otherwise reason from the name and graph position. Do NOT call SpineDAG again. Do NOT include any tool envelopes — just the explanation.`;
+
+  try{
+    const res = await fetch($('#endpoint').value, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({user_input: prompt, conversation_history: [], session_id:'spine-dag-explain'})
+    });
+    const j = await res.json();
+    const txt = (j.response||'').trim() || '(no response)';
+    panel.innerHTML = '<b style="color:var(--accent2)">💬 Why this is the spine</b><br>' +
+      escapeHtml(txt).split('\n').map(p=>p?`<p style="margin:8px 0 0">${p}</p>`:'').join('');
+  }catch(e){
+    panel.innerHTML = `<span style="color:var(--bad)">Error: ${escapeHtml(e.message)}</span>`;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

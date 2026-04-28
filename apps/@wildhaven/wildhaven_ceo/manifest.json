@@ -1,0 +1,69 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "wildhaven_ceo",
+  "name": "WildhavenCEO",
+  "version": "0.1.0",
+  "publisher": "@wildhaven",
+  "manifest_name": "@wildhaven/wildhaven-ceo-singleton",
+  "summary": "A CEO workspace agent. Drop a vault of strategy / legal / budget / pitch / playbook documents in, then ask questions and get answers in a confident operator's voice. Wraps the pattern from kody-w/wildhaven-ceo: 'talk to the workspace' as the whole interface \u2014 no reading files, no learning the org, the agent does that for you.",
+  "tagline": "Talk to your workspace.",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "ceo",
+    "persona",
+    "workspace",
+    "vault",
+    "operator",
+    "has-ui"
+  ],
+  "agent": "singleton/wildhaven_ceo_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style",
+  "quality_tier": "community",
+  "homepage": "https://github.com/kody-w/wildhaven-ceo",
+  "produced_by": {
+    "method": "hand-built-from-vault-pattern",
+    "source_files_collapsed": 1,
+    "bundled_at": "2026-04-28T00:00:00Z",
+    "based_on": "kody-w/wildhaven-ceo"
+  },
+  "tool": {
+    "name": "WildhavenCEO",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "decide",
+            "respond_to",
+            "daily_brief",
+            "quarterly_review"
+          ],
+          "description": "Workflow to run."
+        },
+        "question": {
+          "type": "string",
+          "description": "What you're asking. Used for action=ask, decide, respond_to."
+        },
+        "asker": {
+          "type": "string",
+          "description": "Who asked (for action=respond_to)."
+        },
+        "workspace_context": {
+          "type": "string",
+          "description": "A dump of the relevant vault documents \u2014 strategy, legal, budget, pitch, playbooks. The agent reads this and answers in your voice. Optional but recommended; without it, the agent answers from generic CEO posture."
+        },
+        "voice_style": {
+          "type": "string",
+          "description": "How to sound. Default: 'confident operator who has skin in the game'."
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  }
+}

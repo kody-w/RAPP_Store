@@ -1,0 +1,64 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "spine_dag",
+  "name": "SpineDAG",
+  "version": "1.0.0",
+  "publisher": "@blazingbeard",
+  "manifest_name": "@blazingbeard/spine-dag-singleton",
+  "summary": "Universal Directed-Acyclic-Graph analyser. Point it at any folder, code project, Excel workbook, JSON/YAML config, or block of prose; it builds the dependency graph, finds hubs, leaves, orphans, cycles, and the critical path, scores Spine Health 0-100, and returns Markdown with a Mermaid diagram, ASCII tree, and a <spine-dag-json> envelope a UI can render.",
+  "tagline": "Map the spine of anything in 30 seconds.",
+  "category": "analysis",
+  "tags": [
+    "rapplication",
+    "dag",
+    "graph",
+    "dependency",
+    "audit",
+    "mermaid",
+    "visualisation",
+    "excel",
+    "code",
+    "has-ui"
+  ],
+  "agent": "singleton/spine_dag_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style",
+  "quality_tier": "community",
+  "produced_by": {
+    "method": "hand-built-then-bundled",
+    "source_files_collapsed": 1,
+    "bundled_at": "2026-04-27T19:50:00Z",
+    "bundler": "spine_dag_rapp/1.0"
+  },
+  "tool": {
+    "name": "SpineDAG",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "Absolute file path, folder path, or block of text."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "python",
+            "javascript",
+            "excel",
+            "json",
+            "yaml",
+            "generic-folder",
+            "generic-file",
+            "text"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "description": "Inline text when target is not a path."
+        }
+      },
+      "required": []
+    }
+  }
+}
