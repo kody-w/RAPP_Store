@@ -1600,9 +1600,14 @@ class BasicAgent:
 
 const UTILS_LLM_SHIM = `"""utils.llm shim — agents calling \`from utils.llm import call_llm\` go through here.
 The vBrainstem stamps _VB_CHAT_URL / _VB_CHAT_TOKEN / _VB_DEFAULT_MODEL into os.environ
-before each agent call so the shim picks up provider switches without a Pyodide reload."""
+before each agent call so the shim picks up provider switches without a Pyodide reload.
+
+Pyodide's stdlib urllib can't do https (no SSL in the WASM build), so this shim
+uses a synchronous XMLHttpRequest via the JS bridge. Sync XHR keeps call_llm
+sync — agents that run a tight Writer→Editor→CEO chain don't have to be
+rewritten as async."""
 import json, os
-from urllib.request import Request, urlopen
+import js
 
 def call_llm(messages, model=None, temperature=0.7, max_tokens=2048):
     url = os.environ.get('_VB_CHAT_URL', '')
@@ -1611,15 +1616,17 @@ def call_llm(messages, model=None, temperature=0.7, max_tokens=2048):
     if not url or not tok:
         return '(LLM dispatch unavailable — no token)'
     body = json.dumps({'model': mdl, 'messages': messages,
-                       'temperature': temperature, 'max_tokens': max_tokens}).encode()
-    req = Request(url, data=body, headers={
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + tok,
-    })
+                       'temperature': temperature, 'max_tokens': max_tokens})
     try:
-        with urlopen(req, timeout=60) as r:
-            d = json.loads(r.read())
+        xhr = js.XMLHttpRequest.new()
+        xhr.open('POST', url, False)  # sync
+        xhr.setRequestHeader('Content-Type', 'application/json')
+        xhr.setRequestHeader('Authorization', 'Bearer ' + tok)
+        xhr.send(body)
+        if 200 <= xhr.status < 300:
+            d = json.loads(xhr.responseText)
             return d['choices'][0]['message']['content']
+        return '(LLM error: HTTP ' + str(xhr.status) + ' — ' + str(xhr.responseText)[:300] + ')'
     except Exception as e:
         return '(LLM error: ' + str(e) + ')'
 `;
