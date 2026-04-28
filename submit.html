@@ -209,6 +209,19 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
   </div>
 
   <div id="submit-form" style="display:none">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:.85rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600;margin-bottom:2px">Submitting from a brainstem instead?</div>
+          <div style="color:var(--text-dim);font-size:.82rem">Drop <code>@rapp/rapp_publish_agent.py</code> into your brainstem. Hand it any path — it auto-detects whether it's an agent, a rapplication, or a sense, and routes to <code>RAR</code>, <code>RAPP_Store</code>, or <code>RAPP_Sense_Store</code>. One agent for the whole ecosystem. <a href="SKILL.md">SKILL.md</a> explains it to an AI.</div>
+        </div>
+        <a href="https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rapp/rapp_publish_agent.py" download="rapp_publish_agent.py" class="gh-btn" style="text-decoration:none;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.82rem;padding:8px 16px;white-space:nowrap">
+          <svg viewBox="0 0 16 16" style="width:14px;height:14px;fill:currentColor"><path d="M8 12l-4-4h2.5V3h3v5H12L8 12zm-5 1h10v1H3v-1z"/></svg>
+          Download agent.py
+        </a>
+      </div>
+    </div>
+
     <div class="tabs">
       <button class="tab active" data-tab="bundle" onclick="switchTab('bundle')">Bundle (.zip)</button>
       <button class="tab" data-tab="federation" onclick="switchTab('federation')">Federation (GitHub repo)</button>
