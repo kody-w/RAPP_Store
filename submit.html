@@ -189,7 +189,14 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
 
 <div class="container">
   <h1>Submit a Rapplication</h1>
-  <p class="subtitle">A rapplication is an agent <em>plus</em> a UI — bundled. Drop a <code>.zip</code> of your rapp directory, or point at a public GitHub repo. The receiver validates against <a href="SPEC.md">SPEC.md</a> and stages it for review.</p>
+  <p class="subtitle">A rapplication is an agent <em>plus</em> a UI — bundled. Drop a <code>.zip</code> of your rapp directory, or point at a public GitHub repo. The receiver validates against <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md</a> and stages it for review.</p>
+
+  <p style="font-size:.82rem;color:var(--text-muted);margin-top:-20px;margin-bottom:32px">
+    Reference:
+    <a href="https://github.com/kody-w/RAPP_Store/blob/main/SKILL.md" target="_blank" rel="noopener">SKILL.md</a> (full guide for AIs &amp; humans) &middot;
+    <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md</a> (validation rules) &middot;
+    <a href="https://github.com/kody-w/RAPP_Store" target="_blank" rel="noopener">repo</a>
+  </p>
 
   <div id="auth-gate">
     <div class="auth-prompt">
@@ -213,7 +220,7 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div>
           <div style="font-weight:600;margin-bottom:2px">Submitting from a brainstem instead?</div>
-          <div style="color:var(--text-dim);font-size:.82rem">Drop <code>@rapp/rapp_publish_agent.py</code> into your brainstem. Hand it any path — it auto-detects whether it's an agent, a rapplication, or a sense, and routes to <code>RAR</code>, <code>RAPP_Store</code>, or <code>RAPP_Sense_Store</code>. One agent for the whole ecosystem. <a href="SKILL.md">SKILL.md</a> explains it to an AI.</div>
+          <div style="color:var(--text-dim);font-size:.82rem">Drop <code>@rapp/rapp_publish_agent.py</code> into your brainstem. Hand it any path — it auto-detects whether it's an agent, a rapplication, or a sense, and routes to <code>RAR</code>, <code>RAPP_Store</code>, or <code>RAPP_Sense_Store</code>. One agent for the whole ecosystem. <a href="https://github.com/kody-w/RAPP_Store/blob/main/SKILL.md" target="_blank" rel="noopener">SKILL.md</a> explains it to an AI.</div>
         </div>
         <a href="https://raw.githubusercontent.com/kody-w/RAR/main/agents/@rapp/rapp_publish_agent.py" download="rapp_publish_agent.py" class="gh-btn" style="text-decoration:none;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.82rem;padding:8px 16px;white-space:nowrap">
           <svg viewBox="0 0 16 16" style="width:14px;height:14px;fill:currentColor"><path d="M8 12l-4-4h2.5V3h3v5H12L8 12zm-5 1h10v1H3v-1z"/></svg>
@@ -231,7 +238,7 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
     <div class="tab-pane active" id="tab-bundle">
       <div class="step">
         <div class="step-label">1. Zip your rapplication directory</div>
-        <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:8px">The zip should contain a single folder with <code>manifest.json</code>, your <code>*_agent.py</code> singleton, a <code>ui/</code>, and a <code>README.md</code>. See <a href="SPEC.md">SPEC.md §6</a> for the full ruleset. Max 5&nbsp;MB.</p>
+        <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:8px">The zip should contain a single folder with <code>manifest.json</code>, your <code>*_agent.py</code> singleton, a <code>ui/</code>, and a <code>README.md</code>. See <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md §6</a> for the full ruleset. Max 5&nbsp;MB.</p>
       </div>
       <div class="step">
         <div class="step-label">2. Drop the zip</div>
