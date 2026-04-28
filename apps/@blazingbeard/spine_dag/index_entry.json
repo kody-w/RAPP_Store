@@ -1,0 +1,52 @@
+{
+  "id": "spine_dag",
+  "name": "SpineDAG",
+  "version": "1.0.0",
+  "summary": "Universal Directed-Acyclic-Graph analyser. Point it at any folder, code project, Excel workbook, JSON/YAML config, or block of prose; it builds the dependency graph, finds hubs, leaves, orphans, cycles, and the critical path, scores Spine Health 0-100, and returns Markdown with a Mermaid diagram, ASCII tree, and a <spine-dag-json> envelope a UI can render.",
+  "tagline": "Map the spine of anything in 30 seconds \u2014 code, Excel, JSON, prose.",
+  "category": "analysis",
+  "tags": [
+    "rapplication",
+    "dag",
+    "graph",
+    "dependency",
+    "audit",
+    "mermaid",
+    "visualisation",
+    "excel",
+    "code",
+    "has-ui"
+  ],
+  "manifest_name": "@blazingbeard/spine-dag-singleton",
+  "singleton_filename": "spine_dag_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@blazingbeard/spine_dag/singleton/spine_dag_agent.py",
+  "singleton_sha256": "3f71c8e61bc69f8553bbdaecaf6dd5bdf78b7df29702fbd26ef0c53fc1246776",
+  "singleton_lines": 705,
+  "singleton_bytes": 28216,
+  "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@blazingbeard/spine_dag/ui/index.html",
+  "ui_filename": "index.html",
+  "egg_url": null,
+  "egg_note": "Stateless \u2014 no shipped state. Each call analyses a fresh target.",
+  "produced_by": {
+    "method": "hand-built-then-bundled",
+    "source_files_collapsed": 1,
+    "specialists": [
+      "@rapp/spine-dag-parser-python",
+      "@rapp/spine-dag-parser-javascript",
+      "@rapp/spine-dag-parser-excel",
+      "@rapp/spine-dag-parser-json-yaml",
+      "@rapp/spine-dag-parser-text",
+      "@rapp/spine-dag-graph-engine",
+      "@rapp/spine-dag-renderer"
+    ]
+  },
+  "example_call": {
+    "args": {
+      "target": "C:\\path\\to\\your\\code",
+      "mode": "auto"
+    }
+  },
+  "license": "BSD-style",
+  "publisher": "@blazingbeard",
+  "quality_tier": "community"
+}

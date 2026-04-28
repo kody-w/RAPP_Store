@@ -22,7 +22,7 @@ LLM dispatch goes through `from utils.llm import call_llm` (host-provided
 shim — works in Tier 1 brainstem, the cloud vBrainstem's Pyodide mount,
 and Tier 2/3 swarm runners). No vendor lock-in in this file.
 
-Inspired by kody-w/wildhaven-ceo. Published under @blazingbeard.
+Inspired by kody-w/wildhaven-ceo. Published under @wildhaven.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ except ImportError:  # pragma: no cover — cloud / openrappter / fallback
 
 __manifest__ = {
     "schema": "rapp-agent/1.0",
-    "name": "@blazingbeard/wildhaven_ceo",
+    "name": "@wildhaven/wildhaven_ceo",
     "display_name": "WildhavenCEO",
     "version": "0.1.0",
     "description": (
@@ -49,7 +49,7 @@ __manifest__ = {
         "answers in a confident operator's voice, treating the vault as "
         "the source of truth."
     ),
-    "author": "@blazingbeard",
+    "author": "@wildhaven",
     "tags": ["ceo", "persona", "workspace", "vault", "operator", "rapplication"],
     "category": "productivity",
     "quality_tier": "community",

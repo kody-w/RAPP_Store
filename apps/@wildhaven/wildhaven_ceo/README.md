@@ -1,4 +1,4 @@
-# WildhavenCEO — `@blazingbeard/wildhaven-ceo-singleton`
+# WildhavenCEO — `@wildhaven/wildhaven-ceo-singleton`
 
 > **Talk to your workspace.**
 > A CEO workspace agent: drop a vault of strategy / legal / budget / pitch / playbook documents in, then ask questions and get answers in a confident operator's voice.
@@ -38,7 +38,7 @@ The agent talks to its LLM through `from utils.llm import call_llm` (host-provid
 
 ```bash
 curl -L -o ~/.brainstem/src/rapp_brainstem/agents/wildhaven_ceo_agent.py \
-  https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@blazingbeard/wildhaven_ceo/singleton/wildhaven_ceo_agent.py
+  https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@wildhaven/wildhaven_ceo/singleton/wildhaven_ceo_agent.py
 ```
 
 Or chat-driven via the binder agent (after `kody-w/RAPP#25` lands): *"install wildhaven_ceo"*.
@@ -68,7 +68,7 @@ Returns:
 ## Files
 
 ```
-@blazingbeard/wildhaven_ceo/
+@wildhaven/wildhaven_ceo/
   manifest.json           rapp-application/1.0
   index_entry.json        catalog snippet
   README.md               this
@@ -96,4 +96,4 @@ BSD-style.
 
 ## Publisher
 
-[`@blazingbeard`](https://github.com/blazingbeard) — first community publisher in `kody-w/rapp_store`.
+[`@wildhaven`](https://github.com/blazingbeard) — first community publisher in `kody-w/rapp_store`.
