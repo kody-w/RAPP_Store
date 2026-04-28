@@ -57,7 +57,8 @@ jobs:
         run: |
           git config user.name "rapp-store-bot"
           git config user.email "rapp-store-bot@users.noreply.github.com"
-          git add -A index.json staging/
+          # -f overrides .gitignore on staging/ (see process-rapplication.yml).
+          git add -fA index.json staging/
           # Bundle promotions also touched <id>/ — add it generically.
           git add -A
           if git diff --staged --quiet; then
