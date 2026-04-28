@@ -123,6 +123,44 @@
   aside.catalog .rapp-card .export-btn:disabled {
     opacity: .5; cursor: wait;
   }
+  aside.catalog .rapp-card .pill.imported {
+    background: rgba(255,184,77,.15); color: #ffb84d;
+  }
+  aside.catalog .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 18px;
+  }
+  aside.catalog .section-head h2 { margin: 0; }
+  aside.catalog .import-btn {
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-dim); font-size: 10px; font-family: "SF Mono", monospace;
+    padding: 2px 8px; border-radius: 4px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  aside.catalog .import-btn:hover {
+    border-color: var(--accent); color: var(--accent);
+  }
+  .drop-overlay {
+    position: fixed; inset: 0;
+    background: rgba(31,128,234,.12);
+    border: 3px dashed var(--accent);
+    pointer-events: none;
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 9999;
+    color: var(--accent); font-size: 22px; font-weight: 700;
+    font-family: "SF Mono", monospace;
+  }
+  .drop-overlay.show { display: flex; }
+  .drop-overlay .drop-msg {
+    background: var(--bg); padding: 24px 32px;
+    border-radius: 12px; border: 2px solid var(--accent);
+    text-align: center;
+  }
+  .drop-overlay .drop-sub {
+    font-size: 12px; color: var(--text-dim);
+    font-weight: normal; margin-top: 6px;
+  }
 
   /* Main pane */
   main.chat { display: flex; flex-direction: column; overflow: hidden; }
@@ -284,6 +322,13 @@
 </head>
 <body>
 
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-msg">
+    ↓ drop .rapplication.egg to import
+    <div class="drop-sub">unpacks the bundle and loads it into this vBrainstem session</div>
+  </div>
+</div>
+
 <header class="bs">
   <div class="logo">
     <div class="logo-mark">VB</div>
@@ -307,7 +352,11 @@
   <aside class="catalog">
     <h2>Resident</h2>
     <div id="residentList"></div>
-    <h2 style="margin-top: 18px;" title="Bundled rapplications — agent + UI / service / eggs. From kody-w/RAPP_Store.">Rapplications <span style="color: var(--text-muted); font-weight: normal;" id="rappCount"></span></h2>
+    <div class="section-head">
+      <h2 title="Bundled rapplications — agent + UI / service / eggs. From kody-w/RAPP_Store.">Rapplications <span style="color: var(--text-muted); font-weight: normal;" id="rappCount"></span></h2>
+      <button class="import-btn" id="importBtn" title="Import a .rapplication.egg file from disk (or drag-drop one anywhere on the page).">↑ import .egg</button>
+      <input type="file" id="importInput" accept=".egg,.rapplication" style="display:none">
+    </div>
     <div id="rappList">
       <div style="color: var(--text-dim); font-size: 12px; padding: 8px;">Loading…</div>
     </div>
@@ -345,7 +394,7 @@
         <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default). On sign-in, the <strong>StoreNavigator</strong> agent (hosted in the <a href="https://github.com/kody-w/RAR">RAPP Agent Registry</a>) auto-loads — ask it "what should I install for X?" and it'll search the catalog for you.</div>
         <div class="step"><span class="num">2</span><strong>Pick a rapp.</strong> Sidebar lists every rapplication in the catalog. Click one and it loads into the browser — its UI iframe mounts, its agent's <code>perform()</code> registers as a tool the model can call.</div>
         <div class="step"><span class="num">3</span><strong>Chat.</strong> The model has the loaded rapp's <code>perform()</code> as a tool — it calls into Pyodide to run real Python in the browser. Your code, your token, your conversation; nothing routes through a server.</div>
-        <div class="step"><span class="num">4</span><strong>Take it home.</strong> Each rapp card has an <strong>↓ export</strong> button that bundles the singleton (+ service / UI when present) into a <code>&lt;id&gt;.rapplication.egg</code>. POST it as <code>{"egg_b64": "&lt;base64&gt;"}</code> to <code>/api/binder/import</code> on your local brainstem and the binder unpacks it into <code>agents/</code> + <code>rapp_services/</code> + <code>rapp_ui/</code>.</div>
+        <div class="step"><span class="num">4</span><strong>Take it home, bring it back.</strong> Each rapp card has an <strong>↓ export</strong> button that bundles the singleton (+ service / UI when present) into a <code>&lt;id&gt;.rapplication.egg</code>. POST it as <code>{"egg_b64": "&lt;base64&gt;"}</code> to <code>/api/binder/import</code> on your local brainstem, OR drag the <code>.egg</code> file back onto this page to re-load it into a fresh vBrainstem session.</div>
       </div>
     </div>
     <div class="composer">
@@ -646,9 +695,10 @@ function renderCatalog() {
       el('div', { class: 'rapp-summary', text: (r.summary || '').slice(0, 140) }),
       el('div', { class: 'card-row' }, [
         el('div', { class: 'pills' }, [
+          r._imported ? el('span', { class: 'pill imported', text: 'imported' }) : null,
           r.singleton_url ? el('span', { class: 'pill has-svc', text: 'agent' }) : null,
           r.ui_url ? el('span', { class: 'pill has-ui', text: 'ui' }) : null,
-          r.service_url ? el('span', { class: 'pill has-svc', text: 'service' }) : null,
+          (r.service_url || r._has_service) ? el('span', { class: 'pill has-svc', text: 'service' }) : null,
           r.egg_url ? el('span', { class: 'pill has-eggs', text: 'eggs' }) : null,
         ]),
         exportBtn,
@@ -790,10 +840,11 @@ async function exportRapp(r, btn) {
       zip.file('ui/' + uiFn, await _fetchText(r.ui_url, 'ui/index.html'));
     }
 
+    const cleanId = r.id.replace(/^imported:/, '');
     const manifest = {
       schema: 'rapp-egg/1.0',
       type: 'rapplication',
-      id: r.id,
+      id: cleanId,
       version: r.version || '?',
       exported_at: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
       agent_filename: agentFn,
@@ -803,7 +854,7 @@ async function exportRapp(r, btn) {
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-    const fname = `${r.id}.rapplication.egg`;
+    const fname = `${cleanId}.rapplication.egg`;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = fname;
@@ -818,6 +869,115 @@ async function exportRapp(r, btn) {
     if (btn) { btn.disabled = false; btn.textContent = '↓ export'; }
   }
 }
+
+// ─── Import — accept a .rapplication.egg from drag-drop or file picker
+// and reconstruct a synthetic catalog entry the rest of the runtime can
+// treat like a normal rapp.
+
+async function importEggFile(file) {
+  if (!file) return;
+  if (!/\.(egg|rapplication)$/i.test(file.name)) {
+    toast(`${file.name}: not a .egg file`, 'err');
+    return;
+  }
+  try {
+    const JSZip = await loadJSZip();
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+
+    const manifestEntry = zip.file('manifest.json');
+    if (!manifestEntry) throw new Error('egg missing manifest.json');
+    const manifest = JSON.parse(await manifestEntry.async('string'));
+    if (manifest.schema !== 'rapp-egg/1.0') {
+      throw new Error(`unsupported schema ${manifest.schema}`);
+    }
+    if (manifest.type !== 'rapplication') {
+      throw new Error(`not a rapplication egg (type=${manifest.type})`);
+    }
+    if (!manifest.id) throw new Error('manifest missing id');
+
+    const agentEntry = zip.file('agent.py');
+    if (!agentEntry) throw new Error('egg has no agent.py — not loadable in vBrainstem');
+    const agentSrc = await agentEntry.async('string');
+    const singletonUrl = URL.createObjectURL(
+      new Blob([agentSrc], { type: 'text/x-python' }));
+
+    let uiUrl = null;
+    const uiFn = manifest.ui_filename || 'index.html';
+    const uiEntry = zip.file('ui/' + uiFn);
+    if (uiEntry) {
+      const uiHtml = await uiEntry.async('string');
+      uiUrl = URL.createObjectURL(new Blob([uiHtml], { type: 'text/html' }));
+    }
+
+    const importedId = 'imported:' + manifest.id;
+    const rapp = {
+      id: importedId,
+      name: manifest.id,
+      version: manifest.version || '?',
+      summary: `Imported from ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
+      category: 'imported',
+      singleton_url: singletonUrl,
+      singleton_filename: manifest.agent_filename || `${manifest.id}_agent.py`,
+      singleton_lines: agentSrc.split('\n').length,
+      ui_url: uiUrl,
+      ui_filename: uiUrl ? uiFn : null,
+      service_filename: manifest.service_filename || null,
+      _imported: true,
+      _has_service: !!zip.file('service.py'),
+    };
+
+    state.rapps = state.rapps.filter(r => r.id !== importedId);
+    state.rapps.unshift(rapp);
+    renderCatalog();
+    selectRapp(rapp);
+    toast(`Imported ${manifest.id} v${manifest.version || '?'}`, 'ok');
+  } catch (e) {
+    console.error('[import]', e);
+    toast(`Import failed: ${e.message}`, 'err');
+  }
+}
+
+// Window-level drag/drop. dragenter fires per child element so we count
+// depth to know when we've truly left the window.
+let _dragDepth = 0;
+function _isFileDrag(e) {
+  if (!e.dataTransfer) return false;
+  const types = e.dataTransfer.types;
+  if (!types) return false;
+  return Array.prototype.indexOf.call(types, 'Files') !== -1;
+}
+window.addEventListener('dragenter', (e) => {
+  if (!_isFileDrag(e)) return;
+  e.preventDefault();
+  _dragDepth++;
+  $('#dropOverlay').classList.add('show');
+});
+window.addEventListener('dragover', (e) => {
+  if (!_isFileDrag(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+window.addEventListener('dragleave', (e) => {
+  if (!_isFileDrag(e)) return;
+  _dragDepth = Math.max(0, _dragDepth - 1);
+  if (_dragDepth === 0) $('#dropOverlay').classList.remove('show');
+});
+window.addEventListener('drop', async (e) => {
+  if (!_isFileDrag(e)) return;
+  e.preventDefault();
+  _dragDepth = 0;
+  $('#dropOverlay').classList.remove('show');
+  const files = Array.from(e.dataTransfer.files || []);
+  for (const f of files) await importEggFile(f);
+});
+
+// File-picker fallback for the import button.
+$('#importBtn')?.addEventListener('click', () => $('#importInput').click());
+$('#importInput')?.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const f of files) await importEggFile(f);
+  e.target.value = '';
+});
 
 function selectRapp(r) {
   state.selectedRapp = r;
