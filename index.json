@@ -9,10 +9,10 @@
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
     {
-      "id": "bookfactoryagent",
+      "id": "bookfactory",
       "name": "BookFactory",
       "version": "0.3.0",
-      "summary": "Five-persona content pipeline (Writer → Editor [3 specialists] → CEO [2 specialists] → Publisher → Reviewer). One call, one chapter back. Best for: engineering writeups, blog posts, briefing docs, narrative content under 1500 words.",
+      "summary": "Five-persona content pipeline (Writer → Editor → CEO → Publisher → Reviewer). One call, one chapter back.",
       "tagline": "Source material in, publishable chapter out — 8 LLM calls under one POST.",
       "category": "creative",
       "tags": [
@@ -20,7 +20,7 @@
         "creative-pipeline",
         "twin-stack",
         "singleton",
-        "has-ui"
+        "rapplication"
       ],
       "manifest_name": "@rapp/book-factory-singleton",
       "singleton_filename": "bookfactory_agent.py",
@@ -72,9 +72,10 @@
       "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
       "shipped_in_commit": "ebb1648",
-      "publisher": "@rarbookworld",
+      "publisher": "@rapp",
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/bookfactory/ui/index.html",
-      "ui_filename": "index.html"
+      "ui_filename": "index.html",
+      "quality_tier": "official"
     },
     {
       "id": "binder",
@@ -84,13 +85,12 @@
       "available_versions": [
         "1.0.0"
       ],
-      "summary": "The brainstem's package manager. Browse the RAPPstore catalog, install or uninstall rapplications. Bootstrapped by start.sh on first launch so the brainstem itself ships clean.",
+      "summary": "The brainstem's package manager. Browse the RAPPstore catalog, install or uninstall rapplications. Ships as the bootstrap service so the brainstem itself stays clean.",
       "category": "platform",
       "tags": [
         "package-manager",
         "store",
         "platform",
-        "agent-first",
         "rapplication"
       ],
       "manifest_name": "@rapp/binder",
@@ -99,7 +99,7 @@
       "singleton_sha256": "8751861575d207920fe98c53d5ab6d832fd2326f1f92fe7fe1ce2c625689ff9c",
       "service_filename": "binder_service.py",
       "service_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/binder/binder_service.py",
-      "service_sha256": "a68e44bc2ef0085dfe1598fa224b655b24e91d329128cff2a7328f12a560714d",
+      "service_sha256": "adc9b03e8d4f11e5507191cea3235f7b58cac61c7487676d3bda9b8bc242faf9",
       "produced_by": {
         "method": "agent-first",
         "source_files_collapsed": 2
@@ -108,7 +108,8 @@
       "singleton_bytes": 6988,
       "singleton_lines": 183,
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/binder/ui/index.html",
-      "ui_filename": "index.html"
+      "ui_filename": "index.html",
+      "quality_tier": "official"
     },
     {
       "id": "swarms",
@@ -124,7 +125,6 @@
         "organization",
         "agents",
         "platform",
-        "agent-first",
         "rapplication"
       ],
       "manifest_name": "@rapp/swarms",
@@ -142,7 +142,8 @@
       "singleton_bytes": 4974,
       "singleton_lines": 125,
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/swarms/ui/index.html",
-      "ui_filename": "index.html"
+      "ui_filename": "index.html",
+      "quality_tier": "official"
     },
     {
       "id": "kanban",
@@ -152,7 +153,7 @@
       "available_versions": [
         "1.0.0"
       ],
-      "summary": "Task board you talk to. Create, move, and query tasks through any LLM.",
+      "summary": "Task board you talk to. Create, move, and query tasks through any LLM. Optional HTTP service for web UIs.",
       "category": "workspace",
       "tags": [
         "workspace",
@@ -173,7 +174,10 @@
       "singleton_bytes": 6713,
       "singleton_lines": 182,
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/kanban/ui/index.html",
-      "ui_filename": "index.html"
+      "ui_filename": "index.html",
+      "publisher": "@rapp",
+      "quality_tier": "official",
+      "service_sha256": "88a54545b6164f25c0a5bcec0be33e3e755a6ea6e233e80514bf2e0c00413e12"
     },
     {
       "id": "webhook",
@@ -183,7 +187,7 @@
       "available_versions": [
         "1.0.0"
       ],
-      "summary": "Query incoming events from external systems through any LLM.",
+      "summary": "Query incoming events from external systems through any LLM. Optional HTTP service receives webhooks from GitHub, Slack, etc.",
       "category": "integration",
       "tags": [
         "integration",
@@ -205,7 +209,10 @@
       "singleton_bytes": 5678,
       "singleton_lines": 157,
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/webhook/ui/index.html",
-      "ui_filename": "index.html"
+      "ui_filename": "index.html",
+      "publisher": "@rapp",
+      "quality_tier": "official",
+      "service_sha256": "8614e582ddc6cbaf5eaa06e0dd1d2a1424acd1cc36534f14df8260e62f7ab4f5"
     },
     {
       "id": "dashboard",
@@ -215,7 +222,7 @@
       "available_versions": [
         "1.0.0"
       ],
-      "summary": "Track and query metrics through conversation with any LLM.",
+      "summary": "Track and query metrics through conversation with any LLM. Optional HTTP service for charting UIs and external data ingestion.",
       "category": "analysis",
       "tags": [
         "analytics",
@@ -236,7 +243,10 @@
       "singleton_bytes": 6638,
       "singleton_lines": 172,
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/dashboard/ui/index.html",
-      "ui_filename": "index.html"
+      "ui_filename": "index.html",
+      "publisher": "@rapp",
+      "quality_tier": "official",
+      "service_sha256": "1953708f21ac898214e3eba312763b6f3969884ebf4215be0bdff14900819e21"
     },
     {
       "id": "twin_workshop",

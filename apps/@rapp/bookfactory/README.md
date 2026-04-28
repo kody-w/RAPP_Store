@@ -12,7 +12,7 @@ Five-persona content pipeline. Source material in → publishable chapter out.
 ```bash
 curl -X POST http://127.0.0.1:7080/api/binder/install \
   -H "Content-Type: application/json" \
-  -d '{"id": "bookfactoryagent"}'
+  -d '{"id": "bookfactory"}'
 ```
 
 The brainstem materializes `singleton/bookfactory_agent.py` into the active twin's `agents/` directory and records the install in `<twin_root>/.binder.json`.
