@@ -105,6 +105,24 @@
   aside.catalog .rapp-card .pill.has-ui { background: var(--accent-bg); color: var(--accent); }
   aside.catalog .rapp-card .pill.has-svc { background: var(--green-bg); color: var(--green); }
   aside.catalog .rapp-card .pill.has-eggs { background: rgba(188,140,255,.12); color: var(--purple); }
+  aside.catalog .rapp-card .card-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; flex-wrap: wrap;
+  }
+  aside.catalog .rapp-card .pills { display: flex; flex-wrap: wrap; }
+  aside.catalog .rapp-card .export-btn {
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-dim); font-size: 10px; font-family: "SF Mono", monospace;
+    padding: 2px 8px; border-radius: 4px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+    white-space: nowrap;
+  }
+  aside.catalog .rapp-card .export-btn:hover {
+    border-color: var(--accent); color: var(--accent);
+  }
+  aside.catalog .rapp-card .export-btn:disabled {
+    opacity: .5; cursor: wait;
+  }
 
   /* Main pane */
   main.chat { display: flex; flex-direction: column; overflow: hidden; }
@@ -327,6 +345,7 @@
         <div class="step"><span class="num">1</span><strong>Sign in with GitHub.</strong> Top-right pill. Uses your GitHub account to call <a href="https://github.com/marketplace/models" target="_blank">GitHub Models</a> for the LLM (free tier, gpt-4o-mini default). On sign-in, the <strong>StoreNavigator</strong> agent (hosted in the <a href="https://github.com/kody-w/RAR">RAPP Agent Registry</a>) auto-loads — ask it "what should I install for X?" and it'll search the catalog for you.</div>
         <div class="step"><span class="num">2</span><strong>Pick a rapp.</strong> Sidebar lists every rapplication in the catalog. Click one and it loads into the browser — its UI iframe mounts, its agent's <code>perform()</code> registers as a tool the model can call.</div>
         <div class="step"><span class="num">3</span><strong>Chat.</strong> The model has the loaded rapp's <code>perform()</code> as a tool — it calls into Pyodide to run real Python in the browser. Your code, your token, your conversation; nothing routes through a server.</div>
+        <div class="step"><span class="num">4</span><strong>Take it home.</strong> Each rapp card has an <strong>↓ export</strong> button that bundles the singleton (+ service / UI when present) into a <code>&lt;id&gt;.rapplication.egg</code>. POST it as <code>{"egg_b64": "&lt;base64&gt;"}</code> to <code>/api/binder/import</code> on your local brainstem and the binder unpacks it into <code>agents/</code> + <code>rapp_services/</code> + <code>rapp_ui/</code>.</div>
       </div>
     </div>
     <div class="composer">
@@ -610,6 +629,13 @@ function renderCatalog() {
   list.innerHTML = '';
   $('#rappCount').textContent = `(${state.rapps.length})`;
   for (const r of state.rapps) {
+    const exportable = !!(r.singleton_url || r.service_url);
+    const exportBtn = exportable ? el('button', {
+      class: 'export-btn',
+      title: 'Download as .rapplication.egg — drop into your local brainstem',
+      onclick: (ev) => { ev.stopPropagation(); exportRapp(r, ev.currentTarget); },
+      text: '↓ export',
+    }) : null;
     const card = el('div', {
       class: 'rapp-card',
       'data-id': r.id,
@@ -618,11 +644,14 @@ function renderCatalog() {
       el('div', { class: 'rapp-name', text: r.name || r.id }),
       el('div', { class: 'rapp-meta', text: `v${r.version} · ${r.category || ''}` }),
       el('div', { class: 'rapp-summary', text: (r.summary || '').slice(0, 140) }),
-      el('div', {}, [
-        r.singleton_url ? el('span', { class: 'pill has-svc', text: 'agent' }) : null,
-        r.ui_url ? el('span', { class: 'pill has-ui', text: 'ui' }) : null,
-        r.service_url ? el('span', { class: 'pill has-svc', text: 'service' }) : null,
-        r.egg_url ? el('span', { class: 'pill has-eggs', text: 'eggs' }) : null,
+      el('div', { class: 'card-row' }, [
+        el('div', { class: 'pills' }, [
+          r.singleton_url ? el('span', { class: 'pill has-svc', text: 'agent' }) : null,
+          r.ui_url ? el('span', { class: 'pill has-ui', text: 'ui' }) : null,
+          r.service_url ? el('span', { class: 'pill has-svc', text: 'service' }) : null,
+          r.egg_url ? el('span', { class: 'pill has-eggs', text: 'eggs' }) : null,
+        ]),
+        exportBtn,
       ]),
     ]);
     list.appendChild(card);
@@ -706,6 +735,88 @@ function previewSense(s) {
     `> ${(s.description || '(no description)').slice(0, 280)}\n\n` +
     `Senses install into a brainstem's \`utils/senses/\` directory, not \`agents/\` — they shape every reply by appending a delimited block (per Constitution Article XXIV). The vBrainstem can preview them but can't compose them into the system prompt of an agent it's running client-side.\n\n` +
     `**Manual install on a local brainstem:** \`curl -fsSL ${s.url} -o ~/.brainstem/src/rapp_brainstem/utils/senses/${s.filename}\``);
+}
+
+// ─── Export — produce a .rapplication.egg zip the binder's _import_egg
+// in apps/@rapp/binder/binder_service.py can ingest verbatim.
+
+const JSZIP_URL = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+let _jszipPromise = null;
+
+function loadJSZip() {
+  if (_jszipPromise) return _jszipPromise;
+  _jszipPromise = new Promise((resolve, reject) => {
+    if (window.JSZip) return resolve(window.JSZip);
+    const s = document.createElement('script');
+    s.src = JSZIP_URL;
+    s.onload = () => window.JSZip ? resolve(window.JSZip)
+                                  : reject(new Error('JSZip loaded but not on window'));
+    s.onerror = () => reject(new Error('failed to fetch JSZip from CDN'));
+    document.head.appendChild(s);
+  });
+  return _jszipPromise;
+}
+
+async function _fetchText(url, label) {
+  const resp = await fetch(url, { cache: 'no-store' });
+  if (!resp.ok) throw new Error(`${label}: ${resp.status} ${resp.statusText}`);
+  return await resp.text();
+}
+
+async function exportRapp(r, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '… packing'; }
+  try {
+    const JSZip = await loadJSZip();
+    const zip = new JSZip();
+
+    const agentFn = r.singleton_filename || (r.singleton_url ? `${r.id}_agent.py` : null);
+    const svcFn   = r.service_filename   || (r.service_url   ? `${r.id}_service.py` : null);
+    const uiFn    = r.ui_filename        || (r.ui_url        ? 'index.html' : null);
+
+    if (r.singleton_url) {
+      const src = await _fetchText(r.singleton_url, 'agent.py');
+      if (r.singleton_sha256) {
+        const computed = await sha256(src);
+        if (computed !== r.singleton_sha256) {
+          console.warn(`[export] sha256 mismatch on ${r.id}: catalog ${r.singleton_sha256.slice(0,16)}… vs computed ${computed.slice(0,16)}…`);
+        }
+      }
+      zip.file('agent.py', src);
+    }
+    if (r.service_url) {
+      zip.file('service.py', await _fetchText(r.service_url, 'service.py'));
+    }
+    if (r.ui_url) {
+      zip.file('ui/' + uiFn, await _fetchText(r.ui_url, 'ui/index.html'));
+    }
+
+    const manifest = {
+      schema: 'rapp-egg/1.0',
+      type: 'rapplication',
+      id: r.id,
+      version: r.version || '?',
+      exported_at: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+      agent_filename: agentFn,
+      service_filename: svcFn,
+      ui_filename: uiFn,
+    };
+    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const fname = `${r.id}.rapplication.egg`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    toast(`Exported ${fname}`, 'ok');
+  } catch (e) {
+    console.error('[export]', e);
+    toast(`Export failed: ${e.message}`, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↓ export'; }
+  }
 }
 
 function selectRapp(r) {
