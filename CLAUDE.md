@@ -41,7 +41,7 @@ Build a singleton: `python3 <name>/tools/build.py`. The collapse is mechanical (
   versions/<v>/          # pinned snapshots (binder may install these by version)
 ```
 
-The agent and service typically share a JSON state file under `.brainstem_data/<name>.json` in the consuming brainstem's working tree.
+The agent and service typically share a JSON state file under `.brainstem_data/<name>.json` in the consuming brainstem's working tree. For collaborative file scratch space (user drops in CSVs, the rapp writes outputs back), every installed rapp also gets `.brainstem_data/workspaces/<id>/` — see SPEC §11. Use `from utils.workspace import workspace_dir` from a singleton; the cartridge protocol exposes `rapp:workspace:*` messages to UIs.
 
 `senses/` is a third, lightweight shape — not BasicAgent classes but small modules exporting `name`, `delimiter`, `response_key`, `wrapper_tag`, `system_prompt`. They append a translation/companion view to a main reply.
 

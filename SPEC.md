@@ -282,3 +282,93 @@ The cartridge is part of the rapplication contract — UIs that adopt it get fre
 ## 10. Reserved IDs
 
 The following IDs are reserved by the platform and cannot be claimed by community publishers: `binder`, `dashboard`, `kanban`, `swarms`, `webhook`, `vibe_builder`, `learn_new`, `swarm_factory`, `senses`, `publish_to_rapp_store`. The reserved list lives in `scripts/lib_rapp.py`.
+
+---
+
+## 11. Workspace contract (per-rapp file scratchpad)
+
+`schema: rapp-workspace/1.0`
+
+Every installed rapplication on a local brainstem gets a **persistent, isolated workspace directory** where the user and the rapp can collaborate via files. This is the home for transcripts, vault dumps, CSVs, generated outputs, and anything else that doesn't fit a `perform()` keyword arg. It is distinct from the `.brainstem_data/<name>.json` convention, which is for rapp-private state the user does not touch.
+
+### 11.1 Location and lifecycle
+
+```
+${BRAINSTEM_ROOT}/.brainstem_data/workspaces/<id>/
+```
+
+- **Created** by the binder on install (modes A and B both).
+- **Preserved** on uninstall — workspaces are user data, not engine data.
+- **Preserved** across version upgrades — same `<id>` keeps the same dir.
+- **Isolated** — one rapp MUST NOT read or write into another's workspace. The brainstem enforces this; SPEC does not authorize cross-rapp access.
+- **Path-traversal guarded** — `..` segments are rejected on every workspace operation.
+
+Cloud mode (vBrainstem) emulates the same wire shape with a session-scoped, in-memory store. Files do not persist past the tab. Rapps SHOULD assume their workspace is ephemeral and re-prompt the user as needed.
+
+### 11.2 Agent surface (Python)
+
+Singletons access their workspace through a host-provided helper:
+
+```python
+from utils.workspace import workspace_dir
+
+def perform(self, **kwargs) -> str:
+    ws = workspace_dir()  # pathlib.Path | None
+    if ws is None:
+        return "no workspace available — run me from a tethered brainstem."
+    transcript = ws / "transcript.txt"
+    if not transcript.exists():
+        return "drop a transcript.txt in my workspace and try again."
+    return summarize(transcript.read_text())
+```
+
+`workspace_dir()` infers the rapp identity from the calling frame's module → singleton `__manifest__`. It returns `None` outside a brainstem (Pyodide, direct CLI, tests). Singletons MUST handle that case rather than crashing.
+
+`utils.workspace` MAY also expose convenience helpers (`list_files()`, `read_text(name)`, `write_text(name, content)`, `request_files(prompt, patterns)`) — the canonical surface is left to the brainstem implementation, but `workspace_dir()` returning a `Path` is the minimum.
+
+### 11.3 UI surface (cartridge protocol)
+
+The cartridge envelope (§9.1) gains a `context.workspace` block:
+
+```jsonc
+{
+  "context": {
+    "workspace": {
+      "available": true,
+      "path": "/abs/path/to/.brainstem_data/workspaces/bookfactory",  // null in cloud mode
+      "mode": "local" | "cloud",
+      "file_count": 3
+    }
+  }
+}
+```
+
+`path` is informational — UIs SHOULD NOT construct fs requests from it directly. All workspace ops go through cartridge messages:
+
+| Message | Reply | Purpose |
+|---|---|---|
+| `{type: "rapp:workspace:list"}` | `{type: "rapp:workspace:list:result", files: [{name, size, mtime, mime}]}` | Enumerate files in the workspace. |
+| `{type: "rapp:workspace:read", id, name}` | `{type: "rapp:workspace:read:result", id, content, encoding}` | Read a file. `encoding` is `"utf-8"` for text, `"base64"` for binary. |
+| `{type: "rapp:workspace:write", id, name, content, encoding}` | `{type: "rapp:workspace:write:result", id, ok \| error}` | Create/overwrite a file. |
+| `{type: "rapp:workspace:delete", id, name}` | `{type: "rapp:workspace:delete:result", id, ok \| error}` | Remove a file. |
+| `{type: "rapp:workspace:request_files", id, prompt, patterns}` | `{type: "rapp:workspace:request_files:result", id, names: [...] \| cancelled: true}` | Ask the user to drop files matching a pattern. The host surfaces the prompt; the message resolves when the user supplies a file or dismisses. |
+| `{type: "rapp:workspace:open_in_finder"}` | `{type: "rapp:workspace:open_in_finder:result", ok \| error}` | Reveal the workspace folder in the OS file browser. Local mode only — cloud returns `error: "not_supported"`. |
+
+The host enforces isolation: `name` is treated as a relative leaf, not a path. Any `..` or absolute path is rejected with `error: "invalid_name"`.
+
+### 11.4 User surface
+
+The brainstem's UI SHOULD render a per-rapp **Workspace** affordance:
+
+- a drop zone that writes uploaded files into the workspace dir;
+- a file list with size and mtime;
+- an "Open folder" button (local mode);
+- an inbox of pending `request_files` prompts the rapp has issued.
+
+The exact UX is the brainstem's call. The contract is that *something* lets the user put files in and see what's there — the rapp's UI relies on this surface existing alongside its own iframe.
+
+### 11.5 Why this is in SPEC.md
+
+The workspace contract is part of what a rapp can rely on when it installs. New brainstem implementations (third-party hosts, CI harnesses, agent-driven testing tools) implement the same wire shape and become drop-in hosts. UIs and singletons that opt in get free upgrades whenever the host adds capabilities (cloud sync, workspace sharing, audit logs) without code changes.
+
+See [Proposal 0004](docs/proposals/0004-per-rapp-workspaces.md) for the design rationale.
