@@ -13,7 +13,7 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);
-    font:14px/1.5 'Inter',system-ui,sans-serif}
+    font:14px/1.5 'Inter',system-ui,sans-serif;overflow-x:hidden}
   body{background:
     radial-gradient(1200px 600px at 10% -10%, #20114c 0%, transparent 60%),
     radial-gradient(900px 500px at 110% 10%, #0a3a4d 0%, transparent 60%),
@@ -111,7 +111,7 @@
     flex-wrap:wrap;gap:8px}
 
   /* ─── Responsive — keep usable down to ~360px ──────────────────── */
-  @media (max-width: 900px) {
+  @media (max-width: 1100px) {
     main { grid-template-columns: 1fr; min-height: auto; }
     aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 18px 16px; }
     section.canvas { padding: 20px 16px; }
