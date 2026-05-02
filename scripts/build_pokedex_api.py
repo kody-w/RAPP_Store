@@ -176,11 +176,21 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
 # ── Per-rapp Pokédex entry ─────────────────────────────────────────────────
 
 def _build_entry(app_dir: Path, manifest: dict) -> dict:
-    """Build the static-API JSON entry for one rapplication."""
+    """Build the static-API JSON entry for one rapplication or tool.
+
+    Two entry kinds today:
+      - kind: "rapplication" (default) — hatches into a brainstem via
+        a 2.2-rapplication egg. Has singleton + (optional) UI.
+      - kind: "tool" — standalone process (e.g. rapp-zoo) that installs
+        via its own one-liner. Listed in the catalog so the federation
+        can discover it; no singleton/.egg required.
+    """
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
+    kind = manifest.get("kind", "rapplication")
     rappid_hash = _short_hash(f"{publisher}/{rapp_id}")
-    rappid = f"rappid:v2:rapplication:{publisher}/{rapp_id}:{rappid_hash}"
+    rappid_kind = "tool" if kind == "tool" else "rapplication"
+    rappid = f"rappid:v2:{rappid_kind}:{publisher}/{rapp_id}:{rappid_hash}"
 
     has_skin = (app_dir / "ui" / "index.html").is_file()
     singleton_files = sorted((app_dir / "singleton").glob("*.py")) if (app_dir / "singleton").is_dir() else []
@@ -198,6 +208,7 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
         "schema": SCHEMA_API_RAPP,
         "id": rapp_id,
         "name": manifest.get("name", rapp_id),
+        "kind": kind,
         "rappid": rappid,
         "version": manifest.get("version", "0.0.0"),
         "publisher": publisher,
@@ -209,9 +220,10 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
         "quality_tier": manifest.get("quality_tier", "community"),
         "license": manifest.get("license"),
         "homepage": manifest.get("homepage"),
+        "repo_url": manifest.get("repo_url"),
         "spec_post": manifest.get("spec_post"),
 
-        # Lineage (organism unification — every rapp has a parent rappid)
+        # Lineage (organism unification — every entry has a parent rappid)
         "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
 
         # Pokédex stats
@@ -219,6 +231,10 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
         "singleton_lines": (singleton_files[0].read_text().count("\n") if singleton_files else 0),
         "singleton_bytes": singleton_bytes,
         "singleton_sha256": singleton_sha,
+
+        # Tool-kind extras (null for rapplication-kind)
+        "install_one_liner": manifest.get("install_one_liner") if kind == "tool" else None,
+        "default_port":      manifest.get("default_port") if kind == "tool" else None,
 
         # Asset URLs (static — published at predictable URLs)
         "sprite_url":     f"{RAW_PREFIX}/api/v1/sprite/{rapp_id}.svg",
@@ -280,17 +296,29 @@ def main():
             sprite = _sprite_svg(entry["rappid"], entry.get("category") or "default")
             (_API / "sprite" / f"{rapp_id}.svg").write_text(sprite)
 
-            # Build & write egg
-            try:
-                egg_blob = _build_egg(app_dir, manifest)
-                (_API / "egg" / f"{rapp_id}.egg").write_bytes(egg_blob)
-                entry["egg_bytes"] = len(egg_blob)
-            except Exception as e:
-                print(f"  ! egg build failed for {rapp_id}: {e}", file=sys.stderr)
+            # Build & write egg — only for rapplication-kind entries.
+            # Tool-kind (e.g. rapp-zoo) installs via its own one-liner;
+            # no .egg cartridge until a future refactor packs it as a
+            # real 2.2-rapplication.
+            if entry.get("kind") == "tool":
                 entry["egg_url"] = None
                 entry["egg_bytes"] = 0
+            else:
+                try:
+                    egg_blob = _build_egg(app_dir, manifest)
+                    (_API / "egg" / f"{rapp_id}.egg").write_bytes(egg_blob)
+                    entry["egg_bytes"] = len(egg_blob)
+                except Exception as e:
+                    print(f"  ! egg build failed for {rapp_id}: {e}", file=sys.stderr)
+                    entry["egg_url"] = None
+                    entry["egg_bytes"] = 0
 
-            print(f"  ✓ {entry['publisher']}/{rapp_id} v{entry['version']:<8}  "
+            # Re-write the per-entry JSON to capture the final egg_url state
+            (_API / "rapplication" / f"{rapp_id}.json").write_text(
+                json.dumps(entry, indent=2) + "\n"
+            )
+
+            print(f"  ✓ {entry['publisher']}/{rapp_id} v{entry['version']:<8}  kind={entry.get('kind','rapplication'):<11} "
                   f"skin={entry['has_skin']!s:<5}  "
                   f"egg={entry.get('egg_bytes', 0):>5} bytes")
 
@@ -313,6 +341,7 @@ def main():
             {
                 "id":        e["id"],
                 "name":      e["name"],
+                "kind":      e.get("kind", "rapplication"),
                 "publisher": e["publisher"],
                 "category":  e["category"],
                 "version":   e["version"],
@@ -320,6 +349,7 @@ def main():
                 "url":       e["self_url"],
                 "sprite":    e["sprite_url"],
                 "egg":       e["egg_url"],
+                "install_one_liner": e.get("install_one_liner"),
             }
             for e in entries
         ],

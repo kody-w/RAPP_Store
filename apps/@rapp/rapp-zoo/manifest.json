@@ -1,0 +1,19 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "rapp-zoo",
+  "name": "rapp-zoo",
+  "version": "0.2.0",
+  "publisher": "@rapp",
+  "kind": "tool",
+  "quality_tier": "official",
+  "summary": "Local-first Pokédex of digital organisms — drag-drop import / export / inspect / discover. Runs alongside your brainstem at localhost:7070.",
+  "tagline": "The Pokédex contains itself.",
+  "category": "platform",
+  "tags": ["pokedex", "tool", "egg-import", "egg-export", "local-first", "self-hosted", "selfreference"],
+  "license": "BSD-style",
+  "homepage": "https://github.com/kody-w/rapp-zoo",
+  "repo_url": "https://github.com/kody-w/rapp-zoo",
+  "install_one_liner": "curl -fsSL https://kody-w.github.io/rapp-zoo/installer/install.sh | bash && bash ~/.rapp-zoo/installer/start.sh",
+  "default_port": 7070,
+  "_note": "Tool-kind entry — the zoo is a standalone Flask app, not a single-agent rapplication that hatches into a brainstem. Has skin (its own UI), has identity (rappid declared here), but installs via its own one-liner rather than a 2.2-rapplication egg. Future work: refactor into a brainstem organ + rapp-ui so it can ship as a real .egg cartridge."
+}
