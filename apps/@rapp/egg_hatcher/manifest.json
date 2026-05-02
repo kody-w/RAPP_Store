@@ -1,0 +1,18 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "egg_hatcher",
+  "name": "Egg Hatcher",
+  "version": "0.1.0",
+  "publisher": "@rapp",
+  "kind": "rapplication",
+  "quality_tier": "official",
+  "summary": "Feed me a .egg URL or path — I'll fetch it and hot-load the rapplication into this brainstem. The universal install mechanism for the catalog.",
+  "tagline": "The rapplication that hot-loads rapplications.",
+  "category": "core",
+  "tags": ["meta", "install", "egg", "hot-load", "bootstrap", "rapplication"],
+  "license": "BSD-style",
+  "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/egg_hatcher",
+  "repo_url": "https://github.com/kody-w/RAPP",
+  "spec_post": "pages/vault/Architecture/Rapplications%20Are%20Organisms.md",
+  "_note": "Bootstrap: install once via `brainstem hatch <egg-url>` from the brainstem CLI (kernel-shipped utils.bond). After that, all subsequent egg installs go through this agent via /chat — the LLM picks the egg_hatcher tool when the user asks to install a rapp."
+}
