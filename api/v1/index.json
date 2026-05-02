@@ -1,0 +1,44 @@
+{
+  "schema": "rapp-pokedex-api/1.0",
+  "name": "RAPP_Store Pok\u00e9dex API",
+  "description": "Static catalog API for cataloged rapplications. PokeAPI-style: predictable JSON URLs hosted via raw.githubusercontent.com, no backend. Each rapplication is browsable as an organism \u2014 sprite, lineage, stats, downloadable .egg cartridge. Updated by pushing to main; the rebuild is a static script (scripts/build_pokedex_api.py).",
+  "version": "1.0.0",
+  "generated_at": "2026-05-02T18:10:33Z",
+  "count": 3,
+  "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/index.json",
+  "rapplications": [
+    {
+      "id": "spine_dag",
+      "name": "SpineDAG",
+      "publisher": "@blazingbeard",
+      "category": "analysis",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/spine_dag.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/spine_dag.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/spine_dag.egg"
+    },
+    {
+      "id": "bookfactory",
+      "name": "BookFactory",
+      "publisher": "@rapp",
+      "category": "creative",
+      "version": "0.3.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/bookfactory.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/bookfactory.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/bookfactory.egg"
+    },
+    {
+      "id": "wildhaven_ceo",
+      "name": "WildhavenCEO",
+      "publisher": "@wildhaven",
+      "category": "productivity",
+      "version": "0.1.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/wildhaven_ceo.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/wildhaven_ceo.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/wildhaven_ceo.egg"
+    }
+  ]
+}
