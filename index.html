@@ -897,7 +897,7 @@ function openModal(r) {
       ['View source ↗']));
   }
   if (r.ui_url) {
-    actions.appendChild(el('a', { class: 'btn', href: r.ui_url, target: '_blank' },
+    actions.appendChild(el('a', { class: 'btn', href: `./vbrainstem.html#rapp=${r.id}&view=ui`, target: '_blank' },
       ['Open UI ↗']));
   }
   actions.appendChild(el('a', { class: 'btn ghost', href: SOURCES[r.kind === 'rapp' ? 'rapp' : r.kind].href, target: '_blank' },

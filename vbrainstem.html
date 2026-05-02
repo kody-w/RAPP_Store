@@ -1689,10 +1689,12 @@ $('#settingsSave').addEventListener('click', () => {
   const hash = (window.location.hash || '').replace(/^#/, '');
   const params = new URLSearchParams(hash);
   const wantId = params.get('rapp');
+  const wantView = params.get('view');
   if (wantId) {
     const r = state.rapps.find(x => x.id === wantId);
     if (r) selectRapp(r);
   }
+  if (wantView && ['chat', 'ui', 'split'].includes(wantView)) setView(wantView);
 
   updateInputState();
 })();
