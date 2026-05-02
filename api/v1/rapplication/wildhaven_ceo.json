@@ -2,7 +2,6 @@
   "schema": "rapp-pokedex-rapp/1.0",
   "id": "wildhaven_ceo",
   "name": "WildhavenCEO",
-  "kind": "rapplication",
   "rappid": "rappid:v2:rapplication:@wildhaven/wildhaven_ceo:c9469b971c854feb5c97472f0437bef5",
   "version": "0.1.0",
   "publisher": "@wildhaven",

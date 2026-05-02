@@ -132,7 +132,7 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
         }
         z.writestr("rappid.json", json.dumps(identity, indent=2))
 
-        # The singleton agent
+        # The singleton agent (one per rapp — the chat face)
         singleton_dir = app_dir / "singleton"
         agent_filename = None
         if singleton_dir.is_dir():
@@ -142,6 +142,19 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
                     agent_filename = f.name
                     counts["agent"] += 1
                     break  # one singleton per rapp
+
+        # The organ (one per rapp — the HTTP backplane that serves the UI).
+        # Lifted into the egg under organs/<file>; the brainstem unpacker
+        # places it at utils/organs/<file>, which the kernel autodiscovers.
+        organ_dir = app_dir / "organs"
+        organ_filename = None
+        if organ_dir.is_dir():
+            for f in sorted(organ_dir.iterdir()):
+                if f.suffix == ".py" and f.name != "__init__.py":
+                    z.writestr(f"organs/{f.name}", f.read_bytes())
+                    organ_filename = f.name
+                    counts["organ"] += 1
+                    break  # one organ per rapp (matches the agent-first contract)
 
         # UI bundle (skin)
         ui_dir = app_dir / "ui"
@@ -164,7 +177,7 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
             "publisher": publisher,
             "host": "rapp_store-static-api",
             "agent_filename": agent_filename,
-            "organ_filename": None,
+            "organ_filename": organ_filename,
             "has_skin": counts["ui"] > 0,
             "counts": counts,
         }
@@ -176,21 +189,18 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
 # ── Per-rapp Pokédex entry ─────────────────────────────────────────────────
 
 def _build_entry(app_dir: Path, manifest: dict) -> dict:
-    """Build the static-API JSON entry for one rapplication or tool.
+    """Build the static-API JSON entry for one rapplication.
 
-    Two entry kinds today:
-      - kind: "rapplication" (default) — hatches into a brainstem via
-        a 2.2-rapplication egg. Has singleton + (optional) UI.
-      - kind: "tool" — standalone process (e.g. rapp-zoo) that installs
-        via its own one-liner. Listed in the catalog so the federation
-        can discover it; no singleton/.egg required.
+    Per Article XXXVII (Rapplications Are Organisms), every catalog entry
+    is a rapplication — same kind of organism, same egg distribution unit.
+    Some have install_one_liner because they run as their own process
+    today; that's a runtime detail, not a category. The catalog treats
+    them all the same.
     """
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
-    kind = manifest.get("kind", "rapplication")
     rappid_hash = _short_hash(f"{publisher}/{rapp_id}")
-    rappid_kind = "tool" if kind == "tool" else "rapplication"
-    rappid = f"rappid:v2:{rappid_kind}:{publisher}/{rapp_id}:{rappid_hash}"
+    rappid = f"rappid:v2:rapplication:{publisher}/{rapp_id}:{rappid_hash}"
 
     has_skin = (app_dir / "ui" / "index.html").is_file()
     singleton_files = sorted((app_dir / "singleton").glob("*.py")) if (app_dir / "singleton").is_dir() else []
@@ -208,7 +218,6 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
         "schema": SCHEMA_API_RAPP,
         "id": rapp_id,
         "name": manifest.get("name", rapp_id),
-        "kind": kind,
         "rappid": rappid,
         "version": manifest.get("version", "0.0.0"),
         "publisher": publisher,
@@ -232,9 +241,12 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
         "singleton_bytes": singleton_bytes,
         "singleton_sha256": singleton_sha,
 
-        # Tool-kind extras (null for rapplication-kind)
-        "install_one_liner": manifest.get("install_one_liner") if kind == "tool" else None,
-        "default_port":      manifest.get("default_port") if kind == "tool" else None,
+        # Optional install hints — present for any rapp that needs more
+        # than just dropping the singleton .py into agents/. Today only
+        # rapp-zoo uses these; nothing in the consumer model special-
+        # cases them. Pure metadata.
+        "install_one_liner": manifest.get("install_one_liner"),
+        "default_port":      manifest.get("default_port"),
 
         # Asset URLs (static — published at predictable URLs)
         "sprite_url":     f"{RAW_PREFIX}/api/v1/sprite/{rapp_id}.svg",
@@ -296,29 +308,27 @@ def main():
             sprite = _sprite_svg(entry["rappid"], entry.get("category") or "default")
             (_API / "sprite" / f"{rapp_id}.svg").write_text(sprite)
 
-            # Build & write egg — only for rapplication-kind entries.
-            # Tool-kind (e.g. rapp-zoo) installs via its own one-liner;
-            # no .egg cartridge until a future refactor packs it as a
-            # real 2.2-rapplication.
-            if entry.get("kind") == "tool":
+            # Build & write egg — every entry packs as a 2.2-rapplication
+            # egg. Per Article XXXVII, every catalog entry IS a rapplication;
+            # there's no separate tool/rapp distinction. Some rapps run as
+            # their own process today (e.g. rapp-zoo's full local mode);
+            # the install_one_liner field tells consumers how to launch
+            # those, but the egg itself is the same shape as everything else.
+            try:
+                egg_blob = _build_egg(app_dir, manifest)
+                (_API / "egg" / f"{rapp_id}.egg").write_bytes(egg_blob)
+                entry["egg_bytes"] = len(egg_blob)
+            except Exception as e:
+                print(f"  ! egg build failed for {rapp_id}: {e}", file=sys.stderr)
                 entry["egg_url"] = None
                 entry["egg_bytes"] = 0
-            else:
-                try:
-                    egg_blob = _build_egg(app_dir, manifest)
-                    (_API / "egg" / f"{rapp_id}.egg").write_bytes(egg_blob)
-                    entry["egg_bytes"] = len(egg_blob)
-                except Exception as e:
-                    print(f"  ! egg build failed for {rapp_id}: {e}", file=sys.stderr)
-                    entry["egg_url"] = None
-                    entry["egg_bytes"] = 0
 
             # Re-write the per-entry JSON to capture the final egg_url state
             (_API / "rapplication" / f"{rapp_id}.json").write_text(
                 json.dumps(entry, indent=2) + "\n"
             )
 
-            print(f"  ✓ {entry['publisher']}/{rapp_id} v{entry['version']:<8}  kind={entry.get('kind','rapplication'):<11} "
+            print(f"  ✓ {entry['publisher']}/{rapp_id} v{entry['version']:<8}  "
                   f"skin={entry['has_skin']!s:<5}  "
                   f"egg={entry.get('egg_bytes', 0):>5} bytes")
 

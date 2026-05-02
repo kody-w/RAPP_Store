@@ -2,7 +2,6 @@
   "schema": "rapp-pokedex-rapp/1.0",
   "id": "spine_dag",
   "name": "SpineDAG",
-  "kind": "rapplication",
   "rappid": "rappid:v2:rapplication:@blazingbeard/spine_dag:ee1e43094fc9372a6777d6db5f5ecdb8",
   "version": "1.0.0",
   "publisher": "@blazingbeard",
