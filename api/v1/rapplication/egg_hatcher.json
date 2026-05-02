@@ -2,7 +2,6 @@
   "schema": "rapp-pokedex-rapp/1.0",
   "id": "egg_hatcher",
   "name": "Egg Hatcher",
-  "kind": "rapplication",
   "rappid": "rappid:v2:rapplication:@rapp/egg_hatcher:83d848947a6d7a970c0c744582faa251",
   "version": "0.1.0",
   "publisher": "@rapp",

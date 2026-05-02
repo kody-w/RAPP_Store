@@ -2,18 +2,15 @@
   "schema": "rapp-application/1.0",
   "id": "rapp-zoo",
   "name": "rapp-zoo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "@rapp",
-  "kind": "tool",
   "quality_tier": "official",
-  "summary": "Local-first Pokédex of digital organisms — drag-drop import / export / inspect / discover. Runs alongside your brainstem at localhost:7070.",
-  "tagline": "The Pokédex contains itself.",
+  "summary": "Your personal Pokédex of digital organisms on this device. Browse what you've caught, catch new ones from the global rapp_store catalog, hatch / start / stop / inspect — all from inside your brainstem.",
+  "tagline": "The user's Pokédex. Local-first; global-aware.",
   "category": "platform",
-  "tags": ["pokedex", "tool", "egg-import", "egg-export", "local-first", "self-hosted", "selfreference"],
+  "tags": ["pokedex", "browse", "egg-import", "egg-export", "local-first", "rapplication", "organ"],
   "license": "BSD-style",
   "homepage": "https://github.com/kody-w/rapp-zoo",
   "repo_url": "https://github.com/kody-w/rapp-zoo",
-  "install_one_liner": "curl -fsSL https://kody-w.github.io/rapp-zoo/installer/install.sh | bash && bash ~/.rapp-zoo/installer/start.sh",
-  "default_port": 7070,
-  "_note": "Tool-kind entry — the zoo is a standalone Flask app, not a single-agent rapplication that hatches into a brainstem. Has skin (its own UI), has identity (rappid declared here), but installs via its own one-liner rather than a 2.2-rapplication egg. Future work: refactor into a brainstem organ + rapp-ui so it can ship as a real .egg cartridge."
+  "_note": "v0.3.0 IS the canonical rapplication shape — agent (chat face) + organ (HTTP backplane at /api/rapp_zoo/*) + UI bundle (skin). Hatches into any brainstem like every other rapplication; no separate process. The local-first/global-aware split is intentional: rapp_store is the *global* catalog (everyone's organisms), rapp-zoo is *this user's personal* Pokédex (organisms on this device + a discover view onto the global catalog when online). Pulls from rapp_store via the egg_hatcher when the user clicks ⚡ Hot-load."
 }
