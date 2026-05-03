@@ -1,0 +1,46 @@
+{
+  "id": "cockpit",
+  "name": "Cockpit",
+  "version": "1.0.0",
+  "summary": "Local-first control plane for SSH-reachable hosts. Chat agent + HTTP backplane + browser UI on one local state dir. One operator drives N remote machines; nothing leaves the box.",
+  "tagline": "One terminal. N continuums. Zero leaks.",
+  "category": "infrastructure",
+  "tags": [
+    "rapplication",
+    "cockpit",
+    "local-first",
+    "ssh",
+    "agent-organ-ui",
+    "private",
+    "has-ui",
+    "has-organ",
+    "has-tools"
+  ],
+  "manifest_name": "@wildhaven/cockpit",
+  "publisher": "@wildhaven",
+  "license": "BSD-style",
+  "quality_tier": "private",
+  "access": "private",
+  "private_repo": "kody-w/RAPP_Store_Private",
+  "singleton_filename": "cockpit_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py",
+  "singleton_sha256": "c77195ef84de42e4c1a13c509d0262e6c44c1ee2e27abcb26673bec40eb753ef",
+  "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/ui/index.html",
+  "ui_sha256": "c87f637e83fa9ad93f44c75ddb07edd5882951bda8ce73174ca5e44cd17b47c6",
+  "ui_filename": "index.html",
+  "organ_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/organs/cockpit_organ.py",
+  "organ_sha256": "bcf456228f17a18ed72d75f1ac4f482315920b1f7a58bf6e8a8c3e607402a038",
+  "organ_filename": "cockpit_organ.py",
+  "tools_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/tools/cockpit_cli.py",
+  "tools_sha256": "6c16cae271f53bd2dbdefa4834b3506bd3698bcad6769d1463119803ccee68bd",
+  "tools_filename": "cockpit_cli.py",
+  "egg_url": null,
+  "egg_note": "Stateless catalog entry. Operator state (host inventory, audit log) lives in ~/.cockpit/ and is portable via the export_state / import_state actions.",
+  "access_note": "Source files live in kody-w/RAPP_Store_Private. Unauthenticated raw fetches return HTTP 404. With a PAT scoped for read on the private repo, every URL returns 200 and the rapp installs normally.",
+  "auth_hint": "gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
+  "example_call": {
+    "args": {
+      "action": "list_hosts"
+    }
+  }
+}
