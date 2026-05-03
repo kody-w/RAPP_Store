@@ -52,6 +52,7 @@ ACCEPTED_QUALITY_TIERS = frozenset({
     "community",     # default for federation submissions; passed validator.
     "experimental",  # rough/early; surfaced with a warning in UI.
     "deprecated",    # hidden by default but installable for back-compat.
+    "private",       # gated rapplication (SPEC §11). Source lives in a private repo.
 })
 
 # Submitters cannot self-elevate above 'community'. The validator downgrades
@@ -101,6 +102,55 @@ MAX_SINGLETON_BYTES = 200 * 1024
 MAX_UI_BYTES = 500 * 1024
 
 CATALOG_RAW_BASE = "https://raw.githubusercontent.com/kody-w/rapp_store/main"
+
+# ── Gated rapplications (SPEC §11) ────────────────────────────────────────
+
+ACCEPTED_ACCESS_LEVELS = frozenset({"public", "private"})
+
+PRIVATE_REPO_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.\-]*/[a-zA-Z0-9_.\-]+$")
+
+def _gated_url_prefix(private_repo: str) -> str:
+    """Canonical raw URL prefix every *_url field on a gated entry must use."""
+    return f"https://raw.githubusercontent.com/{private_repo}/"
+
+
+def is_gated(manifest_or_entry: dict) -> bool:
+    """True iff this manifest or index_entry is a gated rapplication.
+
+    Gated rapps have access == 'private' and a private_repo. They are exempt
+    from receive-side SHA recompute and singleton AST validation; the gate
+    is GitHub's, the catalog only carries metadata.
+    """
+    return manifest_or_entry.get("access") == "private"
+
+
+def _validate_gated_metadata(m: dict, label: str = "manifest") -> list[str]:
+    """Validate the gated-rapp invariants on a manifest or index_entry.
+
+    Run only when is_gated(m) is true. Enforces SPEC §11.1 rules 1-4:
+      - private_repo present and well-formed
+      - every *_url under the private_repo's raw prefix
+      - quality_tier defaults / caps at 'private' for submitter-shipped entries
+    """
+    errs: list[str] = []
+    pr = m.get("private_repo")
+    if not isinstance(pr, str) or not PRIVATE_REPO_RE.match(pr):
+        errs.append(
+            f"E_GATED_BAD_PRIVATE_REPO: {label}.private_repo must match "
+            f"<owner>/<repo>, got {pr!r}"
+        )
+        return errs
+
+    prefix = _gated_url_prefix(pr)
+    for k, v in m.items():
+        if not k.endswith("_url") or not isinstance(v, str) or not v:
+            continue
+        if not v.startswith(prefix):
+            errs.append(
+                f"E_GATED_URL_MISMATCH: {label}.{k} must start with "
+                f"'{prefix}' (declared private_repo='{pr}'), got {v!r}"
+            )
+    return errs
 
 
 # ── Result types ──────────────────────────────────────────────────────────
@@ -209,8 +259,14 @@ def validate_dir(rapp_dir: Path, *,
     service_rel = manifest.get("service")
     ui_rel = manifest.get("ui")
 
+    # SPEC §11 — gated rapplications: source lives in a private repo. The
+    # public bundle holds metadata only (manifest, index_entry, README).
+    # Skip filesystem-existence and AST checks; rely on the *_url + *_sha256
+    # attestations validated separately.
+    gated = is_gated(manifest)
+
     singleton_path: Path | None = None
-    if agent_rel:
+    if agent_rel and not gated:
         singleton_path = rapp_dir / agent_rel
         if not singleton_path.is_file():
             errors.append(f"E_SINGLETON_MISSING: {agent_rel} not found in bundle")
@@ -220,14 +276,14 @@ def validate_dir(rapp_dir: Path, *,
                 errors.append(f"E_SINGLETON_TOO_LARGE: {sb} bytes > {MAX_SINGLETON_BYTES} cap")
             errors.extend(_validate_singleton(singleton_path))
 
-    if service_rel:
+    if service_rel and not gated:
         svc_path = rapp_dir / service_rel
         if not svc_path.is_file():
             errors.append(f"E_SERVICE_MISSING: {service_rel} not found in bundle")
         else:
             errors.extend(_validate_service(svc_path))
 
-    if ui_rel:
+    if ui_rel and not gated:
         ui_path = rapp_dir / ui_rel
         if not ui_path.is_file():
             errors.append(f"E_UI_MISSING: {ui_rel} not found in bundle")
@@ -246,10 +302,23 @@ def validate_dir(rapp_dir: Path, *,
     else:
         errors.append("E_NO_INDEX_ENTRY: missing index_entry.json")
 
+    # SPEC §11 — for gated entries, validate the gated invariants on
+    # index_entry.json too (the catalog row that consumers actually read).
+    if gated and index_entry:
+        errors.extend(_validate_gated_metadata(index_entry, label="index_entry"))
+        # Required SHA attestations for every URL the manifest declares.
+        for kind in ("singleton", "service", "ui", "organ", "tools"):
+            if index_entry.get(f"{kind}_url") and not index_entry.get(f"{kind}_sha256"):
+                errors.append(
+                    f"E_GATED_MISSING_SHA256: index_entry.{kind}_url is set "
+                    f"but {kind}_sha256 is missing — gated entries must "
+                    f"attest content via sha256 (SPEC §11.1 rule 4)."
+                )
+
     if not (rapp_dir / "README.md").is_file():
         errors.append("E_NO_README: missing README.md")
 
-    integrity = compute_integrity(rapp_dir, manifest) if singleton_path else {}
+    integrity = compute_integrity(rapp_dir, manifest) if (singleton_path and not gated) else {}
 
     # Rapplications are agent + UI bundles by definition (SPEC §6 rule 11).
     # The agent runs headless via any standard brainstem invocation; the UI
@@ -694,6 +763,23 @@ def _validate_manifest(m: dict) -> list[str]:
     qt = m.get("quality_tier")
     if qt is not None and qt not in ACCEPTED_QUALITY_TIERS:
         errs.append(f"E_BAD_QUALITY_TIER: quality_tier must be one of {sorted(ACCEPTED_QUALITY_TIERS)}")
+
+    # SPEC §2 — access field. Optional; defaults to 'public' when absent.
+    access = m.get("access")
+    if access is not None:
+        if access not in ACCEPTED_ACCESS_LEVELS:
+            errs.append(
+                f"E_BAD_ACCESS: access must be one of {sorted(ACCEPTED_ACCESS_LEVELS)}, got {access!r}"
+            )
+        elif access == "private":
+            # SPEC §11 — gated-rapplication invariants.
+            errs.extend(_validate_gated_metadata(m, label="manifest"))
+            # quality_tier on a gated entry must be 'private' (or absent → defaulted).
+            if qt is not None and qt != "private":
+                errs.append(
+                    f"E_GATED_BAD_TIER: gated rapplications (access='private') must "
+                    f"set quality_tier='private', got {qt!r}"
+                )
 
     return errs
 

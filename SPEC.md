@@ -65,7 +65,9 @@ The submission unit is **the `<id>/` directory zipped**. The `.zip` filename SHO
 | `ui` | string | **yes** | Relative path to the iframe entrypoint. The UI is the rapplication's user-facing surface; without it the artifact is just a swarm-agent and belongs in RAR. The UI talks to its agent via the cartridge protocol (§9) — `rapp:invoke` for one-shot, `rapp:chat` for conversational. |
 | `service` | string | no | Relative path to an HTTP service module. Optional — most rapplications don't need one. |
 | `license` | string | no | SPDX or free-form. |
-| `quality_tier` | string | no | `featured` / `official` / `verified` / `community` / `experimental` / `deprecated`. Submitters cannot self-declare above `community` (or `experimental` / `deprecated` — those are submitter-allowed self-marks). The receiver's `build_index_entry()` downgrades anything higher to `community`. Tier promotions to `verified`, `official`, or `featured` happen via maintainer-merged PR only. |
+| `quality_tier` | string | no | `featured` / `official` / `verified` / `community` / `experimental` / `deprecated` / `private`. Submitters cannot self-declare above `community` (or `experimental` / `deprecated` — those are submitter-allowed self-marks). The receiver's `build_index_entry()` downgrades anything higher to `community`. The `private` tier is reserved for gated rapplications (§11); see that section for the rules that govern it. Tier promotions to `verified`, `official`, or `featured` happen via maintainer-merged PR only. |
+| `access` | string | no | `"public"` (default) or `"private"`. When `"private"`, the rapplication is **gated** — its source files live in a private repo and `*_url` fields require an authenticated fetch. See §11. |
+| `private_repo` | string | conditional | Required when `access == "private"`. `"<owner>/<repo>"` of the private repo holding the source. Every `*_url` field on the manifest and `index_entry` MUST point at `raw.githubusercontent.com/<owner>/<repo>/...`. |
 
 Other fields (`tagline`, `manifest_name`, `produced_by`, `optional_dependencies`, `tool`, etc.) are tolerated and pass through to the catalog entry verbatim.
 
@@ -89,6 +91,8 @@ The snippet to merge into `rapp_store/index.json` under `rapplications[]`. Requi
 Integrity fields (`singleton_sha256`, `singleton_lines`, `singleton_bytes`, and the equivalents for `service_*` / `ui_*`) are **always recomputed by the receiver** from the actual on-disk files at promotion time. Whatever the submitter ships in `index_entry.json` for these fields is overwritten. The submitter does not need to compute them.
 
 `singleton_url` and other `*_url` fields are likewise rewritten by the receiver to point at `kody-w/rapp_store/main/apps/@<publisher>/<id>/...` (Proposal 0002 — publisher namespacing). The submitter SHOULD ship them with the canonical value but is not required to.
+
+**Gated entries (§11) are exempt from the receive-side rewrite and recomputation.** When `access == "private"`, the catalog cannot fetch the source bytes (the URL 404s for the catalog's own anonymous fetcher) and so cannot recompute SHAs or rewrite URLs. The submitter ships the canonical `*_url` (pointing at their `private_repo`) and the canonical `*_sha256`; the validator confirms the URL shape matches `private_repo` and otherwise treats the integrity fields as authoritative. Installers verify SHA after authenticated fetch.
 
 ## 4. Singleton contract
 
@@ -128,12 +132,18 @@ A submission is **accepted** iff all of the following pass:
     - No `agent` AND no `service` → `E_BARE_AGENT_BELONGS_IN_RAR` (the original Article XXVII rule, kept for the no-app-surface case).
 
     **Headless invocation** of a rapplication's agent is automatic and requires no extra plumbing — once installed, the agent is in the brainstem's `agents/` dir and callable via any standard path (LLM tool call, `/chat`, `/api/binder/agent` generic invoke). UI presence does not constrain headless usability.
+12. **Gated entries (§11)** relax rules 1, 5, and 6 — the validator cannot fetch the source bytes from a private repo and cannot AST-check what it can't read. For an entry with `access == "private"` the validator instead enforces:
+    - `private_repo` is present and matches the regex `^[a-zA-Z0-9][a-zA-Z0-9_.-]*/[a-zA-Z0-9_.-]+$`.
+    - Every `*_url` field on `manifest.json` and `index_entry.json` starts with `https://raw.githubusercontent.com/<private_repo>/`.
+    - Every `*_url` is verified to return HTTP 404 on an anonymous fetch — the gate is real, not a misconfigured-public-repo. (The validator does NOT attempt authenticated fetches; the gate is the observable behavior.)
+    - `*_sha256` fields are present for every `*_url` that is part of the install set (singleton, ui, service, organ, tools).
+    - `quality_tier` defaults to `private` if unset; submitters cannot self-elevate gated entries above `private`. Promotion to `verified`/`official`/`featured` is reserved for the maintainers of the **private** repo, not the public catalog.
 
 A failure on any rule rejects the submission with a specific error code (see `scripts/lib_rapp.py`).
 
 ## 7. Submission paths
 
-A rapplication can enter the catalog in **two modes**, and either mode can be triggered from a local bundle or from a public GitHub repo URL.
+A rapplication can enter the catalog in **three modes**, and any mode can be triggered from a local bundle, a public GitHub repo URL, or a private GitHub repo URL.
 
 ### Mode A — Bundle (copy into the catalog)
 
@@ -162,6 +172,24 @@ Federation entries carry a `source` block:
 ```
 
 `source.commit_sha` is resolved at validation time via the GitHub public API (`/repos/<owner>/<repo>/commits/<ref>`, anonymous, no token required). It pins what the catalog vouched for. Brainstems still install from `singleton_url` (which uses `ref`, e.g. `main`) and verify against `singleton_sha256`; a SHA mismatch surfaces as a hard install failure.
+
+### Mode C — Gated federation (private source, public catalog)
+
+A federation entry whose `singleton_url` (and other `*_url` fields) point at a **private** GitHub repo. The catalog publishes the existence and metadata of the rapplication; the source bytes are gated behind `raw.githubusercontent.com`'s authenticated-only access for private repos. The catalog **does not** carry, store, or proxy any auth credentials — it merely documents the gate via the `access: "private"` flag and `private_repo` field. The full contract lives in §11.
+
+```json
+{
+  "id": "cockpit",
+  "version": "1.0.0",
+  "access": "private",
+  "private_repo": "kody-w/RAPP_Store_Private",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py",
+  "singleton_sha256": "c77195ef84de42e4c1a13c509d0262e6c44c1ee2e27abcb26673bec40eb753ef",
+  "auth_hint": "gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>"
+}
+```
+
+Mode C inherits Mode B's `source.type = "federation"` block but replaces `commit_sha` resolution (which would fail anonymously) with a static URL-shape check. Use Mode C when the rapplication should be discoverable on the public catalog but its source must remain private.
 
 ### Submission triggers
 
@@ -285,13 +313,135 @@ The following IDs are reserved by the platform and cannot be claimed by communit
 
 ---
 
-## 11. Workspace contract (per-rapp file scratchpad)
+## 11. Gated rapplications (`access: "private"`)
+
+`schema: rapp-gated/1.0`  (additive layer over `rapp-application/1.0`)
+
+A **gated rapplication** is a rapplication whose catalog entry is public but whose source files live in a private GitHub repo. The catalog publishes the existence, shape, and metadata of the rapp; GitHub's raw-content service publishes the bytes only to callers with read access on the private repo.
+
+The pattern is **public discovery, private substance**.
+
+### 11.1 The contract
+
+A catalog entry IS a gated rapplication iff `access == "private"`. When that holds:
+
+1. `private_repo` is set to `"<owner>/<repo>"` and the repo is private on GitHub.
+2. Every `*_url` field on `manifest.json` and `index_entry.json` MUST start with `https://raw.githubusercontent.com/<private_repo>/`.
+3. Anonymous `GET` on every `*_url` MUST return HTTP 404 (this is the gate).
+4. `*_sha256` is present for every `*_url` that participates in install.
+5. The bundle layout (§1) and singleton contract (§4) still apply on the **inside** of the private repo. The submitter is responsible for keeping the private bundle valid; the public catalog only stores metadata.
+6. `quality_tier` is `private` (the default for gated entries) unless promoted by the maintainer of the private repo.
+
+The public catalog's validator enforces 1–4 (see §6 rule 12). It does NOT validate the singleton AST — it has no way to fetch the source. That validation responsibility moves to whoever holds the private repo.
+
+### 11.2 The gate
+
+The gate is **not catalog-side**. It is GitHub's. When an unauthenticated client requests a path under `raw.githubusercontent.com/<private-owner>/<private-repo>/...`, GitHub returns HTTP 404 — indistinguishable from "the path does not exist." When a client attaches `Authorization: Bearer <pat>` and the PAT has at least *Contents: read* on the private repo, GitHub returns the bytes with HTTP 200.
+
+The catalog never sees the bytes. The catalog never sees the PAT. The catalog merely documents the existence of the gate via the `access: "private"` flag.
+
+This means:
+- Revocation is **GitHub's responsibility**. Remove a collaborator from the private repo → they lose access immediately.
+- Audit is **GitHub's responsibility**. The private repo's audit log records every authenticated raw fetch.
+- The catalog is operationally read-only with respect to access decisions.
+
+### 11.3 Installer behavior
+
+An installer (brainstem, `gh-rapp` CLI, vBrainstem) MUST:
+
+1. Inspect `access` on the entry. If `access != "private"` (including missing), fetch normally.
+2. If `access == "private"`, look up a token for `private_repo` from the user's local credential store. Conventional sources:
+   - `gh auth token` (the GitHub CLI's stored token).
+   - `GITHUB_TOKEN` environment variable.
+   - A `~/.netrc` machine entry for `raw.githubusercontent.com`.
+   - Brainstem-specific keychain entries (`brainstem keychain set rapp-store/<private_repo>`).
+3. If a token is found, attach `Authorization: Bearer <token>` to every `*_url` fetch.
+4. If no token is found, surface a clear error referencing `auth_hint` (see §11.4) — do NOT fall through to the unauthenticated fetch and return a "404, source missing" message that hides the auth root cause.
+5. After fetching the bytes, hash and verify against the catalog's `*_sha256`. A mismatch is a hard install failure (catalog drift from the private repo).
+6. After install, **discard the token**. The rapplication runs without it. If the rapp itself needs GitHub access, it acquires its own token through its own surfaces.
+
+### 11.4 Author surfaces (`auth_hint`, `access_note`)
+
+A gated entry SHOULD carry two human-readable fields aimed at the installer's user when the auth lookup fails:
+
+- `auth_hint` — short, command-shaped. e.g. `"gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>"`. The installer surfaces this when it can't find a token automatically.
+- `access_note` — a paragraph describing who is expected to have access and how to request it. Lives in `manifest.json`; brainstems may surface it in the catalog UI even before install.
+
+Neither field is enforced. They exist so that the human downstream of an `access: "private"` denial gets actionable information instead of a bare 404.
+
+### 11.5 Security boundaries (what this is NOT)
+
+- **Not code-protection.** A user with access can copy the source out trivially. The gate is "did you have read access at fetch time," not "is this code unrunnable without a key." Use code signing or runtime DRM if you need the latter.
+- **Not transport encryption beyond TLS.** The bytes ride normal HTTPS. Anyone who can MITM your TLS can see the bytes. (This is GitHub's threat model, not ours.)
+- **Not a license.** Whether a viewer of the source is allowed to use, modify, or redistribute it is a question for the rapp's `LICENSE` and the org's contributor agreements, not for the catalog.
+- **Not a multi-tier auth model.** There's `public` and `private`. Org-scoped or team-scoped distinctions are expressed by repo membership on the private side, not by the catalog. If you need that, run multiple private repos.
+- **Not catalog enforcement.** The catalog is an honest broker — it documents the gate. The installer + GitHub are the enforcement layer.
+
+### 11.6 Worked example
+
+The first gated rapplication is `@wildhaven/cockpit` (landed 2026-05-03):
+
+```json
+{
+  "id": "cockpit",
+  "name": "Cockpit",
+  "version": "1.0.0",
+  "manifest_name": "@wildhaven/cockpit",
+  "publisher": "@wildhaven",
+  "summary": "Local-first control plane for SSH-reachable hosts.",
+  "category": "platform",
+  "tags": ["rapplication", "cockpit", "local-first", "ssh", "private"],
+
+  "access": "private",
+  "private_repo": "kody-w/RAPP_Store_Private",
+  "quality_tier": "private",
+
+  "singleton_url":     "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py",
+  "singleton_sha256":  "c77195ef84de42e4c1a13c509d0262e6c44c1ee2e27abcb26673bec40eb753ef",
+  "ui_url":            "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/ui/index.html",
+  "ui_sha256":         "c87f637e83fa9ad93f44c75ddb07edd5882951bda8ce73174ca5e44cd17b47c6",
+  "organ_url":         "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/organs/cockpit_organ.py",
+  "organ_sha256":      "bcf456228f17a18ed72d75f1ac4f482315920b1f7a58bf6e8a8c3e607402a038",
+
+  "auth_hint":   "gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
+  "access_note": "Source files live in kody-w/RAPP_Store_Private. Unauthenticated raw fetches return HTTP 404. With a PAT scoped for read on the private repo, every URL returns 200."
+}
+```
+
+Verification (anyone can run these):
+
+```bash
+# Catalog presence is public:
+curl -fsSL https://raw.githubusercontent.com/kody-w/RAPP_Store/main/index.json \
+  | jq '.rapplications[] | select(.id=="cockpit")'
+
+# Source is gated:
+curl -sSL -o /dev/null -w "%{http_code}\n" \
+  https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py
+# → 404 (anonymous)
+
+curl -sSL -H "Authorization: Bearer $(gh auth token)" -o /dev/null -w "%{http_code}\n" \
+  https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py
+# → 200 (with PAT having read on RAPP_Store_Private)
+```
+
+### 11.7 Why this is in SPEC.md
+
+Without `access` as a first-class field, every gated rapplication has to invent its own access mechanism — bespoke install scripts, custom token formats, side-channel auth. By making `access` part of the catalog contract, the catalog becomes a uniform discovery layer for **everything** — public, private, customer-scoped, org-scoped — under one schema and one auth pattern.
+
+The pattern is also substrate-aligned: GitHub already runs the auth layer (PATs with fine-grained scopes), the storage layer (private repos), and the delivery layer (`raw.githubusercontent.com`). Building on that gets us no servers to operate, no relays to keep secure, no custom token formats, and no new failure modes — the gate is exactly what GitHub already does for every private-repo fetch.
+
+See [Proposal 0005](docs/proposals/0005-gated-rapplications.md) for the design rationale.
+
+---
+
+## 12. Workspace contract (per-rapp file scratchpad)
 
 `schema: rapp-workspace/1.0`
 
 Every installed rapplication on a local brainstem gets a **persistent, isolated workspace directory** where the user and the rapp can collaborate via files. This is the home for transcripts, vault dumps, CSVs, generated outputs, and anything else that doesn't fit a `perform()` keyword arg. It is distinct from the `.brainstem_data/<name>.json` convention, which is for rapp-private state the user does not touch.
 
-### 11.1 Location and lifecycle
+### 12.1 Location and lifecycle
 
 ```
 ${BRAINSTEM_ROOT}/.brainstem_data/workspaces/<id>/
@@ -305,7 +455,7 @@ ${BRAINSTEM_ROOT}/.brainstem_data/workspaces/<id>/
 
 Cloud mode (vBrainstem) emulates the same wire shape with a session-scoped, in-memory store. Files do not persist past the tab. Rapps SHOULD assume their workspace is ephemeral and re-prompt the user as needed.
 
-### 11.2 Agent surface (Python)
+### 12.2 Agent surface (Python)
 
 Singletons access their workspace through a host-provided helper:
 
@@ -326,7 +476,7 @@ def perform(self, **kwargs) -> str:
 
 `utils.workspace` MAY also expose convenience helpers (`list_files()`, `read_text(name)`, `write_text(name, content)`, `request_files(prompt, patterns)`) — the canonical surface is left to the brainstem implementation, but `workspace_dir()` returning a `Path` is the minimum.
 
-### 11.3 UI surface (cartridge protocol)
+### 12.3 UI surface (cartridge protocol)
 
 The cartridge envelope (§9.1) gains a `context.workspace` block:
 
@@ -356,7 +506,7 @@ The cartridge envelope (§9.1) gains a `context.workspace` block:
 
 The host enforces isolation: `name` is treated as a relative leaf, not a path. Any `..` or absolute path is rejected with `error: "invalid_name"`.
 
-### 11.4 User surface
+### 12.4 User surface
 
 The brainstem's UI SHOULD render a per-rapp **Workspace** affordance:
 
@@ -367,7 +517,7 @@ The brainstem's UI SHOULD render a per-rapp **Workspace** affordance:
 
 The exact UX is the brainstem's call. The contract is that *something* lets the user put files in and see what's there — the rapp's UI relies on this surface existing alongside its own iframe.
 
-### 11.5 Why this is in SPEC.md
+### 12.5 Why this is in SPEC.md
 
 The workspace contract is part of what a rapp can rely on when it installs. New brainstem implementations (third-party hosts, CI harnesses, agent-driven testing tools) implement the same wire shape and become drop-in hosts. UIs and singletons that opt in get free upgrades whenever the host adds capabilities (cloud sync, workspace sharing, audit logs) without code changes.
 

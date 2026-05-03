@@ -1,6 +1,6 @@
 # rapp_store
 
-**[📦 Browse the store](https://kody-w.github.io/RAPP_Store/)** · **[🦎 Pokédex API](#pokédex-api)** · **[📋 SPEC](./SPEC.md)** · **[🔌 RAPP Agent Registry](https://github.com/kody-w/RAR)** · **[⚙️ RAPP engine](https://github.com/kody-w/RAPP)**
+**[📦 Browse the store](https://kody-w.github.io/RAPP_Store/)** · **[🦎 Pokédex API](#pokédex-api)** · **[📋 SPEC](./SPEC.md)** · **[🔒 Gated rapps (§11)](./SPEC.md#11-gated-rapplications-access-private)** · **[🔌 RAPP Agent Registry](https://github.com/kody-w/RAR)** · **[⚙️ RAPP engine](https://github.com/kody-w/RAPP)**
 
 Public catalog of RAPP **rapplications** — bundled directories that pair a single-file agent with a UI, a service, or a state cartridge. Drop them into your local brainstem and they work — or browse them like Pokémon via the [Pokédex API](#pokédex-api).
 
@@ -9,6 +9,41 @@ Public catalog of RAPP **rapplications** — bundled directories that pair a sin
 > **Looking for bare agents?** A single `*_agent.py` with no UI belongs in **[kody-w/RAR](https://github.com/kody-w/RAR)** — single-celled organisms without skin. Per [Constitution Article XXVII](https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md), bundle goes here, bare goes there.
 
 This repo was extracted from [`kody-w/RAPP`](https://github.com/kody-w/RAPP) on 2026-04-26 as the content layer of the platform. The engine (Tier 1 brainstem, Tier 2 swarm, Tier 3 worker) lives in `kody-w/RAPP`. Trust metadata (signing, identity, provenance) lives in the RAR registry. This repo is just **content** — rapplications you can fetch and run.
+
+## Gated rapplications (private substance, public discovery)
+
+Most catalog entries are public — anyone can fetch the source with a normal `curl`. But some rapplications **shouldn't be world-fetchable**: an operator's internal control plane, engine IP distributed inside an org, customer-specific bundles built on top of an open base. For those, the catalog supports **gated rapplications** — a public catalog entry whose source files live in a **private** GitHub repo.
+
+The catalog publishes the rapp's existence, shape, and metadata. GitHub's `raw.githubusercontent.com` returns HTTP 404 for unauthenticated callers and HTTP 200 only for callers with read access on the private repo. Public discovery, private substance.
+
+```jsonc
+// in index.json's rapplications[]:
+{
+  "id": "cockpit",
+  "manifest_name": "@wildhaven/cockpit",
+  "access": "private",
+  "private_repo": "kody-w/RAPP_Store_Private",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py",
+  "singleton_sha256": "c77195ef…",
+  "auth_hint": "gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>"
+}
+```
+
+```bash
+# Anyone can verify the gate is real:
+curl -sSL -o /dev/null -w "%{http_code}\n" \
+  https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py
+# → 404 (anonymous)
+
+# With a PAT scoped for read on the private repo:
+curl -sSL -H "Authorization: Bearer $(gh auth token)" -o /dev/null -w "%{http_code}\n" \
+  https://raw.githubusercontent.com/kody-w/RAPP_Store_Private/main/apps/@wildhaven/cockpit/singleton/cockpit_agent.py
+# → 200
+```
+
+The full contract — manifest fields, validator behavior, installer responsibilities, security boundaries — lives in [**SPEC §11**](./SPEC.md#11-gated-rapplications-access-private). The design rationale is in [Proposal 0005](./docs/proposals/0005-gated-rapplications.md).
+
+This is **federation Mode C** in the submission-paths taxonomy (see [SPEC §7](./SPEC.md#7-submission-paths)) — federation referencing a private repo, with the gate being GitHub's own access control. No servers, no relays, no custom auth code; the PAT is the access token.
 
 ## Pokédex API
 

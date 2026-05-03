@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "summary": "Local-first control plane for SSH-reachable hosts. Chat agent + HTTP backplane + browser UI on one local state dir. One operator drives N remote machines; nothing leaves the box.",
   "tagline": "One terminal. N continuums. Zero leaks.",
-  "category": "infrastructure",
+  "category": "platform",
   "tags": [
     "rapplication",
     "cockpit",
@@ -37,7 +37,7 @@
   "egg_url": null,
   "egg_note": "Stateless catalog entry. Operator state (host inventory, audit log) lives in ~/.cockpit/ and is portable via the export_state / import_state actions.",
   "access_note": "Source files live in kody-w/RAPP_Store_Private. Unauthenticated raw fetches return HTTP 404. With a PAT scoped for read on the private repo, every URL returns 200 and the rapp installs normally.",
-  "auth_hint": "gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
+  "auth_hint": "gh auth token  \u2192  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
   "example_call": {
     "args": {
       "action": "list_hosts"

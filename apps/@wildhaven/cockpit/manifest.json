@@ -7,7 +7,7 @@
   "manifest_name": "@wildhaven/cockpit",
   "summary": "Local-first control plane for SSH-reachable hosts. The chat agent, the HTTP backplane, and the browser UI are three faces on one local state directory (~/.cockpit/). One operator drives N remote machines from this terminal; nothing leaves the box.",
   "tagline": "One terminal. N continuums. Zero leaks.",
-  "category": "infrastructure",
+  "category": "platform",
   "tags": [
     "rapplication",
     "cockpit",
@@ -76,9 +76,9 @@
   },
   "access_note": "This rapplication's source files live in the kody-w/RAPP_Store_Private repository. Without read access, every singleton_url / ui_url / organ_url returns HTTP 404 and the rapplication does nothing. With access (a PAT with read on the private repo, or `gh auth token` configured), the URLs return 200 and the singleton drops into your brainstem normally. Public discovery, private substance.",
   "surfaces": {
-    "agent": "singleton/cockpit_agent.py — LLM-callable; 13 actions",
-    "organ": "organs/cockpit_organ.py — local HTTP backplane on 127.0.0.1, host-header rebind guard",
-    "ui": "ui/index.html — browser cockpit, talks to the organ",
-    "tools/cli": "tools/cockpit_cli.py — `rappctl` standalone CLI for terminals"
+    "agent": "singleton/cockpit_agent.py \u2014 LLM-callable; 13 actions",
+    "organ": "organs/cockpit_organ.py \u2014 local HTTP backplane on 127.0.0.1, host-header rebind guard",
+    "ui": "ui/index.html \u2014 browser cockpit, talks to the organ",
+    "tools/cli": "tools/cockpit_cli.py \u2014 `rappctl` standalone CLI for terminals"
   }
 }
