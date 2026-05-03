@@ -1,0 +1,20 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "vibe-coding-loop",
+  "name": "Vibe Coding Loop",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/vibe-coding-loop",
+  "quality_tier": "official",
+  "summary": "Ship batches of 10 single-file HTML demos to a Jekyll site via parallel sub-agents. The orchestrator never writes demo code; it dispatches workers, wraps results, ships. Provider-agnostic — returns prompt templates you feed to whatever LLM you have.",
+  "tagline": "One paragraph in, ten working browser demos out — in parallel.",
+  "category": "workflow",
+  "tags": ["publishing", "orchestration", "vibe-coding", "single-file-html", "loop", "templates"],
+  "singleton": "singleton/vibe_coding_loop_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style",
+  "homepage": "https://kody-w.github.io/loop/",
+  "repo_url": "https://github.com/kody-w/kody-w.github.io",
+  "spec_post": "https://kody-w.github.io/2026/05/02/the-vibe-coding-demo-loop/",
+  "_note": "This is the production loop that put 71 working browser demos onto kody-w.github.io/learnwithkody/. Provider-agnostic — exposes 5 actions (ideate, worker, wrapper, ship, loop) that return prompt templates the host LLM executes."
+}

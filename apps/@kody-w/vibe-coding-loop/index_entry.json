@@ -1,0 +1,18 @@
+{
+  "id": "vibe-coding-loop",
+  "name": "Vibe Coding Loop",
+  "version": "1.0.0",
+  "summary": "Ship batches of 10 single-file HTML demos to a Jekyll site via parallel sub-agents. Orchestrator never writes demo code; it dispatches.",
+  "tagline": "One paragraph in, ten working browser demos out — in parallel.",
+  "category": "workflow",
+  "tags": ["publishing", "orchestration", "vibe-coding", "single-file-html", "loop", "templates"],
+  "manifest_name": "@kody-w/vibe-coding-loop",
+  "singleton_filename": "vibe_coding_loop_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/vibe-coding-loop/singleton/vibe_coding_loop_agent.py",
+  "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/vibe-coding-loop/ui/index.html",
+  "egg_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/vibe-coding-loop.egg",
+  "publisher": "@kody-w",
+  "quality_tier": "official",
+  "homepage": "https://kody-w.github.io/loop/",
+  "repo_url": "https://github.com/kody-w/kody-w.github.io"
+}

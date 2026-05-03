@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vibe Coding Loop</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-elev: #1c2128;
+    --border: #21262d;
+    --border-hover: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-bg: rgba(88, 166, 255, 0.10);
+    --green: #3fb950;
+    --green-bg: #238636;
+    --orange: #ff9d72;
+    --orange-bg: rgba(255, 157, 114, 0.12);
+    --orange-border: rgba(255, 157, 114, 0.55);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column;
+  }
+  header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  h1 { font-size: 16px; font-weight: 600; }
+  h1 .subtitle { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: var(--accent-bg); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+
+  main { flex: 1; display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
+  .sidebar { background: var(--panel); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+  .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 16px 0 8px; }
+  .sidebar h2:first-child { margin-top: 0; }
+
+  .action-list { display: flex; flex-direction: column; gap: 4px; }
+  .action-btn {
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
+    color: var(--text); padding: 8px 12px; text-align: left; font-size: 13px;
+    cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 8px;
+  }
+  .action-btn:hover { background: var(--panel-elev); border-color: var(--border-hover); }
+  .action-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+  .action-btn .desc { color: var(--muted); font-size: 11px; display: block; margin-top: 2px; }
+
+  .content { padding: 24px; overflow-y: auto; }
+
+  .form-section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .form-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .form-section p { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .form-grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
+  .form-grid.two-col { grid-template-columns: 1fr 1fr; }
+
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input, textarea, select {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; font-family: inherit; font-size: 13px;
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .run-btn {
+    background: var(--green-bg); color: white; border: 1px solid var(--green);
+    padding: 8px 16px; border-radius: 6px; font-weight: 500; cursor: pointer;
+    font-family: inherit; font-size: 13px;
+  }
+  .run-btn:hover { background: var(--green); }
+
+  .output {
+    background: #0a0d12; border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px; line-height: 1.6; color: var(--text);
+    white-space: pre-wrap; word-wrap: break-word; max-height: 600px; overflow-y: auto;
+    position: relative;
+  }
+  .output .copy-btn {
+    position: absolute; top: 12px; right: 12px;
+    background: var(--panel); border: 1px solid var(--border-hover);
+    color: var(--muted); padding: 4px 10px; font-size: 11px; border-radius: 4px;
+    cursor: pointer; font-family: inherit;
+  }
+  .output .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+  .output .copy-btn.is-copied { color: var(--green); border-color: var(--green); }
+
+  .output .key { color: var(--orange); }
+  .output .value { color: var(--text); }
+  .output .string { color: #a5d6ff; }
+
+  .empty-state { color: var(--muted); text-align: center; padding: 40px 20px; }
+
+  footer { padding: 10px 20px; border-top: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } .sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 200px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Vibe Coding Loop <span class="subtitle">@kody-w/vibe-coding-loop</span></h1>
+  <span class="badge">5 actions · provider-agnostic</span>
+</header>
+
+<main>
+  <aside class="sidebar">
+    <h2>Actions</h2>
+    <div class="action-list">
+      <button class="action-btn active" data-action="loop">
+        loop <span class="desc">full 4-step plan for one round</span>
+      </button>
+      <button class="action-btn" data-action="ideate">
+        ideate <span class="desc">10 demo concepts in a domain</span>
+      </button>
+      <button class="action-btn" data-action="worker">
+        worker <span class="desc">brief to dispatch a sub-agent</span>
+      </button>
+      <button class="action-btn" data-action="wrapper">
+        wrapper <span class="desc">Jekyll example-post template</span>
+      </button>
+      <button class="action-btn" data-action="ship">
+        ship <span class="desc">commit / push / verify shell</span>
+      </button>
+    </div>
+
+    <h2>Reference</h2>
+    <div style="font-size: 12px; color: var(--muted); line-height: 1.7;">
+      <a href="https://kody-w.github.io/loop/" target="_blank" style="color: var(--accent); text-decoration: none;">loop/ — full agent docs</a><br>
+      <a href="https://kody-w.github.io/learnwithkody/" target="_blank" style="color: var(--accent); text-decoration: none;">learnwithkody — 71 demos</a><br>
+      <a href="https://kody-w.github.io/2026/05/02/the-vibe-coding-demo-loop/" target="_blank" style="color: var(--accent); text-decoration: none;">long-form essay</a>
+    </div>
+  </aside>
+
+  <section class="content">
+    <div id="form-loop" class="form-section">
+      <h3>action: loop</h3>
+      <p>Returns the full 4-step plan for one publishing round. Each step gives you what to do and which action to call next.</p>
+      <div class="form-grid">
+        <div>
+          <label>domain</label>
+          <input id="loop-domain" placeholder="e.g. first-person rooftop scenes" value="first-person rooftop scenes">
+        </div>
+        <div><button class="run-btn" data-run="loop">Run loop</button></div>
+      </div>
+    </div>
+
+    <div id="form-ideate" class="form-section" style="display:none">
+      <h3>action: ideate</h3>
+      <p>Returns the ideation prompt to feed your LLM. The LLM responds with 10 demo concepts.</p>
+      <div class="form-grid">
+        <div>
+          <label>domain</label>
+          <input id="ideate-domain" placeholder="e.g. cosmic horror, retro arcade, weather sims">
+        </div>
+        <div><button class="run-btn" data-run="ideate">Run ideate</button></div>
+      </div>
+    </div>
+
+    <div id="form-worker" class="form-section" style="display:none">
+      <h3>action: worker</h3>
+      <p>Returns a fully-formed worker brief to dispatch as a parallel sub-agent.</p>
+      <div class="form-grid">
+        <div>
+          <label>prompt (creative brief for the demo)</label>
+          <textarea id="worker-prompt" placeholder="Build a first-person 3D meadow environment in Three.js. Generate a vast procedural grass field using InstancedBufferGeometry with 2M+ blades..."></textarea>
+        </div>
+        <div class="two-col" style="display:grid; gap:10px; grid-template-columns: 2fr 1fr;">
+          <div>
+            <label>output_path (absolute)</label>
+            <input id="worker-path" placeholder="/path/to/learnwithkody/demos/NN-slug.html">
+          </div>
+          <div>
+            <label>lib</label>
+            <input id="worker-lib" value="three.js">
+          </div>
+        </div>
+        <div><button class="run-btn" data-run="worker">Run worker</button></div>
+      </div>
+    </div>
+
+    <div id="form-wrapper" class="form-section" style="display:none">
+      <h3>action: wrapper</h3>
+      <p>Returns the Jekyll example-post template with placeholders filled in.</p>
+      <div class="form-grid">
+        <div class="two-col" style="display:grid; gap:10px; grid-template-columns: 1fr 1fr;">
+          <div><label>title</label><input id="w-title" placeholder="The Demo Name"></div>
+          <div><label>slug</label><input id="w-slug" placeholder="demo-slug"></div>
+        </div>
+        <div><label>tagline</label><input id="w-tagline" placeholder="One sentence pitching what makes this special. Quote if it has colons."></div>
+        <div class="two-col" style="display:grid; gap:10px; grid-template-columns: 1fr 1fr 1fr;">
+          <div>
+            <label>category</label>
+            <select id="w-category">
+              <option>simulator</option><option>game</option><option>tool</option><option>prompt</option>
+            </select>
+          </div>
+          <div>
+            <label>difficulty</label>
+            <select id="w-difficulty">
+              <option>advanced</option><option>intermediate</option><option>beginner</option>
+            </select>
+          </div>
+          <div><label>order</label><input id="w-order" type="number" value="99"></div>
+        </div>
+        <div><label>highlight (signature term in prompt block)</label><input id="w-highlight" placeholder="signature technical term"></div>
+        <div><label>demo filename</label><input id="w-demo" placeholder="NN-slug.html"></div>
+        <div><label>prompt (verbatim worker brief)</label><textarea id="w-prompt"></textarea></div>
+        <div><button class="run-btn" data-run="wrapper">Run wrapper</button></div>
+      </div>
+    </div>
+
+    <div id="form-ship" class="form-section" style="display:none">
+      <h3>action: ship</h3>
+      <p>Returns the shell command sequence to validate, commit, push, and verify URLs.</p>
+      <div class="form-grid">
+        <div>
+          <label>slugs (space-separated)</label>
+          <input id="ship-slugs" placeholder="demo1 demo2 demo3 demo4 demo5">
+        </div>
+        <div><button class="run-btn" data-run="ship">Run ship</button></div>
+      </div>
+    </div>
+
+    <div class="output" id="output">
+      <span class="empty-state">Pick an action and run it. The output is the prompt or shell to feed your LLM / brainstem.</span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>vibe-coding-loop · v1.0.0 · BSD-style</span>
+  <span><a href="https://kody-w.github.io/loop/" target="_blank">kody-w.github.io/loop/</a></span>
+</footer>
+
+<script>
+// In-browser stub of the agent's perform(). Mirrors the Python implementation
+// so the UI works standalone in the brainstem iframe without RPC.
+const CONSTRAINTS = `CONSTRAINTS (non-negotiable):
+- ONE HTML file. All CSS/JS inline.
+- Approved external lib: {LIB} from CDN. Nothing else.
+- No API keys, no backend, no fetch() to external services.
+- Must run instantly. Visible / playable within 1 second of load.
+- DO NOT modify any other file. DO NOT touch git. DO NOT spawn subagents.`;
+
+const IDEATION = `You are helping a human grow a vibe-coding examples catalog
+(reference: https://kody-w.github.io/learnwithkody/). Generate 10 audacious
+single-file HTML demo concepts in the domain of: {DOMAIN}
+
+Constraints per concept:
+- Runs in a browser tab from one HTML file
+- Approved external lib: three.js from CDN (or pure web platform)
+- No API keys, no backend, no fetch() to external services
+- Beautiful within one second of load — no setup screens
+- Ambition that makes the viewer say "I can't believe this is one HTML file"
+
+Format each entry as:
+- Bold title
+- One-line italic hook (what the viewer sees)
+- Blockquote of the actual prompt I'd send a worker, with one bold
+  signature technical term that names the demo's defining trick
+
+End with a four-tier ranking:
+- Highest hit-rate (likely nailed first try)
+- Hardest but most spectacular
+- Best for a video / Twitter clip
+- Best educational reach`;
+
+const WORKER_BRIEF = `You are building one mind-blowing single-file HTML demo for
+kody-w.github.io/learnwithkody — a vibe coding examples site.
+
+{CONSTRAINTS}
+
+THE DEMO TO BUILD:
+{PROMPT}
+
+WRITE TO: {PATH}
+
+After writing, report back in under 150 words: what's beautiful about it,
+key implementation details, any compromises you made.`;
+
+const ACTIONS = {
+  loop(p) {
+    return {
+      status: "success", action: "loop",
+      instruction: "Execute these steps in order. Each step gives you what to do AND what to feed your LLM.",
+      plan: [
+        { step: 1, title: "Ideate", what_to_do: "Feed your LLM the ideation prompt. It returns 10 demo concepts. Present them to the human and wait for approval.", call: { action: "ideate", domain: p.domain || "[domain]" } },
+        { step: 2, title: "Dispatch", what_to_do: "For each of the 10 concepts, generate a worker brief and dispatch as a parallel sub-agent. Number demo files NN-slug.html. Send all 10 dispatches in ONE message — true parallelism. CRITICAL: include 'DO NOT spawn subagents' in every brief.", call: { action: "worker", prompt: "<one of the 10>", output_path: "<path>" } },
+        { step: 3, title: "Wrap", what_to_do: "When each worker reports back, write a Jekyll example post in _examples/{slug}.html using the wrapper template. Quote any tagline with embedded colons.", call: { action: "wrapper", demo_filename: "NN-slug.html", "...": "..." } },
+        { step: 4, title: "Ship", what_to_do: "Validate YAML, run tests, fetch remote, commit, push, watch CI, verify URLs.", call: { action: "ship", slugs: "slug1 slug2 slug3 ..." } }
+      ],
+      reference: "https://kody-w.github.io/loop/"
+    };
+  },
+  ideate(p) {
+    return {
+      status: "success", action: "ideate",
+      instruction: "Feed the following prompt to your LLM. It will return 10 demo concepts.",
+      prompt: IDEATION.replace("{DOMAIN}", p.domain || "[insert domain]")
+    };
+  },
+  worker(p) {
+    const constraints = CONSTRAINTS.replace("{LIB}", p.lib || "three.js");
+    const brief = WORKER_BRIEF.replace("{CONSTRAINTS}", constraints).replace("{PROMPT}", p.prompt || "[insert creative brief]").replace("{PATH}", p.path || "[insert absolute path /.../learnwithkody/demos/NN-slug.html]");
+    return {
+      status: "success", action: "worker",
+      instruction: "Dispatch this brief as a sub-agent (parallel to other workers). DO NOT have the worker spawn its own subagents.",
+      brief
+    };
+  },
+  wrapper(p) {
+    const indented = (p.prompt || "[verbatim worker brief]").split("\n").map(l => "  " + l).join("\n");
+    const tpl = `---
+title: "${p.title || "[Title]"}"
+slug: ${p.slug || "[slug]"}
+order: ${p.order || 99}
+featured: true
+tagline: "${p.tagline || "[Tagline — quote if it has colons]"}"
+category: ${p.category || "game"}
+difficulty: ${p.difficulty || "advanced"}
+status: live
+tags: [tag1, tag2, tag3]
+stack: [HTML, JavaScript, three.js]
+demo: /learnwithkody/demos/${p.demo || "NN-slug.html"}
+repo: https://github.com/kody-w/kody-w.github.io
+highlights:
+  - ${p.highlight || "[signature technical term]"}
+prompt: |
+${indented}
+lessons:
+  - "[Lesson 1 — one specific technical sentence]"
+  - "[Lesson 2]"
+  - "[Lesson 3]"
+---
+
+<section class="lwk-section">
+  <h2>What this is</h2>
+  <p>[What this is — one paragraph, concrete]</p>
+</section>
+
+<section class="lwk-section">
+  <h2>Why this is mind-blowing</h2>
+  <p>[Why this is mind-blowing — end on a punchline]</p>
+</section>
+
+<aside class="lwk-try-embed">
+  <div class="lwk-try-embed-head">
+    <span class="lwk-try-embed-label">Live demo</span>
+    <a href="/learnwithkody/demos/${p.demo || "NN-slug.html"}" target="_blank" rel="noopener" class="lwk-try-embed-open">Open in new tab ↗</a>
+  </div>
+  <iframe src="/learnwithkody/demos/${p.demo || "NN-slug.html"}" title="${p.title || "Demo"} — live demo" loading="lazy" sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe>
+</aside>`;
+    return { status: "success", action: "wrapper", instruction: "Fill in the placeholders, then write to _examples/{slug}.html", template: tpl };
+  },
+  ship(p) {
+    const slugs = (p.slugs || "demo1 demo2 demo3").split(/\s+/).filter(Boolean);
+    const brace = "{" + slugs.join(",") + "}";
+    return {
+      status: "success", action: "ship",
+      instruction: "Run this shell sequence to validate, commit, push, and verify.",
+      shell: `# Validate every YAML
+for f in _examples/${brace}.html; do
+  ruby -ryaml -e "YAML.load(File.read('$f')[/---\\n(.*?)\\n---/m, 1])"
+done
+
+# Tests
+python3 -m unittest discover -s tests -p 'test_*.py'
+
+# Check for concurrent commits before pushing
+git fetch origin master
+git rev-list --left-right --count HEAD...origin/master
+
+# Stage, commit, push
+git add _examples/ learnwithkody/demos/
+git commit -m "learnwithkody: round N — <table of demos + signature tricks>
+
+Co-Authored-By: <your-llm-id> <noreply@example.com>"
+git push origin master
+
+# Watch CI
+gh run list --branch master --limit 1 --json databaseId --jq '.[0].databaseId' | xargs -I {} gh run watch {} --exit-status
+
+# Verify each URL returns 200
+for slug in ${slugs.join(' ')}; do
+  printf "%-50s " "/learnwithkody/examples/$slug/"
+  curl -s -o /dev/null -w "%{http_code}\\n" "https://kody-w.github.io/learnwithkody/examples/$slug/"
+done`
+    };
+  }
+};
+
+let currentAction = "loop";
+const allForms = ["loop", "ideate", "worker", "wrapper", "ship"];
+function showForm(action) {
+  currentAction = action;
+  allForms.forEach(a => document.getElementById("form-" + a).style.display = (a === action) ? "" : "none");
+  document.querySelectorAll(".action-btn").forEach(b => b.classList.toggle("active", b.dataset.action === action));
+}
+
+function fmt(obj) { return JSON.stringify(obj, null, 2); }
+
+function runAction(action) {
+  let params = {};
+  if (action === "loop") params = { domain: document.getElementById("loop-domain").value };
+  if (action === "ideate") params = { domain: document.getElementById("ideate-domain").value };
+  if (action === "worker") params = {
+    prompt: document.getElementById("worker-prompt").value,
+    path: document.getElementById("worker-path").value,
+    lib: document.getElementById("worker-lib").value
+  };
+  if (action === "wrapper") params = {
+    title: document.getElementById("w-title").value,
+    slug: document.getElementById("w-slug").value,
+    order: document.getElementById("w-order").value,
+    tagline: document.getElementById("w-tagline").value,
+    category: document.getElementById("w-category").value,
+    difficulty: document.getElementById("w-difficulty").value,
+    highlight: document.getElementById("w-highlight").value,
+    demo: document.getElementById("w-demo").value,
+    prompt: document.getElementById("w-prompt").value
+  };
+  if (action === "ship") params = { slugs: document.getElementById("ship-slugs").value };
+
+  const result = ACTIONS[action](params);
+  const out = document.getElementById("output");
+  out.innerHTML = "";
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "copy-btn";
+  copyBtn.textContent = "Copy";
+  const text = fmt(result);
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(text);
+    copyBtn.textContent = "Copied"; copyBtn.classList.add("is-copied");
+    setTimeout(() => { copyBtn.textContent = "Copy"; copyBtn.classList.remove("is-copied"); }, 1500);
+  };
+  out.appendChild(copyBtn);
+  const pre = document.createElement("pre");
+  pre.style.margin = 0; pre.textContent = text;
+  out.appendChild(pre);
+}
+
+document.querySelectorAll(".action-btn").forEach(b => b.addEventListener("click", () => showForm(b.dataset.action)));
+document.querySelectorAll(".run-btn").forEach(b => b.addEventListener("click", () => runAction(b.dataset.run)));
+
+// Auto-run loop on first open so the user sees output immediately
+runAction("loop");
+</script>
+
+</body>
+</html>
