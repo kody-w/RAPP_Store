@@ -1,0 +1,43 @@
+{
+  "id": "thoughtbox",
+  "name": "Thoughtbox",
+  "version": "1.0.0",
+  "summary": "Local-first reflection journal \u2014 append, list, search, tag, export, import. Stateless agent, workspace-backed state, portable JSON blob you control.",
+  "tagline": "A box for your thoughts. Local-first, portable, yours.",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "journal",
+    "local-first",
+    "scratchpad",
+    "has-ui",
+    "stateless-agent",
+    "workspace-state"
+  ],
+  "manifest_name": "@kody-w/thoughtbox",
+  "publisher": "@kody-w",
+  "license": "BSD-style",
+  "quality_tier": "community",
+  "singleton_filename": "thoughtbox_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/thoughtbox/singleton/thoughtbox_agent.py",
+  "singleton_sha256": "d93b56abcc578d8299df787816142c3d0553a018d45e611ad54ac453bf11933b",
+  "singleton_lines": 329,
+  "singleton_bytes": 11272,
+  "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/thoughtbox/ui/index.html",
+  "ui_sha256": "08e492c5e8db5cd04c903a5652c199221e6181cdf80586e227de4d551024c369",
+  "ui_filename": "index.html",
+  "ui_bytes": 14956,
+  "egg_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/thoughtbox.egg",
+  "example_call": {
+    "args": {
+      "action": "append",
+      "text": "shipped thoughtbox",
+      "tags": [
+        "release"
+      ]
+    }
+  },
+  "egg_sha256": "6c560ad4466ebc7d69b8b5cc049120989f559d112e526650222e964a8b7b7165",
+  "egg_bytes": 8250,
+  "egg_filename": "thoughtbox.egg"
+}

@@ -1,0 +1,48 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "thoughtbox",
+  "name": "Thoughtbox",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/thoughtbox",
+  "summary": "Local-first reflection journal. Append a thought; list, search, or filter by tag; export/import the whole journal as a portable JSON blob. State stays on the box; nothing leaves the machine unless you explicitly export it.",
+  "tagline": "A box for your thoughts. Local-first, portable, yours.",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "journal",
+    "local-first",
+    "scratchpad",
+    "has-ui",
+    "stateless-agent",
+    "workspace-state"
+  ],
+  "agent": "singleton/thoughtbox_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style",
+  "quality_tier": "community",
+  "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/thoughtbox",
+  "produced_by": {
+    "method": "hand-built",
+    "bundled_at": "2026-05-03T20:00:00Z",
+    "based_on": "rapp-application/1.0 spec + cartridge protocol §9 + workspace §12"
+  },
+  "tool": {
+    "name": "Thoughtbox",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {"type": "string",
+          "enum": ["append", "list", "search", "tag", "export", "import_json", "stats", "delete"]},
+        "text":  {"type": "string"},
+        "tags":  {"type": "array", "items": {"type": "string"}},
+        "query": {"type": "string"},
+        "tag":   {"type": "string"},
+        "limit": {"type": "integer"},
+        "id":    {"type": "string"},
+        "blob":  {"type": "string"}
+      },
+      "required": ["action"]
+    }
+  }
+}
