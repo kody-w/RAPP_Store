@@ -1,0 +1,58 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "agent_team",
+  "name": "AgentTeam",
+  "version": "0.1.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/agent-team-singleton",
+  "summary": "The persona-routing brain of Bill Whalen's Agent Team Starter Kit, ported to a single rapplication. Given a project goal, returns the outcome frame, persona route, paste-ready GitHub issue body, and the needs-you questions the team would surface.",
+  "tagline": "Plan a project the way the kit would.",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "agent-team",
+    "persona-routing",
+    "outcome-first",
+    "github-issues",
+    "azure",
+    "planning",
+    "has-ui"
+  ],
+  "agent": "singleton/agent_team_agent.py",
+  "ui": "ui/index.html",
+  "license": "MIT",
+  "quality_tier": "community",
+  "homepage": "https://github.com/billwhalenmsft/agent-team-starter-kit",
+  "produced_by": {
+    "method": "hand-built-from-kit-pattern",
+    "source_files_collapsed": 1,
+    "bundled_at": "2026-05-05T00:00:00Z",
+    "based_on": "billwhalenmsft/agent-team-starter-kit"
+  },
+  "tool": {
+    "name": "AgentTeam",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["route", "frame_outcome", "route_personas", "draft_issue"],
+          "description": "Which slice of the plan to produce. Default: route (the full envelope)."
+        },
+        "goal": {
+          "type": "string",
+          "description": "The raw project request. What does the team need to deliver?"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Optional domain hint to bias persona routing: d365, ai, power-platform, analytics, generic."
+        },
+        "constraints": {
+          "type": "string",
+          "description": "Optional constraints: deadlines, budget, compliance, must-use stack, must-not-use, etc."
+        }
+      },
+      "required": ["goal"]
+    }
+  }
+}
