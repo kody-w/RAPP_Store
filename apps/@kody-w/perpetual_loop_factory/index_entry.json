@@ -1,0 +1,26 @@
+{
+  "id": "perpetual_loop_factory",
+  "name": "Perpetual Loop Factory",
+  "version": "1.0.0",
+  "summary": "Spawn self-correcting perpetual frame chains for any append-only artifact. Drop one .py — get a four-brainstem council + diversity sidecar + dashboards. One spawn call instantiates everything locally.",
+  "tagline": "Drop one .py — get a four-brainstem self-correcting infinite loop.",
+  "category": "platform",
+  "tags": [
+    "rapplication",
+    "factory",
+    "perpetual",
+    "twins",
+    "kaizen",
+    "meta",
+    "self-correcting",
+    "loop"
+  ],
+  "manifest_name": "@kody-w/perpetual_loop_factory",
+  "singleton_filename": "perpetual_loop_factory_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/perpetual_loop_factory/singleton/perpetual_loop_factory_agent.py",
+  "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/perpetual_loop_factory/ui/index.html",
+  "publisher": "@kody-w",
+  "quality_tier": "community",
+  "homepage": "https://github.com/kody-w/RAR/blob/main/agents/@kody-w/perpetual_loop_factory_agent.py",
+  "repo_url": "https://github.com/kody-w/RAR"
+}
