@@ -1,0 +1,27 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "perpetual_loop_factory",
+  "name": "Perpetual Loop Factory",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/perpetual_loop_factory",
+  "summary": "Spawn self-correcting perpetual frame chains for any append-only artifact (novel, codebase, score, knowledge base). One agent contains the entire pattern as embedded templates: rotating twin council, diversity sidecar, pump + pulse + dashboard daemons. One spawn call instantiates everything locally.",
+  "tagline": "Drop one .py — get a four-brainstem self-correcting infinite loop.",
+  "category": "platform",
+  "tags": [
+    "rapplication",
+    "factory",
+    "perpetual",
+    "twins",
+    "kaizen",
+    "meta",
+    "self-correcting",
+    "loop"
+  ],
+  "agent": "singleton/perpetual_loop_factory_agent.py",
+  "singleton": "singleton/perpetual_loop_factory_agent.py",
+  "ui": "ui/index.html",
+  "license": "MIT",
+  "homepage": "https://github.com/kody-w/RAR/blob/main/agents/@kody-w/perpetual_loop_factory_agent.py",
+  "quality_tier": "community"
+}
