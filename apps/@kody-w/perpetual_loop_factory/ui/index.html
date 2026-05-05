@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Perpetual Loop Factory — drop one .py, spawn a four-brainstem loop</title>
+<style>
+  :root {
+    --bg:#0a0e14; --surface:#11161d; --surface2:#1c2128; --border:#21262d;
+    --text:#e6edf3; --dim:#8b949e; --mute:#6e7681;
+    --accent:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#d29922;
+    --pink:#f778ba; --purple:#bc8cff; --gold:#ffd166;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; min-height: 100vh; padding: 0; }
+
+  header {
+    padding: 14px 22px; border-bottom: 1px solid var(--border); background: var(--surface);
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 5;
+  }
+  header .glyph { font-size: 22px; }
+  header h1 { font-size: 16px; font-weight: 700; }
+  header h1 .sub { color: var(--dim); font-weight: 400; margin-left: 8px; font-size: 11px; font-family: var(--mono); }
+  header .ctx { margin-left: auto; font-size: 11px; color: var(--dim); font-family: var(--mono); }
+  header .ctx code { color: var(--accent); }
+  header .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: rgba(88,166,255,0.10); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+
+  main { display: grid; grid-template-columns: 380px 1fr; gap: 18px; padding: 18px 22px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+
+  section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--dim); margin-bottom: 12px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  section h2 .meta { font-weight: 400; font-size: 10px; color: var(--mute); font-family: var(--mono); }
+
+  label { display: block; font-size: 11px; color: var(--dim); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  input, textarea, select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 11px; border-radius: 6px; font: inherit; font-size: 13px; }
+  textarea { min-height: 90px; line-height: 1.5; resize: vertical; font-family: var(--mono); font-size: 12px; }
+  input:focus, textarea:focus, select:focus { outline: 0; border-color: var(--accent); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding: 4px 0; }
+  .check input[type=checkbox] { width: auto; }
+
+  button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 9px 16px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); color: #fff; }
+  button.danger { background: transparent; border-color: var(--red); color: var(--red); }
+  button.danger:hover { background: rgba(248,81,73,0.08); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.tiny { padding: 4px 10px; font-size: 11px; }
+
+  .controls { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+  /* Loops list */
+  .loops { display: flex; flex-direction: column; gap: 10px; }
+  .loop {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; transition: border-color .2s;
+  }
+  .loop.active { border-color: var(--accent); background: rgba(88,166,255,0.04); }
+  .loop-head { display: flex; align-items: center; gap: 10px; }
+  .loop-name { font-weight: 600; font-size: 14px; }
+  .loop-meta { color: var(--dim); font-size: 11px; font-family: var(--mono); margin-left: auto; }
+  .loop-desc { color: var(--dim); font-size: 12px; margin: 6px 0 8px; }
+  .loop-stats { display: flex; gap: 14px; font-size: 11px; font-family: var(--mono); color: var(--mute); margin: 6px 0; flex-wrap: wrap; }
+  .loop-stats b { color: var(--accent); }
+  .loop-stats .k { color: var(--dim); }
+  .loop-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .loop-actions a, .loop-actions button { font-size: 11px; padding: 4px 10px; text-decoration: none; border-radius: 5px; border: 1px solid var(--border); color: var(--text); background: var(--surface); }
+  .loop-actions a:hover { border-color: var(--accent); color: var(--accent); }
+  .empty { color: var(--mute); font-style: italic; text-align: center; padding: 30px 20px; font-size: 13px; }
+
+  /* Last spawn */
+  .spawn-output { font-family: var(--mono); font-size: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow-y: auto; }
+  .spawn-output:empty::before { content: "(no spawns yet — fill the form and click Spawn)"; color: var(--mute); font-style: italic; }
+
+  /* Status pill */
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--mono); }
+  .pill.ok    { background: rgba(63,185,80,0.10); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .pill.bad   { background: rgba(248,81,73,0.10); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+  .pill.warn  { background: rgba(210,153,34,0.10); color: var(--orange); border: 1px solid rgba(210,153,34,0.3); }
+  .pill.dim   { background: var(--surface2); color: var(--mute); border: 1px solid var(--border); }
+
+  /* Spinner */
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--surface2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .err { background: rgba(248,81,73,0.10); border: 1px solid var(--red); border-radius: 7px; padding: 10px 14px; color: var(--red); font-size: 12px; }
+
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 9px 16px; font-size: 12px; opacity: 0; transition: opacity .25s; z-index: 100; }
+  .toast.show { opacity: 1; }
+  .toast.ok  { border-color: var(--green); color: var(--green); }
+  .toast.err { border-color: var(--red);   color: var(--red); }
+
+  code { font-family: var(--mono); background: var(--bg); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; font-size: 12px; color: var(--accent); }
+
+  details { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin-top: 10px; }
+  details summary { cursor: pointer; font-size: 12px; color: var(--dim); }
+  details > div { margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--text); }
+
+  .glow {
+    animation: glow 1.6s ease-in-out infinite;
+  }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(63,185,80,0.0); }
+    50% { box-shadow: 0 0 0 4px rgba(63,185,80,0.15); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="glyph">🔁</span>
+  <h1>Perpetual Loop Factory <span class="sub">v1.0.0 · @kody-w</span></h1>
+  <span class="badge">5 actions · drop-in cartridge</span>
+  <span class="ctx" id="ctx">cartridge: <code>connecting…</code></span>
+</header>
+
+<main>
+
+  <!-- LEFT: Spawn form -->
+  <section>
+    <h2>spawn a new loop <span class="meta">action="spawn"</span></h2>
+
+    <label for="loop_name">loop_name <span style="color:var(--mute);text-transform:none;letter-spacing:0">(kebab-case)</span></label>
+    <input id="loop_name" placeholder="infinite-poem" maxlength="40" />
+
+    <label for="description">description <span style="color:var(--mute);text-transform:none;letter-spacing:0">(one paragraph — what is each frame?)</span></label>
+    <textarea id="description" placeholder="Each frame appends one stanza of an ongoing poem; later stanzas reference earlier ones."></textarea>
+
+    <div class="row">
+      <div>
+        <label for="artifact_path">artifact_path</label>
+        <input id="artifact_path" value="artifact.md" />
+      </div>
+      <div>
+        <label for="num_rotators">num_rotators</label>
+        <input id="num_rotators" type="number" value="3" min="2" max="5" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="poll_interval_s">pulse interval</label>
+        <input id="poll_interval_s" type="number" value="60" min="15" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <label class="check">
+          <input id="use_diversity_monk" type="checkbox" checked />
+          add diversity monk sidecar
+        </label>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="spawn-btn" class="primary">Spawn</button>
+      <button id="refresh-btn">Refresh list</button>
+      <span id="spawn-status" class="meta" style="font-size:11px;color:var(--mute)"></span>
+    </div>
+
+    <details>
+      <summary>last spawn output</summary>
+      <div class="spawn-output" id="spawn-output"></div>
+    </details>
+  </section>
+
+  <!-- RIGHT: Running loops -->
+  <section>
+    <h2>running loops <span class="meta" id="loops-meta">…</span></h2>
+    <div id="loops" class="loops">
+      <div class="empty">connecting to factory…</div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ────────────────────────────────────── cartridge protocol ──
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d?.type === 'rapp:cartridge') { cartridge = d; onCartridge(); }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function onCartridge() {
+  const ctx = document.getElementById('ctx');
+  const tether = cartridge?.context?.tether || cartridge?.tether;
+  const user   = cartridge?.context?.user   || cartridge?.user;
+  ctx.innerHTML = `cartridge: <code>${tether || 'standalone'}</code>` +
+                  (user ? ` · user: <code>${user}</code>` : '');
+  refresh();
+}
+
+function invoke(args, timeoutMs = 240000) {
+  return new Promise((resolve, reject) => {
+    const id = 'inv-' + Math.random().toString(36).slice(2);
+    const t  = setTimeout(() => {
+      window.removeEventListener('message', handler);
+      reject(new Error('invoke timeout (' + (timeoutMs / 1000) + 's)'));
+    }, timeoutMs);
+    const handler = (ev) => {
+      const d = ev.data;
+      if (!d || d.type !== 'rapp:invoke:result' || d.id !== id) return;
+      window.removeEventListener('message', handler);
+      clearTimeout(t);
+      d.error ? reject(new Error(d.error)) : resolve(d.result);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+
+// ───────────────────────────────────────── helpers ──
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg, kind) {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show ' + (kind || '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// Parse the factory's text output (factory returns plain text, not JSON).
+function parseLoopList(text) {
+  // expected output:
+  //   loops:
+  //     <name>  pump=<pid>  twins=<n>  port=<n>
+  const out = [];
+  const lines = String(text || "").split("\n");
+  for (const ln of lines) {
+    const m = ln.match(/^\s*(\S+)\s+pump=(\S+)\s+twins=(\d+)\s+port=(\d+)/);
+    if (m) out.push({ name: m[1], pump_pid: m[2], twins: +m[3], dashboard_port: +m[4] });
+  }
+  return out;
+}
+
+function parseStatus(text) {
+  // expected:
+  //   loop: <name>
+  //   dir:  ...
+  //   description: ...
+  //   branch: ...
+  //   artifact: ...
+  //   twins:
+  //     ✓ <name> <role> :<port> (<rappid8>)
+  //   dashboard: ...
+  const info = { twins: [] };
+  for (const ln of String(text || "").split("\n")) {
+    let m;
+    if ((m = ln.match(/^\s*loop:\s+(\S+)/)))         info.name = m[1];
+    else if ((m = ln.match(/^\s*description:\s+(.*)/))) info.description = m[1];
+    else if ((m = ln.match(/^\s*branch:\s+(\S+)/)))    info.branch = m[1];
+    else if ((m = ln.match(/^\s*artifact:\s+(\S+)/)))  info.artifact = m[1];
+    else if ((m = ln.match(/^\s*dashboard:\s+(\S+)/))) info.dashboard = m[1];
+    else if ((m = ln.match(/^\s*([✓✗])\s+(\S+)\s+(\S+)\s+:(\d+)\s+\((\S+)\)/))) {
+      info.twins.push({ alive: m[1] === '✓', name: m[2], role: m[3], port: +m[4], short: m[5] });
+    }
+  }
+  return info;
+}
+
+// ───────────────────────────────────────── state ──
+let LOOPS = [];
+
+// ───────────────────────────────────────── refresh ──
+async function refresh() {
+  $('loops-meta').textContent = 'refreshing…';
+  try {
+    const text = await invoke({ action: 'list' }, 60000);
+    LOOPS = parseLoopList(text);
+    if (!LOOPS.length) {
+      $('loops').innerHTML = `<div class="empty">no loops yet — fill the form on the left and click <b>Spawn</b></div>`;
+      $('loops-meta').textContent = '0 loops';
+      return;
+    }
+    // Hydrate each loop with full status.
+    const detailed = await Promise.all(LOOPS.map(async (l) => {
+      try {
+        const s = await invoke({ action: 'status', loop_name: l.name }, 30000);
+        return { ...l, ...parseStatus(s) };
+      } catch (e) {
+        return { ...l, _status_err: e.message };
+      }
+    }));
+    LOOPS = detailed;
+    renderLoops();
+    $('loops-meta').textContent = `${LOOPS.length} loop${LOOPS.length === 1 ? '' : 's'}`;
+  } catch (e) {
+    $('loops').innerHTML = `<div class="err">factory unreachable: ${esc(e.message)}</div>`;
+    $('loops-meta').textContent = 'error';
+  }
+}
+
+function renderLoops() {
+  const html = LOOPS.map(l => {
+    const aliveTwins = (l.twins || []).filter(t => t.alive).length;
+    const totalTwins = (l.twins || []).length;
+    const allUp = totalTwins > 0 && aliveTwins === totalTwins;
+    const pillCls = allUp ? 'ok' : (aliveTwins ? 'warn' : 'bad');
+    const pillTxt = allUp ? 'live' : (aliveTwins ? 'partial' : 'down');
+    const dashboardUrl = l.dashboard || `http://127.0.0.1:${l.dashboard_port}/dashboard.html`;
+    const twinChips = (l.twins || []).map(t => `
+      <span class="pill ${t.alive ? 'ok' : 'bad'}" title="${esc(t.name)} :${t.port}">
+        ${t.alive ? '●' : '○'} ${esc(t.role)}
+      </span>
+    `).join(' ');
+    return `
+      <div class="loop ${allUp ? 'glow' : ''}">
+        <div class="loop-head">
+          <span class="loop-name">${esc(l.name)}</span>
+          <span class="pill ${pillCls}">${pillTxt}</span>
+          <span class="loop-meta">${aliveTwins}/${totalTwins} twins</span>
+        </div>
+        ${l.description ? `<div class="loop-desc">${esc(l.description)}</div>` : ''}
+        <div class="loop-stats">
+          <span><span class="k">artifact:</span> <b>${esc(l.artifact || '?')}</b></span>
+          <span><span class="k">branch:</span> ${esc(l.branch || '?')}</span>
+          <span><span class="k">pump:</span> ${esc(l.pump_pid || '?')}</span>
+        </div>
+        <div style="margin: 6px 0 8px;">${twinChips}</div>
+        <div class="loop-actions">
+          <a href="${esc(dashboardUrl)}" target="_blank" rel="noopener">📊 dashboard</a>
+          <button class="tiny" onclick="refreshOne('${esc(l.name)}')">refresh</button>
+          <button class="tiny danger" onclick="stopLoop('${esc(l.name)}')">stop</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  $('loops').innerHTML = html;
+}
+
+async function refreshOne(name) {
+  try {
+    const s = await invoke({ action: 'status', loop_name: name }, 30000);
+    const i = LOOPS.findIndex(l => l.name === name);
+    if (i >= 0) {
+      LOOPS[i] = { ...LOOPS[i], ...parseStatus(s) };
+      renderLoops();
+      toast('refreshed ' + name, 'ok');
+    }
+  } catch (e) { toast('refresh failed: ' + e.message, 'err'); }
+}
+
+async function stopLoop(name) {
+  if (!confirm(`Stop loop "${name}"? (state preserved on disk; can be respawned later)`)) return;
+  try {
+    const r = await invoke({ action: 'stop', loop_name: name }, 60000);
+    toast(r.split('\n')[0].slice(0, 100), 'ok');
+    setTimeout(refresh, 500);
+  } catch (e) { toast('stop failed: ' + e.message, 'err'); }
+}
+
+// ───────────────────────────────────────── spawn ──
+async function doSpawn() {
+  const args = {
+    action: 'spawn',
+    loop_name: $('loop_name').value.trim(),
+    description: $('description').value.trim(),
+    artifact_path: $('artifact_path').value.trim() || 'artifact.md',
+    num_rotators: parseInt($('num_rotators').value, 10) || 3,
+    use_diversity_monk: $('use_diversity_monk').checked,
+    poll_interval_s: parseInt($('poll_interval_s').value, 10) || 60,
+  };
+  if (!args.loop_name || !/^[a-z0-9][a-z0-9-]{0,40}$/.test(args.loop_name)) {
+    toast('loop_name must be kebab-case (a-z, 0-9, dashes)', 'err'); return;
+  }
+  if (!args.description) {
+    toast('description is required', 'err'); return;
+  }
+  $('spawn-btn').disabled = true;
+  $('spawn-status').innerHTML = '<span class="spinner"></span>spawning… (this can take 30-90s)';
+  try {
+    const out = await invoke(args, 300000);
+    $('spawn-output').textContent = out;
+    toast('spawned ' + args.loop_name, 'ok');
+    $('loop_name').value = ''; $('description').value = '';
+    setTimeout(refresh, 800);
+  } catch (e) {
+    $('spawn-output').textContent = 'ERROR: ' + e.message;
+    toast('spawn failed: ' + e.message.slice(0, 80), 'err');
+  } finally {
+    $('spawn-btn').disabled = false;
+    $('spawn-status').textContent = '';
+  }
+}
+
+// ───────────────────────────────────────── boot ──
+$('spawn-btn').addEventListener('click', doSpawn);
+$('refresh-btn').addEventListener('click', refresh);
+
+// Auto-refresh the loop list every 20s.
+setInterval(refresh, 20000);
+
+// Standalone fallback: if no parent answers within 1.5s, run in solo mode
+// (the dashboard works as a viewer for the cartridge protocol; without a
+// host it just shows a friendly note and the form is still discoverable).
+setTimeout(() => {
+  if (!cartridge) {
+    document.getElementById('ctx').innerHTML =
+      `cartridge: <code>standalone</code> · open this UI <em>inside the brainstem binder</em> at <code>/api/binder/ui/perpetual_loop_factory</code> to enable spawn`;
+    $('loops').innerHTML =
+      `<div class="empty">No host detected. To spawn loops, open this UI from the brainstem binder so the cartridge protocol is wired up.<br><br>You can also call the agent directly:<br><code>PerpetualLoopFactory(action="spawn", loop_name="my-loop", description="…")</code></div>`;
+    $('loops-meta').textContent = 'standalone';
+  }
+}, 1500);
+</script>
+</body>
+</html>
