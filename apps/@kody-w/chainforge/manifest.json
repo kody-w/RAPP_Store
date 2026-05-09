@@ -1,0 +1,18 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "chainforge",
+  "name": "ChainForge",
+  "version": "0.1.0",
+  "publisher": "@kody-w",
+  "kind": "rapplication",
+  "quality_tier": "verified",
+  "summary": "Compose multi-primitive RAPP chain plans from natural-language prompts AND plant fresh public seeds (neighborhoods OR twins) end-to-end. The 'design + create' rapplication: turn an ambitious idea into a real grail-compliant artifact.",
+  "tagline": "Design the chain. Plant the seed. Operator approves; ChainForge ships.",
+  "category": "meta",
+  "tags": ["chain", "compose", "plant", "rapplication", "neighborhood", "twin", "holocard", "grail", "operator-mediated"],
+  "license": "BSD-style",
+  "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/chainforge",
+  "repo_url": "https://github.com/kody-w/RAPP",
+  "spec_post": "pages/vault/Architecture/Rapplications%20Are%20Organisms.md",
+  "_note": "Two intents in one singleton: intent='compose' calls claude CLI to build a rapp-chain-plan/1.0 envelope from the operator's prompt + the canonical RAPP toolbox. intent='plant' uses tools/holo_card_generator + tools/front_door_specs + gh CLI to spin up a fresh public planted seed (neighborhood OR twin), grail-complete, ready for use. Default dry_run=True for both intents — operator-mediated by design."
+}
