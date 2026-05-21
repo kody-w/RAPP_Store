@@ -1,0 +1,27 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "hatch_project_twin",
+  "name": "HatchProjectTwin",
+  "version": "0.1.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/hatch-project-twin-singleton",
+  "quality_tier": "community",
+  "summary": "Hatch a project-anchored twin from the global RAPP brainstem kernel. Sibling to twin_egg_hatcher_agent.py (which hatches from eggs/repos/cwd); this agent hatches a fresh project-anchored twin straight from the global kernel. Files live in <project_path>/.brainstem/src/rapp_brainstem; a symlink at ~/.rapp/twins/<rappid-hash>/ makes the twin discoverable by the global brainstem's built-in Twin agent. Spec-compliant rappid.json, manifest.json, HATCH_RECEIPT.json.",
+  "tagline": "Project twin the global brainstem can manage. Same disk layout, same schemas, same vocab as twin_egg_hatcher.",
+  "category": "platform",
+  "tags": [
+    "brainstem",
+    "twin",
+    "project",
+    "hatch",
+    "hatcher",
+    "rapplication",
+    "localfirst",
+    "tracker",
+    "neighborhood",
+    "spec-compliant"
+  ],
+  "agent": "singleton/hatch_project_twin_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style"
+}
