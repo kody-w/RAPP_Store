@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BrainstemFork</title>
+<style>
+  :root { color-scheme: light dark; --accent: #1f4ed8; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    margin: 0; padding: 1.25rem; max-width: 880px; margin-inline: auto;
+    color: #1a1a1a; background: #fafafa; line-height: 1.5;
+  }
+  header { border-bottom: 1px solid #e5e5e5; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 0.2rem; }
+  .sub { color: #555; font-size: 0.9rem; }
+  .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  label { display: block; font-size: 0.85rem; font-weight: 600; margin: 0.6rem 0 0.2rem; color: #333; }
+  input[type=text], input[type=number] { width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+  .row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+  .row > label { flex: 1; min-width: 220px; }
+  .checks { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.75rem 0 0; }
+  .checks label { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 400; font-size: 0.88rem; margin: 0; }
+  button {
+    padding: 0.55rem 1rem; border-radius: 6px; border: 1px solid var(--accent);
+    background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: 0.55; cursor: wait; }
+  button.secondary { background: #fff; color: var(--accent); }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+  pre {
+    background: #f4f4f4; border-radius: 8px; padding: 0.8rem; font-size: 0.82rem;
+    overflow: auto; max-height: 360px; margin: 0;
+  }
+  .status { font-size: 0.85rem; color: #555; margin-top: 0.5rem; }
+  .err { color: #c00; }
+  .ok { color: #057a55; }
+  .hint { font-size: 0.78rem; color: #777; margin-top: 0.15rem; }
+  a { color: var(--accent); }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e8e8; background: #111; }
+    .card { background: #1d1d1d; border-color: #333; }
+    input[type=text], input[type=number] { background: #1d1d1d; color: #e8e8e8; border-color: #444; }
+    pre { background: #2a2a2a; }
+    header { border-bottom-color: #333; }
+    .hint, .sub, .status { color: #999; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>BrainstemFork</h1>
+  <div class="sub">Fork the global RAPP brainstem kernel into a project-specific instance. Outputs a tracker-import JSON for the localfirst project tracker.</div>
+</header>
+
+<div class="card">
+  <label for="project_path">Project path
+    <input type="text" id="project_path" placeholder="/absolute/path/to/your/project">
+  </label>
+  <div class="hint">Absolute path to a project root. Fork lands at &lt;path&gt;/.brainstem/src/rapp_brainstem.</div>
+
+  <div class="row">
+    <label for="port">Port (optional)
+      <input type="number" id="port" placeholder="auto (7073+)" min="1024" max="65535">
+    </label>
+  </div>
+
+  <div class="checks">
+    <label><input type="checkbox" id="include_auth" checked> Inherit Copilot auth</label>
+    <label><input type="checkbox" id="emit_tracker_export" checked> Emit tracker export JSON</label>
+    <label><input type="checkbox" id="replace_env"> Replace project .env</label>
+    <label><input type="checkbox" id="force_soul"> Overwrite project soul.md</label>
+  </div>
+
+  <div class="actions">
+    <button id="run" type="button">Fork brainstem</button>
+    <button id="download_tracker" class="secondary" type="button" disabled>Download tracker JSON</button>
+    <a id="open_tracker" class="secondary" target="_blank" rel="noopener"
+       href="https://microsoft.github.io/aibast-agents-library/tools/localfirst_project_tracker_tool.html"
+       style="display:inline-block;padding:0.55rem 1rem;border:1px solid var(--accent);border-radius:6px;text-decoration:none;font-weight:600">
+       Open localfirst tracker</a>
+  </div>
+  <div class="status" id="status"></div>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
+    <strong style="font-size:0.95rem">Result</strong>
+    <span class="hint" id="result_meta"></span>
+  </div>
+  <pre id="result">Run the fork to see the agent's JSON output here.</pre>
+</div>
+
+<script>
+let cartridge = null;
+let lastResult = null;
+const $ = (id) => document.getElementById(id);
+
+window.addEventListener('message', (ev) => {
+  const m = ev.data;
+  if (!m || typeof m !== 'object') return;
+  if (m.type === 'rapp:cartridge') {
+    cartridge = m;
+    const tether = m.context && m.context.tether;
+    if (tether && tether.active) {
+      $('status').textContent = 'Tethered to local brainstem at ' + tether.base;
+    } else {
+      $('status').textContent = 'Cloud mode (Pyodide) — running the singleton in-browser.';
+    }
+  }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function runAgent(args) {
+  return new Promise((resolve, reject) => {
+    if (!cartridge) {
+      reject(new Error('No cartridge — load this UI through a parent runtime (vBrainstem or local brainstem /binder/ui/brainstem_fork).'));
+      return;
+    }
+    const id = 'bf-' + Math.random().toString(36).slice(2);
+    const handler = (ev) => {
+      const r = ev.data;
+      if (!r || r.type !== 'rapp:invoke:result' || r.id !== id) return;
+      window.removeEventListener('message', handler);
+      if (r.error) reject(new Error(r.error));
+      else resolve(r.result);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+
+$('run').addEventListener('click', async () => {
+  const project_path = $('project_path').value.trim();
+  if (!project_path) {
+    $('status').textContent = 'Project path is required.';
+    $('status').className = 'status err';
+    return;
+  }
+  const args = {
+    project_path,
+    include_auth: $('include_auth').checked,
+    emit_tracker_export: $('emit_tracker_export').checked,
+    replace_env: $('replace_env').checked,
+    force_soul: $('force_soul').checked,
+  };
+  const portVal = $('port').value.trim();
+  if (portVal) args.port = parseInt(portVal, 10);
+
+  $('run').disabled = true;
+  $('status').textContent = 'Forking…';
+  $('status').className = 'status';
+  $('result').textContent = '';
+
+  try {
+    const raw = await runAgent(args);
+    let parsed = raw;
+    if (typeof raw === 'string') {
+      try { parsed = JSON.parse(raw); } catch (_) { parsed = { raw }; }
+    }
+    lastResult = parsed;
+    $('result').textContent = JSON.stringify(parsed, null, 2);
+    $('result_meta').textContent = parsed.port ? ('port ' + parsed.port + ' · ' + (parsed.url || '')) : '';
+    $('status').textContent = parsed.ok ? 'Fork complete. Project brainstem at ' + parsed.project_brainstem : 'Agent returned without ok=true. See result.';
+    $('status').className = parsed.ok ? 'status ok' : 'status err';
+    $('download_tracker').disabled = !(parsed.tracker_export);
+  } catch (err) {
+    $('status').textContent = 'Error: ' + (err.message || err);
+    $('status').className = 'status err';
+    $('result').textContent = String(err && err.stack || err);
+  } finally {
+    $('run').disabled = false;
+  }
+});
+
+$('download_tracker').addEventListener('click', () => {
+  if (!lastResult || !lastResult.tracker_export) return;
+  const blob = new Blob([JSON.stringify(lastResult.tracker_export, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const name = (lastResult.tracker_export.projects && lastResult.tracker_export.projects[0] && lastResult.tracker_export.projects[0].customerName) || 'project';
+  a.href = url;
+  a.download = 'project_tracker_export-' + name.replace(/\s+/g, '-') + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>

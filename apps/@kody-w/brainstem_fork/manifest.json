@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "brainstem_fork",
+  "name": "BrainstemFork",
+  "version": "0.1.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/brainstem-fork-singleton",
+  "quality_tier": "community",
+  "summary": "Fork the global RAPP brainstem kernel into a project-specific instance. Copies brainstem.py verbatim into <project>/.brainstem/src/rapp_brainstem, picks a free port, inherits Copilot auth, preserves the project's soul.md and agents, and emits a projectTrackerData-shaped JSON sidecar that merges cleanly into the localfirst project tracker tool.",
+  "tagline": "One call: fork the brainstem, register the project, hand back a tracker-import JSON.",
+  "category": "platform",
+  "tags": ["brainstem", "project", "fork", "singleton", "rapplication", "localfirst", "tracker"],
+  "agent": "singleton/brainstem_fork_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style"
+}
