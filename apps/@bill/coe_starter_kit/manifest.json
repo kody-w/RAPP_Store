@@ -1,0 +1,33 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "coe_starter_kit",
+  "name": "CoE Starter Kit",
+  "version": "1.0.0",
+  "publisher": "@bill",
+  "manifest_name": "@bill/coe-starter-kit-singleton",
+  "summary": "Bill Whalen's Agent Team (BWAT) starter kit as one rapplication. Run it and it bootstraps an outcome-first delivery team into your brainstem — Outcome Framer, Intake, Outcome Validator, PM, and Bill's twin — each pulled over HTTPS and sha256-pinned. Self-contained, stdlib-only, works offline after the initial fetch.",
+  "tagline": "Stand up an outcome-first agent team in one drop.",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "agent-team",
+    "coe",
+    "starter-kit",
+    "outcome-first",
+    "bootstrap",
+    "copilot-studio",
+    "power-platform",
+    "has-ui"
+  ],
+  "agent": "singleton/coe_starter_kit_agent.py",
+  "ui": "ui/index.html",
+  "license": "MIT",
+  "quality_tier": "community",
+  "homepage": "https://github.com/kody-w/billwhalen-agent-team",
+  "produced_by": {
+    "method": "single-file-starter-port",
+    "based_on": "billwhalen-agent-team",
+    "source_files_collapsed": 1,
+    "bundled_at": "2026-05-26T00:00:00Z"
+  }
+}
