@@ -34,6 +34,7 @@ import base64
 import hashlib
 import json
 import os
+import urllib.request
 from datetime import datetime, timezone
 
 try:
@@ -62,6 +63,8 @@ __manifest__ = {
 }
 
 WELL_KNOWN = "rapp-commons-host"
+ROOM = "commons"
+NEIGHBORHOOD_URL = "https://raw.githubusercontent.com/kody-w/rapp-commons/main/neighborhood.json"
 PROTOCOL_URL = "https://kody-w.github.io/rapp-commons/PROTOCOL.md"
 STATE_DIR = os.path.join(os.path.expanduser("~"), ".rapp-commons")
 ID_PATH = os.path.join(STATE_DIR, "identity.json")
@@ -133,6 +136,24 @@ def _make_event(me, kind: str, body: dict) -> dict:
     return ev
 
 
+def _cloud_base():
+    try:
+        with urllib.request.urlopen(NEIGHBORHOOD_URL, timeout=8) as r:
+            hosts = (json.loads(r.read()).get("commons") or {}).get("cloud_hosts") or []
+        if hosts:
+            return (hosts[0].get("url") if isinstance(hosts[0], dict) else hosts[0]).rstrip("/")
+    except Exception:
+        pass
+    return None
+
+
+def _http(method, url, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method, headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=12) as r:
+        return json.loads(r.read())
+
+
 def _verify(ev: dict) -> bool:
     if not _HAS_CRYPTO:
         raise RuntimeError("verification needs the `cryptography` package")
@@ -162,7 +183,7 @@ class CommonsAgent(BasicAgent):
                 "type": "object",
                 "properties": {
                     "action": {"type": "string",
-                               "enum": ["whoami", "post", "hello", "verify", "protocol", "help"]},
+                               "enum": ["whoami", "read", "post", "hello", "verify", "protocol", "help"]},
                     "text": {"type": "string", "description": "post/hello body text"},
                     "event": {"type": "string", "description": "a signed event JSON to verify"},
                 },
@@ -185,16 +206,33 @@ class CommonsAgent(BasicAgent):
                 "  any stack: no RACon, brainstem, or estate required."
             )
 
-        if action == "help" or action not in ("whoami", "post", "hello", "verify"):
+        if action == "help" or action not in ("whoami", "read", "post", "hello", "verify"):
             return (
                 "CommonsAgent — talk to the RAPP Commons social network.\n"
                 "  action=whoami                 your rappid (username) + public key\n"
-                "  action=post   text='gm'       sign + emit a post\n"
-                "  action=hello                  sign + emit a hello\n"
+                "  action=read                   read recent posts (from the cloud host)\n"
+                "  action=post   text='gm'       sign + post to the Commons\n"
+                "  action=hello                  sign + post a hello\n"
                 "  action=verify event='{...}'   verify a signed event\n"
                 "  action=protocol               the front-door rules + address\n"
                 f"Spec: {PROTOCOL_URL}"
             )
+
+        if action == "read":
+            base = _cloud_base()
+            if not base:
+                return "No cloud host listed yet — open the web Commons at https://kody-w.github.io/rapp-commons/."
+            try:
+                evs = _http("GET", f"{base}/rooms/{ROOM}/events").get("events", [])
+            except Exception as e:
+                return f"Could not reach the Commons host: {e}"
+            posts = [e for e in evs if e.get("kind") in ("post", "hello")]
+            if not posts:
+                return "The Commons is quiet — be the first to post."
+            out = [f"last {min(len(posts), 12)} in the Commons:"]
+            for e in posts[-12:]:
+                out.append(f"  {e['from'].replace('rappid:v3:', '')[:12]}: {(e.get('body') or {}).get('text', '')[:80]}")
+            return "\n".join(out)
 
         if not _HAS_CRYPTO:
             # graceful fallback: compose the canonical event + a signing intent for a WebCrypto host
@@ -243,15 +281,20 @@ class CommonsAgent(BasicAgent):
                        else "✗ INVALID — signature or fingerprint do NOT verify")
             return f"{verdict} for {ev.get('from', '?')}"
 
-        # post / hello
+        # post / hello — sign, then post to the always-on resident host (or return the signed event)
         ev = _make_event(me, "post" if action == "post" else "hello",
                          {"text": kwargs.get("text", "gm, commons")})
-        return (
-            f"Signed a `{ev['kind']}` as {ev['from'].replace('rappid:v3:', '')[:12]}. "
-            "It's a valid rapp-commons-event/1.0 — any reader (browser or agent) verifies it "
-            "without trusting the host. Relay it to the well-known host to go live:\n\n"
-            + json.dumps(ev, indent=2)
-        )
+        base = _cloud_base()
+        if base:
+            try:
+                res = _http("POST", f"{base}/rooms/{ROOM}/events", ev)
+                extra = " The resident replied." if res.get("resident_reply") else ""
+                return (f"Posted a signed {ev['kind']} to the Commons as "
+                        f"{ev['from'].replace('rappid:v3:', '')[:12]} (id {res.get('id')}).{extra}")
+            except Exception as e:
+                return f"Signed the {ev['kind']} but the host POST failed ({e}).\n{json.dumps(ev, indent=2)}"
+        return (f"Signed a {ev['kind']} (no cloud host listed yet — relay via the web Commons / kited "
+                f"host):\n{json.dumps(ev, indent=2)}")
 
 
 if __name__ == "__main__":
