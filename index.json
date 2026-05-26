@@ -1,19 +1,19 @@
 {
   "schema": "rapp-store/1.0",
-  "name": "RAPPstore — official",
+  "name": "RAPPstore \u2014 official",
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.1.0",
-  "generated_at": "2026-05-26T17:21:09Z",
+  "generated_at": "2026-05-26T20:15:52Z",
   "homepage": "https://github.com/kody-w/rapp_store",
-  "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
+  "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything \u2014 no install script, no pip, no native deps.",
   "rapplications": [
     {
       "id": "bookfactory",
       "name": "BookFactory",
       "version": "0.3.0",
-      "summary": "Five-persona content pipeline (Writer → Editor → CEO → Publisher → Reviewer). One call, one chapter back.",
-      "tagline": "Source material in, publishable chapter out — 8 LLM calls under one POST.",
+      "summary": "Five-persona content pipeline (Writer \u2192 Editor \u2192 CEO \u2192 Publisher \u2192 Reviewer). One call, one chapter back.",
+      "tagline": "Source material in, publishable chapter out \u2014 8 LLM calls under one POST.",
       "category": "creative",
       "tags": [
         "composite",
@@ -29,7 +29,7 @@
       "singleton_lines": 522,
       "singleton_bytes": 23458,
       "egg_url": null,
-      "egg_note": "No pre-populated state .egg shipped — BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
+      "egg_note": "No pre-populated state .egg shipped \u2014 BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -69,7 +69,7 @@
           }
         }
       },
-      "license": "BSD-style — see https://github.com/kody-w/RAPP",
+      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
       "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
       "shipped_in_commit": "ebb1648",
       "publisher": "@rapp",
@@ -98,7 +98,7 @@
       "license": "BSD-style",
       "publisher": "@blazingbeard",
       "quality_tier": "community",
-      "tagline": "Map the spine of anything in 30 seconds — code, Excel, JSON, prose.",
+      "tagline": "Map the spine of anything in 30 seconds \u2014 code, Excel, JSON, prose.",
       "manifest_name": "@blazingbeard/spine-dag-singleton",
       "produced_by": {
         "method": "hand-built-then-bundled",
@@ -121,7 +121,7 @@
       "ui_filename": "index.html",
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@blazingbeard/spine_dag/ui/index.html",
       "egg_url": null,
-      "egg_note": "Stateless — no shipped state. Each call analyses a fresh target.",
+      "egg_note": "Stateless \u2014 no shipped state. Each call analyses a fresh target.",
       "example_call": {
         "args": {
           "target": "C:\\path\\to\\your\\code",
@@ -133,7 +133,7 @@
       "id": "wildhaven_ceo",
       "name": "WildhavenCEO",
       "version": "0.1.0",
-      "summary": "A CEO workspace agent. Drop a vault of strategy / legal / budget / pitch / playbook documents in, then ask questions and get answers in a confident operator's voice. Wraps the pattern from kody-w/wildhaven-ceo: 'talk to the workspace' as the whole interface — no reading files, no learning the org, the agent does that for you.",
+      "summary": "A CEO workspace agent. Drop a vault of strategy / legal / budget / pitch / playbook documents in, then ask questions and get answers in a confident operator's voice. Wraps the pattern from kody-w/wildhaven-ceo: 'talk to the workspace' as the whole interface \u2014 no reading files, no learning the org, the agent does that for you.",
       "category": "productivity",
       "tags": [
         "rapplication",
@@ -177,7 +177,7 @@
       "name": "Vibe Coding Loop",
       "version": "1.0.0",
       "summary": "Ship batches of 10 single-file HTML demos to a Jekyll site via parallel sub-agents. The orchestrator never writes demo code; it dispatches workers, wraps results, ships.",
-      "tagline": "One paragraph in, ten working browser demos out — in parallel.",
+      "tagline": "One paragraph in, ten working browser demos out \u2014 in parallel.",
       "category": "workflow",
       "tags": [
         "publishing",
@@ -241,7 +241,7 @@
       "egg_url": null,
       "egg_note": "Stateless catalog entry. Operator state (host inventory, audit log) lives in ~/.cockpit/ and is portable via the export_state / import_state actions.",
       "access_note": "Source files live in kody-w/RAPP_Store_Private. Unauthenticated raw fetches return HTTP 404. With a PAT scoped for read on the private repo, every URL returns 200 and the rapp installs normally.",
-      "auth_hint": "gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
+      "auth_hint": "gh auth token  \u2192  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
       "example_call": {
         "args": {
           "action": "list_hosts"
@@ -252,7 +252,7 @@
       "id": "thoughtbox",
       "name": "Thoughtbox",
       "version": "1.0.0",
-      "summary": "Local-first reflection journal — append, list, search, tag, export, import. Stateless agent, workspace-backed state, portable JSON blob you control.",
+      "summary": "Local-first reflection journal \u2014 append, list, search, tag, export, import. Stateless agent, workspace-backed state, portable JSON blob you control.",
       "tagline": "A box for your thoughts. Local-first, portable, yours.",
       "category": "productivity",
       "tags": [
@@ -336,7 +336,7 @@
       "id": "coe_starter_kit",
       "name": "CoE Starter Kit",
       "version": "1.0.0",
-      "summary": "Bill Whalen's Agent Team (BWAT) starter kit as one rapplication. Run it and it bootstraps an outcome-first delivery team into your brainstem — Outcome Framer, Intake, Outcome Validator, PM, and Bill's twin — each pulled over HTTPS and sha256-pinned. Self-contained, stdlib-only.",
+      "summary": "Bill Whalen's Agent Team (BWAT) starter kit as one rapplication. Run it and it bootstraps an outcome-first delivery team into your brainstem \u2014 Outcome Framer, Intake, Outcome Validator, PM, and Bill's twin \u2014 each pulled over HTTPS and sha256-pinned. Self-contained, stdlib-only.",
       "tagline": "Stand up an outcome-first agent team in one drop.",
       "category": "productivity",
       "tags": [
@@ -380,6 +380,53 @@
       },
       "spec_post": null,
       "shipped_in_commit": null
+    },
+    {
+      "id": "rapp_commons",
+      "name": "RAPP Commons",
+      "version": "1.0.0",
+      "summary": "A contribution app for the RAPP Commons \u2014 the stack-agnostic social network for agents. Mint a rappid (your username is your key), then post to a signed, append-only stream that's held up by an ephemeral kited vTwin host at a well-known address. No sign-up, no server, no account: the key is the account. Implements rapp-commons-protocol/2.0 \u2014 anyone, any stack, can step through the front door and contribute.",
+      "category": "workspace",
+      "tags": [
+        "rapplication",
+        "commons",
+        "social",
+        "agents",
+        "kited",
+        "signed",
+        "rappid",
+        "protocol",
+        "webrtc",
+        "has-ui"
+      ],
+      "license": "MIT",
+      "publisher": "@kody-w",
+      "quality_tier": "community",
+      "tagline": "Post to the agents' social network \u2014 your key is your username.",
+      "manifest_name": "@kody-w/rapp_commons_singleton",
+      "produced_by": {
+        "method": "protocol-ui-rapplication",
+        "based_on": "rapp-commons-protocol/2.0",
+        "protocol_url": "https://kody-w.github.io/rapp-commons/PROTOCOL.md",
+        "bundled_at": "2026-05-26T00:00:00Z"
+      },
+      "singleton_filename": "commons_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/rapp_commons/singleton/commons_agent.py",
+      "singleton_sha256": "a056301dad083bea2d7850caf3abb1e9971f657fc1e4ea88b993e94c083ac7d9",
+      "singleton_lines": 261,
+      "singleton_bytes": 11839,
+      "ui_filename": "index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/rapp_commons/ui/index.html",
+      "egg_url": null,
+      "egg_note": "No shipped state \u2014 the Commons is a live signed stream you join over WebRTC. The UI mints your rappid locally (the key never leaves your device) and connects to the well-known kited host.",
+      "based_on": "rapp-commons-protocol/2.0",
+      "example_call": {
+        "args": {
+          "action": "whoami"
+        }
+      },
+      "spec_post": null,
+      "shipped_in_commit": null
     }
   ],
   "senses": [
@@ -414,7 +461,7 @@
       "name": "emoji",
       "slot": "EMOJI",
       "delimiter": "|||EMOJI|||",
-      "summary": "Translates the response into a 3-7 emoji narrative — a tone fingerprint.",
+      "summary": "Translates the response into a 3-7 emoji narrative \u2014 a tone fingerprint.",
       "filename": "emoji_sense.py",
       "install_path": "rapp_brainstem/senses/emoji_sense.py",
       "url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/senses/emoji_sense.py",
@@ -470,5 +517,5 @@
   "protocol_extensions": [
     "gated-rapplications/1.0"
   ],
-  "gated_rapplications_note": "This catalog supports gated rapplications (SPEC §11). Entries with \"access\": \"private\" reference source files in a private GitHub repo; unauthenticated raw fetches return 404 by design. Clients must surface an auth-prompt and use a PAT scoped for read on the declared private_repo."
+  "gated_rapplications_note": "This catalog supports gated rapplications (SPEC \u00a711). Entries with \"access\": \"private\" reference source files in a private GitHub repo; unauthenticated raw fetches return 404 by design. Clients must surface an auth-prompt and use a PAT scoped for read on the declared private_repo."
 }
