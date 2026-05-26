@@ -4,6 +4,8 @@
 
 A **rapplication** is a portable, self-describing bundle of one Python agent (and optional UI / state / docs) that drops into any RAPP brainstem and runs. This document defines the bundle layout, the manifest schema, the singleton contract, and the validation rules. Everything in `rapp_store/` conforms to this spec; everything that gets submitted to the store is checked against it.
 
+A rapplication runs one of two ways. **In‑process** (`runtime: "agent"`, the default): its agent loads into the host brainstem's `agents/` dir — simple, fine for one or two. **Twin‑port** (`runtime: "twin"`): the rapplication **hatches into its own specialized brainstem‑twin on its own port**, carrying only its own agents and persona, and the host brainstem reaches it over **twin‑chat** instead of absorbing it (§13). Twin‑port is the answer to crowding: drop many `.egg`s into one global brainstem and each hatches as its own port‑addressable app — still fully usable from the global `brainstem.py`, but never tangling its agent namespace, tool list, or state.
+
 ## 1. Bundle layout
 
 A rapplication is a single directory whose top-level name is the rapplication `id`. Required and optional files:
@@ -18,7 +20,11 @@ A rapplication is a single directory whose top-level name is the rapplication `i
   ui/
     index.html           OPTIONAL  iframe-mounted UI; entrypoint declared in manifest.ui
   eggs/
-    *.egg                OPTIONAL  immutable state snapshots (zip cartridges)
+    *.egg                OPTIONAL  immutable state snapshots (zip cartridges); also the hatch cartridge for twin-runtime rapps (§13)
+  twin/                  OPTIONAL  twin-runtime app (manifest.runtime == "twin", §13) — hatches on its own port
+    soul.md              the specialized persona for this rapplication's twin
+    agents/
+      *_agent.py         the app's agents — loaded into the hatched twin, NOT the host brainstem
   source/                OPTIONAL  multi-file authoring surface for composites (the singleton is generated from these)
   tools/
     build.py             OPTIONAL  collapse source/ → singleton/
@@ -64,6 +70,8 @@ The submission unit is **the `<id>/` directory zipped**. The `.zip` filename SHO
 | `agent` | string | **yes** | Relative path to the singleton, e.g. `singleton/<id>_agent.py`. The agent runs **headless** through any standard brainstem invocation path (LLM tool call, `/chat`, the generic `/api/binder/agent` endpoint) — same as any installed agent. The binder agent is for install/uninstall, not invocation. |
 | `ui` | string | **yes** | Relative path to the iframe entrypoint. The UI is the rapplication's user-facing surface; without it the artifact is just a swarm-agent and belongs in RAR. The UI talks to its agent via the cartridge protocol (§9) — `rapp:invoke` for one-shot, `rapp:chat` for conversational. |
 | `service` | string | no | Relative path to an HTTP service module. Optional — most rapplications don't need one. |
+| `runtime` | string | no | `"agent"` (default) — the singleton loads **in‑process** on the host brainstem. `"twin"` — the rapplication **hatches into its own brainstem‑twin on its own port** and is reached over twin‑chat (§13). Use `"twin"` for multi‑agent apps and whenever a user may drop several rapps into one host. |
+| `twin` | object | conditional | Required when `runtime == "twin"`. `{ "soul": "twin/soul.md", "agents": ["twin/agents/*_agent.py"], "port": "auto" }`. See §13. |
 | `license` | string | no | SPDX or free-form. |
 | `quality_tier` | string | no | `featured` / `official` / `verified` / `community` / `experimental` / `deprecated` / `private`. Submitters cannot self-declare above `community` (or `experimental` / `deprecated` — those are submitter-allowed self-marks). The receiver's `build_index_entry()` downgrades anything higher to `community`. The `private` tier is reserved for gated rapplications (§11); see that section for the rules that govern it. Tier promotions to `verified`, `official`, or `featured` happen via maintainer-merged PR only. |
 | `access` | string | no | `"public"` (default) or `"private"`. When `"private"`, the rapplication is **gated** — its source files live in a private repo and `*_url` fields require an authenticated fetch. See §11. |
@@ -522,3 +530,135 @@ The exact UX is the brainstem's call. The contract is that *something* lets the 
 The workspace contract is part of what a rapp can rely on when it installs. New brainstem implementations (third-party hosts, CI harnesses, agent-driven testing tools) implement the same wire shape and become drop-in hosts. UIs and singletons that opt in get free upgrades whenever the host adds capabilities (cloud sync, workspace sharing, audit logs) without code changes.
 
 See [Proposal 0004](docs/proposals/0004-per-rapp-workspaces.md) for the design rationale.
+
+## 13. Twin-port runtime (hatched rapplications)
+
+`runtime: "twin"`
+
+### 13.1 The problem this solves
+
+The §4 model installs a rapplication's agent into the **host** brainstem's `agents/` dir. That is
+fine for one or two. But the store exists so a user can drop **many** rapplications into one global
+`brainstem.py` — and when every rapp's agents pile into one `agents/` dir they crowd the agent
+namespace, bloat the single LLM tool list, blur which tool belongs to which app, and tangle their
+state. There is no isolation and no organization.
+
+**Twin-port runtime fixes this.** A `runtime: "twin"` rapplication does not load into the host. It
+**hatches into its own brainstem-twin on its own port** — a dedicated brainstem instance that
+carries *only* that rapplication's agents and a persona specialized for it — and the global
+brainstem reaches it over **twin-chat**. Drop ten `.egg`s and you get ten isolated, port-addressable
+apps, each a focused twin, all still usable from the one global brainstem. Nothing crowds.
+
+### 13.2 The bundle (`twin/`)
+
+A twin-runtime rapplication declares `"runtime": "twin"` and ships a `twin/` directory:
+
+```
+<id>/
+  manifest.json          runtime: "twin", twin: { soul, agents, port }
+  twin/
+    soul.md              REQUIRED  the specialized persona for this app's twin
+    agents/
+      *_agent.py         REQUIRED  the app's agents (one or many) — loaded into the twin, not the host
+    requirements.txt     OPTIONAL  extra deps for the twin
+    VERSION              OPTIONAL  kernel/app version pin
+  eggs/
+    <id>.egg             the hatch cartridge: a zip of twin/ + manifest + initial state
+```
+
+The `.egg` is the **hatch unit** — pull it by URL (see `rapp-egg-hub`) and hatch it locally. The host
+brainstem's own `agents/` dir is never written.
+
+### 13.3 The hatch
+
+Dropping an `.egg` (or installing a `runtime:"twin"` rapplication) into a global brainstem **hatches** it:
+
+1. **Allocate a free port** — the hatcher picks the next free port (e.g. `7073`, `7074`, … — the
+   same shape as a running brainstem fleet).
+2. **Materialize an isolated twin root** —
+   `${BRAINSTEM_ROOT}/.brainstem_data/twins/<id>/` containing the rapp's `agents/`, its `soul.md`,
+   its own workspace, and its own `.brainstem_data/`. Fully isolated from the host and from sibling twins.
+3. **Boot a brainstem there** — the same `brainstem.py` / `rapp-brainstem-sdk`, bound to the
+   allocated port, loading **only** that twin's agents.
+4. **Register it** in the twins registry (§13.4).
+
+The host's agent namespace, tool list, and state are untouched. Eviction reverses it: stop the
+process, drop the registry entry; the twin root persists (state is preserved) unless purged.
+
+### 13.4 The twins registry (discovery)
+
+`${BRAINSTEM_ROOT}/.brainstem_data/twins.json`:
+
+```json
+{
+  "schema": "rapp-twins/1.0",
+  "twins": [
+    { "id": "spine_dag", "name": "SpineDAG", "port": 7073, "pid": 41021,
+      "status": "running", "rappid": "<uuid>", "chat": "http://127.0.0.1:7073/chat",
+      "soul": "SpineDAG — a DAG-reasoning specialist", "hatched": "2026-05-26T01:00:00Z" }
+  ]
+}
+```
+
+The global brainstem reads `twins.json` to know which rapplications are live and how to reach each
+one. This is the routing table for federation (§13.5) and the source of truth for the zoo (§13.6).
+
+### 13.5 Federation via twin-chat (the host still uses it)
+
+The global brainstem reaches a hatched rapplication over the neighborhood **twin-chat** protocol
+(`rapp-twin-chat/1.0` — see [rapp-neighborhood-protocol](https://github.com/kody-w/rapp-neighborhood-protocol)),
+same-host transport `5a-http` to the twin's `chat` endpoint:
+
+- **`say`** → the twin's `/chat`: conversational, routed into the twin's *specialized* agents and
+  answered as that app would.
+- **`console`** → operate the twin (invoke a specific agent / method). For non-local reach it is
+  sealed + token-gated per the neighborhood spec; same-host localhost may go in the clear.
+
+So when the user is chatting with the global brainstem and asks for something an app handles, the
+brainstem **delegates over twin-chat** — *"ask the SpineDAG twin to collapse this graph"* → `say` to
+`http://127.0.0.1:7073/chat` → relay the reply — and that app's agents **never enter the global
+brainstem's tool list**. The global brainstem is a hub/router over a little neighborhood of
+specialized twins, not a junk drawer of everyone's agents.
+
+A twin MAY also advertise itself to the global brainstem the same way any neighbor does (host a
+peer, register its `rappid`); on one machine the `twins.json` entry is enough.
+
+### 13.6 Lifecycle (the zoo)
+
+`hatch` · `start` · `stop` · `list` · `evict` — managed by
+[rapp-zoo](https://github.com/kody-w/rapp-zoo), the local twin-estate keeper. Drop an `.egg` →
+**hatch**; the twin keeps running across host restarts if you want it always-on (it's just another
+brainstem on a port). `list` reads `twins.json`; `stop`/`evict` tear a twin down. Multiple `.egg`s →
+multiple twins, each its own port and persona, all enumerable and all reachable.
+
+### 13.7 The hatcher (`rapplicationloadingagent` evolves)
+
+The loader agent no longer copies a rapp's agents into the host's `agents/` dir for `runtime:"twin"`
+rapps. Instead it **hatches** (§13.3) and exposes:
+
+| Method | Does |
+|---|---|
+| `hatch(egg \| id)` | allocate port → materialize twin root → boot → register |
+| `stop(id)` / `evict(id)` | tear the twin down (state kept unless purged) |
+| `list()` | the live twins from `twins.json` |
+| `ask(id, text)` | a twin-chat `say` to that twin → its reply (how the host talks to an app) |
+
+`runtime:"agent"` rapps keep the legacy in-process path unchanged.
+
+### 13.8 The cartridge protocol still applies
+
+A twin-runtime rapp's UI (§9) talks to **its twin** rather than the host: the parent forwards
+`rapp:invoke` / `rapp:chat` to the twin's `/chat` (the `twins.json` `chat` URL) instead of the host
+brainstem. Everything in §9 is unchanged from the UI's point of view — it just lands in the app's own
+specialized twin.
+
+### 13.9 Why this is in SPEC.md
+
+Twin-port hatching is part of the rapplication contract: a `runtime:"twin"` rapp is guaranteed to
+hatch into an **isolated, port-addressable, twin-chat-reachable** instance on any conforming host. So
+an author can ship a whole multi-agent app as one `.egg`, and a user can drop a dozen of them into one
+global brainstem without it degrading into an unnavigable pile of agents. Builds on
+[rapp-neighborhood-protocol](https://github.com/kody-w/rapp-neighborhood-protocol) (twin-chat +
+§5a transports), [rapp-brainstem-sdk](https://github.com/kody-w/rapp-brainstem-sdk) (the per-twin
+headless brainstem), [rapp-egg-hub](https://github.com/kody-w/rapp-egg-hub) (`.egg` cartridges), and
+[rapp-zoo](https://github.com/kody-w/rapp-zoo) (hatch/start/stop/list).
