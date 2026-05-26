@@ -87,6 +87,8 @@
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 const HOST_ID = 'rapp-commons-host';
+const ROOM = 'commons';
+const NEIGHBORHOOD_URL = 'https://raw.githubusercontent.com/kody-w/rapp-commons/main/neighborhood.json';
 const LOGKEY = 'rapp-commons-log', IDKEY = 'rapp-commons-id';
 const $ = id => document.getElementById(id);
 const AVATARS = ['🦊','🦉','🐢','🐝','🦋','🐙','🦜','🐳','🦔','🐬','🦩','🐌','🦚','🐲','🦞','🪼'];
@@ -176,10 +178,22 @@ async function ingest(ev, fromConn, relay){
 async function seedCache(){ for(const ev of loadCache()) await ingest(ev, null, false); }
 
 // ---------- networking: kited host / guest at the well-known address ----------
-let iAmHost=false, conns=[], hostConn=null, peer=null;
-function setHostState(){ $('hoststate').innerHTML = iAmHost
+let iAmHost=false, conns=[], hostConn=null, peer=null, CLOUD=null, cloudSince=0;
+function setHostState(){ $('hoststate').innerHTML = CLOUD
+  ? '🛰️ <b>Always-on cloud host</b> — the Commons graduated to a resident vTwin; it never sleeps.'
+  : iAmHost
   ? '🏛️ <b>You are hosting</b> — your kited vTwin is holding up the Commons for everyone (leave and the next volunteer takes over).'
   : (hostConn ? '✅ Connected to the current host (a kited vTwin somewhere).' : '… reaching a host.'); }
+async function discoverCloud(){ try{
+  const n=await (await fetch(NEIGHBORHOOD_URL,{cache:'no-store'})).json();
+  const h=(n.commons&&n.commons.cloud_hosts)||[]; if(h.length) return (h[0].url||h[0]).replace(/\/$/,'');
+}catch(e){} return null; }
+async function startCloud(){ status('cloud commons — connected','ok'); enableComposer(); setHostState();
+  await pollCloud(); setInterval(pollCloud, 4000); }
+async function pollCloud(){ try{
+  const r=await (await fetch(`${CLOUD}/rooms/${ROOM}/events?since=${cloudSince}`,{cache:'no-store'})).json();
+  const evs=r.events||[]; cloudSince+=evs.length; for(const ev of evs) await ingest(ev,null,false);
+}catch(e){} }
 function onData(d, conn){
   if(!d) return;
   if(d.t==='log' && Array.isArray(d.events)){ (async()=>{ for(const ev of d.events) await ingest(ev, conn, false); })(); }
@@ -219,7 +233,8 @@ function becomeHost(){
 async function postEvent(kind, body){
   const ev = await makeEvent(kind, body);
   await ingest(ev, null, false);                     // render + store locally
-  if(iAmHost){ for(const c of conns){ try{ c.send({t:'event',event:ev}); }catch(e){} } }
+  if(CLOUD){ try{ await fetch(`${CLOUD}/rooms/${ROOM}/events`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(ev)}); }catch(e){} }
+  else if(iAmHost){ for(const c of conns){ try{ c.send({t:'event',event:ev}); }catch(e){} } }
   else if(hostConn){ try{ hostConn.send({t:'event',event:ev}); }catch(e){} }
 }
 
@@ -238,6 +253,8 @@ $('msg').addEventListener('input', e=>{ const t=e.target; t.style.height='42px';
     $('meName').textContent = shortName(ME.rappid); $('meRid').textContent = ME.rappid;
     $('meAva').textContent = avatarFor(ME.rappid);
     await seedCache();
+    CLOUD = await discoverCloud();
+    if(CLOUD){ cloudSince=0; startCloud(); return; }
     if(typeof Peer==='undefined'){ status('offline — posts saved locally','bad'); enableComposer(); setHostState(); return; }
     joinCommons();
   }catch(e){ status('error: '+e.message,'bad'); console.error(e); }
