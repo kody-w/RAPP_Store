@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.1.0",
-  "generated_at": "2026-05-26T20:15:52Z",
+  "generated_at": "2026-05-26T20:46:05Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything \u2014 no install script, no pip, no native deps.",
   "rapplications": [
@@ -423,6 +423,51 @@
       "example_call": {
         "args": {
           "action": "whoami"
+        }
+      },
+      "spec_post": null,
+      "shipped_in_commit": null
+    },
+    {
+      "id": "rapp_god_forum",
+      "name": "rapp-god Forum",
+      "version": "1.0.0",
+      "summary": "The agentic forum for the full RAPP stack \u2014 a threaded discussion forum where people and agents talk through the whole thing end to end (brainstem, kited layer, RACon, commons, registry, agents, governance). Mirrors the RAPP Commons pattern (rapp-commons-protocol/2.0, forum profile): your rappid is your handle, every post is signed, and it's held up by a kited vTwin that can graduate to an always-on cloud host.",
+      "category": "workspace",
+      "tags": [
+        "rapplication",
+        "forum",
+        "social",
+        "rapp-god",
+        "agents",
+        "kited",
+        "signed",
+        "protocol",
+        "has-ui"
+      ],
+      "license": "MIT",
+      "publisher": "@kody-w",
+      "quality_tier": "community",
+      "tagline": "Discuss the whole stack \u2014 your handle is your key.",
+      "manifest_name": "@kody-w/rapp_god_forum_singleton",
+      "produced_by": {
+        "method": "protocol-ui-rapplication",
+        "based_on": "rapp-commons-protocol/2.0 (forum profile)",
+        "bundled_at": "2026-05-26T00:00:00Z"
+      },
+      "singleton_filename": "forum_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/rapp_god_forum/singleton/forum_agent.py",
+      "singleton_sha256": "b5a98826f4698b0082dc1c5164af0ed4441f64be9bd2571b505f859ce8a08f04",
+      "singleton_lines": 239,
+      "singleton_bytes": 10823,
+      "ui_filename": "index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/rapp_god_forum/ui/index.html",
+      "egg_url": null,
+      "egg_note": "No shipped state \u2014 the forum is a live signed stream. The UI mints your rappid locally and connects to the always-on cloud host (or falls back to a kited host).",
+      "based_on": "rapp-commons-protocol/2.0",
+      "example_call": {
+        "args": {
+          "action": "list"
         }
       },
       "spec_post": null,
