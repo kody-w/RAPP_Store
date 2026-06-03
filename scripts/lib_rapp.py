@@ -41,6 +41,10 @@ RESERVED_IDS = frozenset({
     # Repo-internal directories that must not collide with rapp ids
     # (top-level only — rapp directories now live under apps/@<publisher>/):
     "scripts", "tests", "versions", "eggs", "senses", "docs", "apps",
+    # Platform app-ids reserved forever per CONSTITUTION Article VII. Reserved
+    # even when not in the live catalog — the name stays bound to the platform.
+    "binder", "dashboard", "kanban", "swarms", "webhook", "vibe_builder",
+    "learn_new", "swarm_factory", "publish_to_rapp_store", "twin_workshop",
 })
 
 OFFICIAL_PUBLISHERS = frozenset({"@rapp", "@rarbookworld"})
