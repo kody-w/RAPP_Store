@@ -127,7 +127,7 @@ A submission is **accepted** iff all of the following pass:
 
 1. The bundle extracts cleanly and contains `manifest.json` at the bundle root (or one level down inside a wrapper directory).
 2. `manifest.json` validates against §2.
-3. `id` is snake_case and not a reserved name (`scripts`, `tests`, `versions`, `eggs`, `senses`, `binder`).
+3. `id` is snake_case and not a reserved name. `RESERVED_IDS` (`scripts/lib_rapp.py`) is the authoritative set: the repo-internal dirs (`scripts`, `tests`, `versions`, `eggs`, `senses`, `docs`, `apps`) plus the platform app-ids reserved forever per CONSTITUTION Art. VII (`binder`, `dashboard`, `kanban`, `swarms`, `webhook`, `vibe_builder`, `learn_new`, `swarm_factory`, `publish_to_rapp_store`, `twin_workshop`).
 4. The directory name matches `manifest.id` (after one optional wrapper level).
 5. `singleton/<id>_agent.py` (or `service/<id>_service.py`) exists and matches the path declared in `manifest.agent` / `manifest.service`.
 6. The singleton passes the AST checks in §4.
