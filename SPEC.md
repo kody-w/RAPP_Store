@@ -315,6 +315,15 @@ A UI written this way works in three contexts without code changes:
 
 The cartridge is part of the rapplication contract — UIs that adopt it get free upgrades whenever the parent runtime adds capabilities (better LLM routing, multi-agent tool loops, voice, etc.) without any change to the UI's own code. New parent runtimes (third-party brainstems, CI test harnesses, agent-driven testing tools) implement the same protocol and become drop-in hosts.
 
+### 9.5 MCP is the canonical transport (Chat Is The Only Wire)
+
+The cartridge host (above) and the `proxyBrainstemFetch` shim in `vbrainstem.html` both realize one rule: **Chat Is The Only Wire** — every capability reaches a rapplication through `/chat`, never a bespoke endpoint. MCP ([Model Context Protocol](https://github.com/kody-w/rapp-mcp)) is the now-canonical wire-level transport for that rule. An MCP client is a **Layer-2 caller of `/chat`**, exactly like the cartridge host's `rapp:chat` message and the vBrainstem proxy — it is *transport*, not a new unit or taxonomy. Rapplications stay the only catalog artifact; MCP just carries the call.
+
+Two reference shims (`rapp-mcp-spec/1.0`) live in [`kody-w/rapp-mcp`](https://github.com/kody-w/rapp-mcp):
+
+- **`rapp_mcp.py`** — serves drop-in `*_agent.py` singletons (the same files this catalog distributes) as MCP tools, so any MCP host can invoke them.
+- **`rapp_brainstem_mcp.py`** — bridges a *running* brainstem over `/chat` to any MCP host, so the whole conversation surface (agents + memory + senses) is reachable as one MCP endpoint.
+
 ## 10. Reserved IDs
 
 The following IDs are reserved by the platform and cannot be claimed by community publishers: `binder`, `dashboard`, `kanban`, `swarms`, `webhook`, `vibe_builder`, `learn_new`, `swarm_factory`, `senses`, `publish_to_rapp_store`. The reserved list lives in `scripts/lib_rapp.py`.

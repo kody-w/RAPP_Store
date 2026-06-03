@@ -1,11 +1,12 @@
 {
   "schema": "rapp-pokedex-rapp/1.0",
   "id": "egg_hatcher",
+  "kind": "rapplication",
   "name": "Egg Hatcher",
   "rappid": "rappid:v2:rapplication:@rapp/egg_hatcher:83d848947a6d7a970c0c744582faa251",
   "version": "0.1.0",
   "publisher": "@rapp",
-  "category": "core",
+  "category": "platform",
   "tags": [
     "meta",
     "install",
@@ -35,5 +36,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/egg_hatcher/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/egg_hatcher.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/egg_hatcher",
-  "egg_bytes": 5979
+  "egg_bytes": 5978
 }

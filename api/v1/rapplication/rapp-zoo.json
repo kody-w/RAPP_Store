@@ -1,6 +1,7 @@
 {
   "schema": "rapp-pokedex-rapp/1.0",
   "id": "rapp-zoo",
+  "kind": "rapplication",
   "name": "rapp-zoo",
   "rappid": "rappid:v2:rapplication:@rapp/rapp-zoo:5b0e1af74a7d331a3b42e1d70a18b8a0",
   "version": "0.3.0",
@@ -36,5 +37,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/rapp-zoo/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/rapp-zoo.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/rapp-zoo",
-  "egg_bytes": 18839
+  "egg_bytes": 18838
 }

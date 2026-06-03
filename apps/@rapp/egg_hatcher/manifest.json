@@ -8,7 +8,7 @@
   "quality_tier": "official",
   "summary": "Feed me a .egg URL or path — I'll fetch it and hot-load the rapplication into this brainstem. The universal install mechanism for the catalog.",
   "tagline": "The rapplication that hot-loads rapplications.",
-  "category": "core",
+  "category": "platform",
   "tags": ["meta", "install", "egg", "hot-load", "bootstrap", "rapplication"],
   "license": "BSD-style",
   "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/egg_hatcher",
