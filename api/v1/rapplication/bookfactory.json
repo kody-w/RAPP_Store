@@ -1,6 +1,7 @@
 {
   "schema": "rapp-pokedex-rapp/1.0",
   "id": "bookfactory",
+  "kind": "rapplication",
   "name": "BookFactory",
   "rappid": "rappid:v2:rapplication:@rapp/bookfactory:7aef35c5c842a17b6a6f88a33af5cc70",
   "version": "0.3.0",
@@ -34,5 +35,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/bookfactory/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/bookfactory.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/bookfactory",
-  "egg_bytes": 12839
+  "egg_bytes": 12837
 }

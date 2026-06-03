@@ -217,6 +217,10 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
     entry = {
         "schema": SCHEMA_API_RAPP,
         "id": rapp_id,
+        # Per Article XXXVII the catalog defines exactly one frozen artifact
+        # kind. The index listing already stamps it (via e.get('kind', ...));
+        # carry it on the detail record too so both stay aligned.
+        "kind": manifest.get("kind", "rapplication"),
         "name": manifest.get("name", rapp_id),
         "rappid": rappid,
         "version": manifest.get("version", "0.0.0"),
