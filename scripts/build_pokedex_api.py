@@ -111,7 +111,10 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
     name = manifest.get("name", rapp_id)
     version = manifest.get("version", "0.0.0")
     rappid_hash = _short_hash(f"{publisher}/{rapp_id}")
-    rappid = f"rappid:v2:rapplication:{publisher}/{rapp_id}:{rappid_hash}"
+    # Eternity rappid (Constitution Art. XXXIV.1): rappid:@<owner>/<slug>:<hex>.
+    # `publisher` already carries the leading '@'. `kind` lives in the record below,
+    # not in the string. Hash preserved (32-hex grandfathered).
+    rappid = f"rappid:{publisher}/{rapp_id}:{rappid_hash}"
 
     counts = {"agent": 0, "ui": 0, "data": 0, "soul": 0, "organ": 0}
     import io
@@ -122,7 +125,7 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
         identity = {
             "schema": "rapp-rappid/2.0",
             "rappid": rappid,
-            "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+            "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
             "kind": "rapplication",
             "name": name,
             "version": version,
@@ -200,7 +203,10 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
     rappid_hash = _short_hash(f"{publisher}/{rapp_id}")
-    rappid = f"rappid:v2:rapplication:{publisher}/{rapp_id}:{rappid_hash}"
+    # Eternity rappid (Constitution Art. XXXIV.1): rappid:@<owner>/<slug>:<hex>.
+    # `publisher` already carries the leading '@'; `kind` lives in the record's
+    # "kind" field, never the string. Hash preserved (32-hex grandfathered).
+    rappid = f"rappid:{publisher}/{rapp_id}:{rappid_hash}"
 
     has_skin = (app_dir / "ui" / "index.html").is_file()
     singleton_files = sorted((app_dir / "singleton").glob("*.py")) if (app_dir / "singleton").is_dir() else []
@@ -237,7 +243,7 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
         "spec_post": manifest.get("spec_post"),
 
         # Lineage (organism unification — every entry has a parent rappid)
-        "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+        "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
 
         # Pokédex stats
         "has_skin": has_skin,

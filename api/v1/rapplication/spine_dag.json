@@ -3,7 +3,7 @@
   "id": "spine_dag",
   "kind": "rapplication",
   "name": "SpineDAG",
-  "rappid": "rappid:v2:rapplication:@blazingbeard/spine_dag:ee1e43094fc9372a6777d6db5f5ecdb8",
+  "rappid": "rappid:@blazingbeard/spine_dag:ee1e43094fc9372a6777d6db5f5ecdb8",
   "version": "1.0.0",
   "publisher": "@blazingbeard",
   "category": "analysis",
@@ -27,7 +27,7 @@
   "homepage": null,
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 705,
   "singleton_bytes": 28216,
@@ -40,5 +40,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@blazingbeard/spine_dag/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/spine_dag.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@blazingbeard/spine_dag",
-  "egg_bytes": 17264
+  "egg_bytes": 17224
 }

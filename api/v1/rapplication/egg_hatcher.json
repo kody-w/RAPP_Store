@@ -3,7 +3,7 @@
   "id": "egg_hatcher",
   "kind": "rapplication",
   "name": "Egg Hatcher",
-  "rappid": "rappid:v2:rapplication:@rapp/egg_hatcher:83d848947a6d7a970c0c744582faa251",
+  "rappid": "rappid:@rapp/egg_hatcher:83d848947a6d7a970c0c744582faa251",
   "version": "0.1.0",
   "publisher": "@rapp",
   "category": "platform",
@@ -23,7 +23,7 @@
   "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/egg_hatcher",
   "repo_url": "https://github.com/kody-w/RAPP",
   "spec_post": "pages/vault/Architecture/Rapplications%20Are%20Organisms.md",
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 207,
   "singleton_bytes": 8623,
@@ -36,5 +36,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/egg_hatcher/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/egg_hatcher.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/egg_hatcher",
-  "egg_bytes": 5978
+  "egg_bytes": 5934
 }

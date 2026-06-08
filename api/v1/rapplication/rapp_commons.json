@@ -3,7 +3,7 @@
   "id": "rapp_commons",
   "kind": "rapplication",
   "name": "RAPP Commons",
-  "rappid": "rappid:v2:rapplication:@kody-w/rapp_commons:7c04dab3339a0cac60598a9a5f11767a",
+  "rappid": "rappid:@kody-w/rapp_commons:7c04dab3339a0cac60598a9a5f11767a",
   "version": "1.0.0",
   "publisher": "@kody-w",
   "category": "workspace",
@@ -27,7 +27,7 @@
   "homepage": "https://github.com/kody-w/rapp-commons",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 304,
   "singleton_bytes": 14030,
@@ -40,5 +40,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/rapp_commons/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/rapp_commons.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/rapp_commons",
-  "egg_bytes": 12070
+  "egg_bytes": 12038
 }

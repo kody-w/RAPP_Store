@@ -3,7 +3,7 @@
   "id": "agent_team",
   "kind": "rapplication",
   "name": "AgentTeam",
-  "rappid": "rappid:v2:rapplication:@kody-w/agent_team:fa452fa8ffdad64ac654de3029aeef0a",
+  "rappid": "rappid:@kody-w/agent_team:fa452fa8ffdad64ac654de3029aeef0a",
   "version": "0.1.0",
   "publisher": "@kody-w",
   "category": "productivity",
@@ -25,7 +25,7 @@
   "homepage": "https://github.com/billwhalenmsft/agent-team-starter-kit",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 393,
   "singleton_bytes": 16267,
@@ -38,5 +38,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/agent_team/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/agent_team.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/agent_team",
-  "egg_bytes": 12333
+  "egg_bytes": 12294
 }

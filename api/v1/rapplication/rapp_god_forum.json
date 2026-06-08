@@ -3,7 +3,7 @@
   "id": "rapp_god_forum",
   "kind": "rapplication",
   "name": "rapp-god Forum",
-  "rappid": "rappid:v2:rapplication:@kody-w/rapp_god_forum:4e812474791c3500942762c1cad6995a",
+  "rappid": "rappid:@kody-w/rapp_god_forum:4e812474791c3500942762c1cad6995a",
   "version": "1.0.0",
   "publisher": "@kody-w",
   "category": "workspace",
@@ -26,7 +26,7 @@
   "homepage": "https://github.com/kody-w/rapp-god-forum",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 239,
   "singleton_bytes": 10823,
@@ -39,5 +39,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/rapp_god_forum/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/rapp_god_forum.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/rapp_god_forum",
-  "egg_bytes": 11641
+  "egg_bytes": 11605
 }
