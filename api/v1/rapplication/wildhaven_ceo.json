@@ -3,7 +3,7 @@
   "id": "wildhaven_ceo",
   "kind": "rapplication",
   "name": "WildhavenCEO",
-  "rappid": "rappid:v2:rapplication:@wildhaven/wildhaven_ceo:c9469b971c854feb5c97472f0437bef5",
+  "rappid": "rappid:@wildhaven/wildhaven_ceo:c9469b971c854feb5c97472f0437bef5",
   "version": "0.1.0",
   "publisher": "@wildhaven",
   "category": "productivity",
@@ -24,7 +24,7 @@
   "homepage": "https://github.com/kody-w/wildhaven-ceo",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 280,
   "singleton_bytes": 11893,
@@ -37,5 +37,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@wildhaven/wildhaven_ceo/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/wildhaven_ceo.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@wildhaven/wildhaven_ceo",
-  "egg_bytes": 10671
+  "egg_bytes": 10631
 }

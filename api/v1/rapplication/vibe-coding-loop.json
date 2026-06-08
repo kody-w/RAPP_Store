@@ -3,7 +3,7 @@
   "id": "vibe-coding-loop",
   "kind": "rapplication",
   "name": "Vibe Coding Loop",
-  "rappid": "rappid:v2:rapplication:@kody-w/vibe-coding-loop:55f387286a383ccf872d26d96dd4d44e",
+  "rappid": "rappid:@kody-w/vibe-coding-loop:55f387286a383ccf872d26d96dd4d44e",
   "version": "1.0.0",
   "publisher": "@kody-w",
   "category": "workflow",
@@ -23,7 +23,7 @@
   "homepage": "https://kody-w.github.io/loop/",
   "repo_url": "https://github.com/kody-w/kody-w.github.io",
   "spec_post": "https://kody-w.github.io/2026/05/02/the-vibe-coding-demo-loop/",
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 356,
   "singleton_bytes": 15167,
@@ -36,5 +36,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/vibe-coding-loop/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/vibe-coding-loop.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/vibe-coding-loop",
-  "egg_bytes": 12689
+  "egg_bytes": 12653
 }

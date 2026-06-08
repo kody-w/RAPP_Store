@@ -11,7 +11,7 @@ Two intents in one singleton:
 
   intent="plant"    — creates a fresh public planted seed (neighborhood OR
                       twin) via gh CLI, with the FULL front-door grail
-                      (rappid v2 + soul + card.json (rappcards/1.1.2) +
+                      (rappid + soul + card.json (rappcards/1.1.2) +
                       holo.svg + holo-qr.svg + holo.md + specs/ bundle +
                       members + agents + .nojekyll + README + rar/). Default
                       dry_run=True; set dry_run=False to actually create.
@@ -264,7 +264,10 @@ def _do_plant(kind: str, name: str, display_name: str, owner: str,
                 "error": "tools/holo_card_generator.py + tools/front_door_specs.py not on path",
                 "_hint": "ChainForge plant intent requires the kody-w/RAPP tools/ modules. Install or link the parent project."}
 
-    rappid = f"rappid:v2:{kind}:@{owner}/{name}:{uuid.uuid4().hex}@github.com/{owner}/{name}"
+    # Eternity rappid (Constitution Art. XXXIV.1): rappid:@<owner>/<slug>:<hex>.
+    # No v2:/<kind>: prefix, no @github.com suffix — `kind` is carried in the
+    # planted rappid.json record (and as the `kind` arg below), never the string.
+    rappid = f"rappid:@{owner}/{name}:{uuid.uuid4().hex}"
     seed = hcg.derive_seed(rappid)
     gate_url = f"https://{owner}.github.io/{name}/"
 

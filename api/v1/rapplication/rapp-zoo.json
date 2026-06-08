@@ -3,7 +3,7 @@
   "id": "rapp-zoo",
   "kind": "rapplication",
   "name": "rapp-zoo",
-  "rappid": "rappid:v2:rapplication:@rapp/rapp-zoo:5b0e1af74a7d331a3b42e1d70a18b8a0",
+  "rappid": "rappid:@rapp/rapp-zoo:5b0e1af74a7d331a3b42e1d70a18b8a0",
   "version": "0.3.0",
   "publisher": "@rapp",
   "category": "platform",
@@ -24,7 +24,7 @@
   "homepage": "https://github.com/kody-w/rapp-zoo",
   "repo_url": "https://github.com/kody-w/rapp-zoo",
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 94,
   "singleton_bytes": 4157,
@@ -37,5 +37,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/rapp-zoo/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/rapp-zoo.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/rapp-zoo",
-  "egg_bytes": 18838
+  "egg_bytes": 18795
 }

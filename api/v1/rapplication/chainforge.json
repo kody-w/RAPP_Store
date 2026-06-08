@@ -3,8 +3,8 @@
   "id": "chainforge",
   "kind": "rapplication",
   "name": "ChainForge",
-  "rappid": "rappid:v2:rapplication:@kody-w/chainforge:df221df72d391854dd742ce17c4a12a0",
-  "version": "0.1.0",
+  "rappid": "rappid:@kody-w/chainforge:df221df72d391854dd742ce17c4a12a0",
+  "version": "0.1.1",
   "publisher": "@kody-w",
   "category": "meta",
   "tags": [
@@ -26,11 +26,11 @@
   "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/chainforge",
   "repo_url": "https://github.com/kody-w/RAPP",
   "spec_post": "pages/vault/Architecture/Rapplications%20Are%20Organisms.md",
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": false,
-  "singleton_lines": 396,
-  "singleton_bytes": 18019,
-  "singleton_sha256": "251b414a4acbd763aa7e9d4c3ffef672bde080e64cc40006ac35ed7c93ae259b",
+  "singleton_lines": 399,
+  "singleton_bytes": 18223,
+  "singleton_sha256": "84765f2393086c9eae0a1388aa5c639e2b8ae869e2739a5d977b3646182dea33",
   "install_one_liner": null,
   "default_port": null,
   "sprite_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/chainforge.svg",
@@ -39,5 +39,5 @@
   "ui_url": null,
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/chainforge.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/chainforge",
-  "egg_bytes": 7062
+  "egg_bytes": 7145
 }

@@ -3,7 +3,7 @@
   "id": "perpetual_loop_factory",
   "kind": "rapplication",
   "name": "Perpetual Loop Factory",
-  "rappid": "rappid:v2:rapplication:@kody-w/perpetual_loop_factory:3728f1946d905bda45b81abc8a46652b",
+  "rappid": "rappid:@kody-w/perpetual_loop_factory:3728f1946d905bda45b81abc8a46652b",
   "version": "1.0.0",
   "publisher": "@kody-w",
   "category": "platform",
@@ -25,7 +25,7 @@
   "homepage": "https://github.com/kody-w/RAR/blob/main/agents/@kody-w/perpetual_loop_factory_agent.py",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 1355,
   "singleton_bytes": 55808,
@@ -38,5 +38,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/perpetual_loop_factory/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/perpetual_loop_factory.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/perpetual_loop_factory",
-  "egg_bytes": 23958
+  "egg_bytes": 23923
 }

@@ -3,7 +3,7 @@
   "id": "bookfactory",
   "kind": "rapplication",
   "name": "BookFactory",
-  "rappid": "rappid:v2:rapplication:@rapp/bookfactory:7aef35c5c842a17b6a6f88a33af5cc70",
+  "rappid": "rappid:@rapp/bookfactory:7aef35c5c842a17b6a6f88a33af5cc70",
   "version": "0.3.0",
   "publisher": "@rapp",
   "category": "creative",
@@ -22,7 +22,7 @@
   "homepage": "https://kody-w.github.io/RAPP/store/",
   "repo_url": null,
   "spec_post": "blog/89-double-jump-loop.md",
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 522,
   "singleton_bytes": 23458,
@@ -35,5 +35,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/bookfactory/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/bookfactory.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/bookfactory",
-  "egg_bytes": 12837
+  "egg_bytes": 12798
 }

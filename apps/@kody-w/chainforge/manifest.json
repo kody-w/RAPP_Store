@@ -2,7 +2,7 @@
   "schema": "rapp-application/1.0",
   "id": "chainforge",
   "name": "ChainForge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "@kody-w",
   "kind": "rapplication",
   "quality_tier": "verified",

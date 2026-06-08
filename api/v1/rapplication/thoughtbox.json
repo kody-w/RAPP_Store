@@ -3,7 +3,7 @@
   "id": "thoughtbox",
   "kind": "rapplication",
   "name": "Thoughtbox",
-  "rappid": "rappid:v2:rapplication:@kody-w/thoughtbox:1776cbade592a4127f380576ae784b5e",
+  "rappid": "rappid:@kody-w/thoughtbox:1776cbade592a4127f380576ae784b5e",
   "version": "1.0.0",
   "publisher": "@kody-w",
   "category": "productivity",
@@ -24,7 +24,7 @@
   "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/thoughtbox",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:v2:prototype:@rapp/origin:0b635450c04249fbb4b1bdb571044dec@github.com/kody-w/RAPP",
+  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
   "has_skin": true,
   "singleton_lines": 329,
   "singleton_bytes": 11272,
@@ -37,5 +37,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/thoughtbox/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/thoughtbox.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/thoughtbox",
-  "egg_bytes": 8787
+  "egg_bytes": 8751
 }
