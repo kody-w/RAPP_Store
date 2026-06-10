@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transcript2Prototype - transcript in, working prototype out</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #1b1b1f; color: #e6e6e6; line-height: 1.7; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+h1 { font-size: 30px; color: #fff; margin-bottom: 6px; }
+.sub { color: #9a9aa3; font-size: 15px; margin-bottom: 28px; }
+h2 { font-size: 19px; color: #c3c5ff; margin: 34px 0 10px; }
+p, li { font-size: 14px; color: #c9c9d2; }
+ul, ol { padding-left: 22px; margin: 8px 0; }
+li { margin: 5px 0; }
+code { background: #2c2c33; color: #9fa3ff; padding: 1px 7px; border-radius: 4px; font-size: 13px; }
+pre { background: #222227; border: 1px solid #2e2e34; border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 10px 0; font-size: 13px; color: #c9c9d2; }
+.stages { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0; }
+.stage { font-size: 12px; padding: 5px 14px; border-radius: 14px; border: 1px solid #3a3a42; color: #b9b9c4; background: #26262c; }
+.stage.gate { border-style: dashed; border-color: #5b5fc7; color: #c3c5ff; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+th, td { border: 1px solid #2e2e34; padding: 8px 12px; text-align: left; color: #c9c9d2; }
+th { background: #222227; color: #e6e6e6; }
+a { color: #8ab4ff; }
+.note { border-left: 3px solid #5b5fc7; background: #222230; padding: 10px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Transcript2Prototype</h1>
+  <div class="sub">Paste a business transcript into your brainstem chat; walk out with a demoed, tested, exported agent prototype. One cubby per prototype. One file to install.</div>
+
+  <div class="stages">
+    <span class="stage">1 Demo script + M365 iframe bytecode</span>
+    <span class="stage">2 Conversational adjust</span>
+    <span class="stage">3 Real agent.py build</span>
+    <span class="stage">4 Local twin run</span>
+    <span class="stage">5 Live twin run</span>
+    <span class="stage gate">6 Factory singleton export (GATE)</span>
+  </div>
+
+  <h2>Install</h2>
+  <pre>curl -fsSL https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/transcript2prototype/singleton/transcript2prototype_agent.py \
+  -o ~/.brainstem/src/rapp_brainstem/agents/transcript2prototype_agent.py</pre>
+  <p>No restart needed - the brainstem hot-loads agents on every request. Open your brainstem chat and say: <code>Build a prototype from this transcript: ...</code></p>
+
+  <h2>What it does</h2>
+  <ol>
+    <li><strong>Start</strong> - your copilot analyzes the transcript and injects 3-5 capabilities as a parameter; the agent generates a turn-by-turn demo script, injects it into a static M365 Copilot demo page, base64-encodes it, and surfaces it as iframe bytecode in a rapplication shell HTML. Drive it with the Up arrow and Enter.</li>
+    <li><strong>Adjust</strong> - ask for changes in plain language; your copilot rewrites the turns through structured calls and the bytecode regenerates in place, at any stage.</li>
+    <li><strong>Build</strong> - one real agent.py per capability lands in the prototype's cubby.</li>
+    <li><strong>Test</strong> - the same demo script replays automatically against the generated agents, first in-process (local twin), then injected into your live brainstem over HTTP. On pass, the iframe flips to live mode: the demo you rehearsed now drives the real agents.</li>
+    <li><strong>Export</strong> - everything bundles into one factory singleton agent.py. The pipeline stops there by design: that file is the hand-off for the next stage (customer sandbox, Copilot Studio packaging, partner).</li>
+  </ol>
+
+  <div class="note">The caller contract: nothing is hardcoded. The hosting LLM is the intelligence and every input is a parameter whose description teaches the caller exactly what to provide. Even the fallback analyzer's knobs (pain markers, capability vocabulary, max capabilities) are parameters.</div>
+
+  <h2>Browse your prototypes</h2>
+  <p><code>list my prototypes</code> - <code>search the prototypes for claims</code> - <code>focus on acme-onboarding</code>. Each prototype lives in its own rapp-cubby/1.0 at <code>~/.brainstem/cubbies/&lt;slug&gt;/</code>, fully visible to RappAgent's cubby_list, super_rar, and cubby_egg.</p>
+
+  <h2>Verified reference run</h2>
+  <table>
+    <tr><th>Prototype</th><th>Capabilities</th><th>Local run</th><th>Live twin run</th></tr>
+    <tr><td>kunal-customer-onboarding</td><td>Guided Setup, Configuration Assistance, Training Delivery</td><td>5/5</td><td>5/5</td></tr>
+    <tr><td>kunal-proposal-generation</td><td>Proposal Creation, Content Customization, Pricing Optimization</td><td>5/5</td><td>5/5</td></tr>
+  </table>
+  <p>Source templates: <a href="https://kody-w.github.io/AI-Agent-Templates/">AI-Agent-Templates library</a>. 33 hermetic tests ship with the source tree (stdlib only, no network, no LLM).</p>
+</div>
+</body>
+</html>
