@@ -2,15 +2,18 @@
 
 `schema: rapp-stores/1.0`
 `status: Canonical`
-`supersedes: docs/proposals/0002-three-stores.md (Draft); the two-tier framing cited by CONSTITUTION Article XXVII`
+`supersedes: docs/proposals/0002-three-stores.md (Draft)`
+`proposes-amendment: CONSTITUTION Article XXVII (the two-tier framing) — via the canon amendment path; this spec does NOT self-adopt`
 `home: kody-w/RAPP_Store/specs/STORES.md`
 `depends-on: rapp-registry/1.1, rapp-application/1.0, rapp-sense/1.0`
 `see-also: rapp-super-rar/1.0, rapp-cubby/1.0 (gap), rappid eternity (sha256 identity)`
 
 > This spec promotes the Draft proposal `0002-three-stores` into a versioned, canonical contract.
 > It is the authoritative map of **which artifact kind lives in which store, how a submission is
-> routed, and how the three stores present as one front door**. Where this spec and the older
-> two-tier framing referenced by Article XXVII disagree, **this spec wins**.
+> routed, and how the three stores present as one front door**. It governs stores; it does **not**
+> override the Constitution. Where this spec and the older two-tier framing referenced by Article XXVII
+> differ, this spec stands as a **proposed amendment** to Article XXVII that takes effect only once
+> ratified through the canon amendment path — until then, the Constitution prevails.
 
 ---
 
@@ -261,10 +264,11 @@ private/registry of artifacts — the `rapp-cubby/1.0` gap) into one browse surf
 - **`rapp-distro/1.0`** (a distro pins the kernel + a set of artifacts) and **`rapp-frame/2.0`** (the
   edge/mesh frame) are formalized **separately and are explicitly out of scope** here. This spec is
   about store *homes*, not about distro pinning or mesh composition.
-- **CONSTITUTION:** this spec is the canonical successor to the two-tier framing referenced by
-  Article XXVII; it operationalizes Art. XVI (kernel surface), Art. XXV (chat-only wire),
-  Art. XXIX (front-door submission). The constitutional amendment that names the three-store
-  architecture (proposed as Art. XXXI in `0002`) is satisfied by adopting this spec.
+- **CONSTITUTION:** a spec cannot amend the Constitution by itself. This spec **proposes** to succeed
+  the two-tier framing referenced by Article XXVII, and operationalizes Art. XVI (kernel surface),
+  Art. XXV (chat-only wire), and Art. XXIX (front-door submission). The three-store architecture
+  (proposed as Art. XXXI in `0002`) takes effect only when ratified through the canon amendment path;
+  until that amendment is adopted, Article XXVII governs and this spec stands as the proposed text.
 
 ---
 
