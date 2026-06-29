@@ -91,7 +91,7 @@ These hold for all time and bind every store and every tool that reads/writes on
    (`[AGENT]`/`[RAPP]`/`[SENSE]`) on the kind's store repo. There is no side door, no direct push by
    non-maintainers, no cross-store submission. (CONSTITUTION Art. XXIX: submissions route through
    official front doors.)
-4. **The engine is the wire, never a store.** `kody-w/RAPP` (the grail / rapp-installer) hosts the
+4. **The engine is the wire, never a store.** `kody-w/RAPP` (grail kody-w/rapp-installer (RAPP is the reference distro)) hosts the
    brainstem and default services. It distributes nothing community-authored. Adding a "store-like"
    catalog to the engine is forbidden — it would couple the kernel to userspace content.
 5. **Kernel-baked stays in the engine surface.** Agents and senses that ship *with* the kernel
