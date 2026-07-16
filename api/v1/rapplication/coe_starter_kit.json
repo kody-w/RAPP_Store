@@ -3,7 +3,7 @@
   "id": "coe_starter_kit",
   "kind": "rapplication",
   "name": "CoE Starter Kit",
-  "rappid": "rappid:@bill/coe_starter_kit:79f415c1a987bf9c23c203bb4832a490",
+  "rappid": "rappid:@bill/coe-starter-kit:663c5fb6a5aeefca7b90399272a3ab21ae280353f6cc17b20725d0cda700c367",
   "version": "1.0.0",
   "publisher": "@bill",
   "category": "productivity",
@@ -26,7 +26,7 @@
   "homepage": "https://github.com/kody-w/billwhalen-agent-team",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
+  "parent_rappid": "rappid:@kody-w/rapp:9a8f0a4b5a710e20f4d819a0f37d2a4c9f113b5e78fb3c29e70b54fff48a38f9",
   "has_skin": true,
   "singleton_lines": 304,
   "singleton_bytes": 11253,
@@ -39,5 +39,5 @@
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@bill/coe_starter_kit/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/coe_starter_kit.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@bill/coe_starter_kit",
-  "egg_bytes": 6764
+  "egg_bytes": 6832
 }

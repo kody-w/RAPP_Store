@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import os
 import shutil
 import sys
@@ -110,11 +111,16 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
     publisher = manifest.get("publisher", "@anon")
     name = manifest.get("name", rapp_id)
     version = manifest.get("version", "0.0.0")
-    rappid_hash = _short_hash(f"{publisher}/{rapp_id}")
-    # Eternity rappid (Constitution Art. XXXIV.1): rappid:@<owner>/<slug>:<hex>.
-    # `publisher` already carries the leading '@'. `kind` lives in the record below,
-    # not in the string. Hash preserved (32-hex grandfathered).
-    rappid = f"rappid:{publisher}/{rapp_id}:{rappid_hash}"
+    # §6.2 canonical rappid: rappid:@<owner>/<slug>:<64hex>. The 64-hex tail
+    # content-addresses the rapplication's source (its singleton agent files) via
+    # Hb("rapp/1:rappid", sha256(content)) — domain-separated, DETERMINISTIC and
+    # regenerable, NOT sha256(publisher/rapp_id) (the cardinal sin), and 64-hex.
+    _srcs = sorted((app_dir / "singleton").glob("*.py")) if (app_dir / "singleton").is_dir() else []
+    _content = b"".join(p.read_bytes() for p in _srcs) or f"{publisher}/{rapp_id}".encode()
+    _owner = re.sub(r"[^a-z0-9]+", "-", publisher.lstrip("@").lower()).strip("-") or "anon"
+    _slug = re.sub(r"[^a-z0-9]+", "-", rapp_id.lower()).strip("-") or "x"
+    rappid_hash = hashlib.sha256(b"rapp/1:rappid\n" + hashlib.sha256(_content).digest()).hexdigest()
+    rappid = f"rappid:@{_owner}/{_slug}:{rappid_hash}"
 
     counts = {"agent": 0, "ui": 0, "data": 0, "soul": 0, "organ": 0}
     import io
@@ -123,9 +129,9 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         # rappid.json
         identity = {
-            "schema": "rapp-rappid/2.0",
+            "schema": "rapp/1",
             "rappid": rappid,
-            "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
+            "parent_rappid": "rappid:@kody-w/rapp:9a8f0a4b5a710e20f4d819a0f37d2a4c9f113b5e78fb3c29e70b54fff48a38f9",
             "kind": "rapplication",
             "name": name,
             "version": version,
@@ -202,11 +208,16 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
     """
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
-    rappid_hash = _short_hash(f"{publisher}/{rapp_id}")
-    # Eternity rappid (Constitution Art. XXXIV.1): rappid:@<owner>/<slug>:<hex>.
-    # `publisher` already carries the leading '@'; `kind` lives in the record's
-    # "kind" field, never the string. Hash preserved (32-hex grandfathered).
-    rappid = f"rappid:{publisher}/{rapp_id}:{rappid_hash}"
+    # §6.2 canonical rappid: rappid:@<owner>/<slug>:<64hex>. The 64-hex tail
+    # content-addresses the rapplication's source (its singleton agent files) via
+    # Hb("rapp/1:rappid", sha256(content)) — domain-separated, DETERMINISTIC and
+    # regenerable, NOT sha256(publisher/rapp_id) (the cardinal sin), and 64-hex.
+    _srcs = sorted((app_dir / "singleton").glob("*.py")) if (app_dir / "singleton").is_dir() else []
+    _content = b"".join(p.read_bytes() for p in _srcs) or f"{publisher}/{rapp_id}".encode()
+    _owner = re.sub(r"[^a-z0-9]+", "-", publisher.lstrip("@").lower()).strip("-") or "anon"
+    _slug = re.sub(r"[^a-z0-9]+", "-", rapp_id.lower()).strip("-") or "x"
+    rappid_hash = hashlib.sha256(b"rapp/1:rappid\n" + hashlib.sha256(_content).digest()).hexdigest()
+    rappid = f"rappid:@{_owner}/{_slug}:{rappid_hash}"
 
     has_skin = (app_dir / "ui" / "index.html").is_file()
     singleton_files = sorted((app_dir / "singleton").glob("*.py")) if (app_dir / "singleton").is_dir() else []
@@ -243,7 +254,7 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
         "spec_post": manifest.get("spec_post"),
 
         # Lineage (organism unification — every entry has a parent rappid)
-        "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
+        "parent_rappid": "rappid:@kody-w/rapp:9a8f0a4b5a710e20f4d819a0f37d2a4c9f113b5e78fb3c29e70b54fff48a38f9",
 
         # Pokédex stats
         "has_skin": has_skin,

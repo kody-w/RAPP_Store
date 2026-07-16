@@ -3,7 +3,7 @@
   "id": "cockpit",
   "kind": "rapplication",
   "name": "Cockpit",
-  "rappid": "rappid:@wildhaven/cockpit:bcb7d3993fe4c71b0b67446c4d9d5480",
+  "rappid": "rappid:@wildhaven/cockpit:9e477d2c90ac8310750fa99f22711ca4239ebfcd76c6b8772e712ce2b4dadddc",
   "version": "1.0.0",
   "publisher": "@wildhaven",
   "category": "platform",
@@ -26,7 +26,7 @@
   "homepage": "https://github.com/kody-w/RAPP_Store_Private/tree/main/apps/@wildhaven/cockpit",
   "repo_url": null,
   "spec_post": null,
-  "parent_rappid": "rappid:@rapp/origin:0b635450c04249fbb4b1bdb571044dec",
+  "parent_rappid": "rappid:@kody-w/rapp:9a8f0a4b5a710e20f4d819a0f37d2a4c9f113b5e78fb3c29e70b54fff48a38f9",
   "has_skin": false,
   "singleton_lines": 0,
   "singleton_bytes": 0,
@@ -39,5 +39,5 @@
   "ui_url": null,
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/cockpit.json",
   "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@wildhaven/cockpit",
-  "egg_bytes": 703
+  "egg_bytes": 764
 }
