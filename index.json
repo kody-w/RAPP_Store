@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.1.0",
-  "generated_at": "2026-05-26T23:58:29Z",
+  "generated_at": "2026-07-24T16:47:49Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything \u2014 no install script, no pip, no native deps.",
   "rapplications": [
@@ -472,6 +472,41 @@
       },
       "spec_post": null,
       "shipped_in_commit": null
+    },
+    {
+      "id": "project_tracker",
+      "name": "Project Tracker",
+      "version": "1.0.0",
+      "summary": "A local-first tracker for a portfolio of AI-agent projects and their MVP statements. The web UI is a 1:1 clone of the aibast-agents-library project-tracker tool; the bundled ProjectTracker agent manages the same portfolio headlessly over /chat. Both speak the tool's native projectTrackerData JSON, so exports and imports round-trip with it. Self-contained and stdlib-only: the UI works offline via localStorage, and unifies with the agent's on-device store when the rapplication's local server is running.",
+      "category": "productivity",
+      "tags": [
+        "rapplication",
+        "project-tracker",
+        "portfolio",
+        "mvp",
+        "project-management",
+        "local-first",
+        "copilot-studio",
+        "has-ui"
+      ],
+      "license": "MIT",
+      "publisher": "@kody-w",
+      "quality_tier": "community",
+      "tagline": "Track AI-agent projects and their MVPs, local-first \u2014 a web UI plus a headless agent over one JSON.",
+      "manifest_name": "@kody-w/project-tracker-singleton",
+      "produced_by": {
+        "method": "single-file-agent + ui-clone",
+        "based_on": "aibast-agents-library project-tracker tool",
+        "source_files_collapsed": 1,
+        "bundled_at": "2026-07-24T00:00:00Z"
+      },
+      "singleton_filename": "project_tracker_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/project_tracker/singleton/project_tracker_agent.py",
+      "singleton_sha256": "b6270faf10379411b7a0065a91b571299bbb3f9a8c6072d041f24580c70d7e7c",
+      "singleton_lines": 534,
+      "singleton_bytes": 27588,
+      "ui_filename": "index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/project_tracker/ui/index.html"
     }
   ],
   "senses": [

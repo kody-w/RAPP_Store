@@ -1,0 +1,32 @@
+{
+  "id": "project_tracker",
+  "name": "Project Tracker",
+  "version": "1.0.0",
+  "summary": "A local-first tracker for a portfolio of AI-agent projects and their MVP statements. A 1:1 clone of the aibast-agents-library project-tracker web tool, paired with a headless ProjectTracker agent. Both speak the tool's native projectTrackerData JSON, so exports and imports round-trip. Self-contained, stdlib-only, offline-capable.",
+  "tagline": "Track AI-agent projects and their MVPs, local-first — a web UI plus a headless agent over one JSON.",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "project-tracker",
+    "portfolio",
+    "mvp",
+    "project-management",
+    "local-first",
+    "copilot-studio",
+    "has-ui"
+  ],
+  "manifest_name": "@kody-w/project-tracker-singleton",
+  "singleton_filename": "project_tracker_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/project_tracker/singleton/project_tracker_agent.py",
+  "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/project_tracker/ui/index.html",
+  "ui_filename": "index.html",
+  "egg_url": null,
+  "egg_note": "Self-contained. The UI runs standalone (localStorage) or unifies with the ProjectTracker agent's on-device store (~/.rapp/project-tracker) when the rapplication's local server is running. No shipped customer data.",
+  "license": "MIT",
+  "publisher": "@kody-w",
+  "quality_tier": "community",
+  "based_on": "aibast-agents-library project-tracker tool",
+  "example_call": {
+    "args": { "action": "list_projects" }
+  }
+}

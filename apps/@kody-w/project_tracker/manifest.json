@@ -1,0 +1,31 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "project_tracker",
+  "name": "Project Tracker",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/project-tracker-singleton",
+  "summary": "A local-first tracker for a portfolio of AI-agent projects and their MVP statements. The web UI is a 1:1 clone of the aibast-agents-library project-tracker tool; the bundled ProjectTracker agent manages the same portfolio headlessly over /chat. Both speak the tool's native projectTrackerData JSON, so exports and imports round-trip with it. Self-contained and stdlib-only: the UI works offline via localStorage, and unifies with the agent's on-device store when the rapplication's local server is running.",
+  "tagline": "Track AI-agent projects and their MVPs, local-first — a web UI plus a headless agent over one JSON.",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "project-tracker",
+    "portfolio",
+    "mvp",
+    "project-management",
+    "local-first",
+    "copilot-studio",
+    "has-ui"
+  ],
+  "agent": "singleton/project_tracker_agent.py",
+  "ui": "ui/index.html",
+  "license": "MIT",
+  "quality_tier": "community",
+  "produced_by": {
+    "method": "single-file-agent + ui-clone",
+    "based_on": "aibast-agents-library project-tracker tool",
+    "source_files_collapsed": 1,
+    "bundled_at": "2026-07-24T00:00:00Z"
+  }
+}
