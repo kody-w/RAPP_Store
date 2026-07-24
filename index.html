@@ -298,6 +298,16 @@
     font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
     color: var(--text-mute); margin-bottom: 8px; font-weight: 700;
   }
+  .modal-body .steps {
+    margin: 0; padding-left: 20px; display: grid; gap: 10px;
+    font-size: 14px; color: var(--fg-dim);
+  }
+  .modal-body .steps li { padding-left: 4px; }
+  .modal-body .steps code {
+    background: var(--bg-soft, rgba(255,255,255,.06)); border-radius: 5px;
+    padding: 2px 6px; font-size: 13px; word-break: break-all;
+  }
+  .modal-body .note { margin: 12px 0 0; font-size: 13px; color: var(--fg-dim); opacity: .8; }
   .install-cmd {
     position: relative;
     background: var(--bg); border: 1px solid var(--border);
@@ -826,7 +836,6 @@ function iconFor(r) {
 
 function openModal(r) {
   const m = $('#modalContent');
-  const installCmd = installCommandFor(r);
   m.innerHTML = '';
   m.appendChild(el('div', { class: 'modal-head' }, [
     el('div', { class: 'icon' }, [iconFor(r)]),
@@ -852,20 +861,36 @@ function openModal(r) {
       el('span', { class: `badge surface-${s.replace('service','svc')}`, text: s })),
   ]));
 
-  if (installCmd) {
+  // Install, in plain drop-it-in terms. Rapplications ship a hatcher agent.py
+  // with the whole egg baked in; bare agents/senses are already one file.
+  const hatcherHref = (r.kind === 'rapp') ? `api/v1/hatcher/${r.id}_hatcher_agent.py` : null;
+  const dropHref = hatcherHref || r.raw_url;
+  const dropName = hatcherHref ? `${r.id}_hatcher_agent.py`
+                               : (r.filename || `${r.id}.py`);
+  const dropDir = (r.kind === 'sense') ? '~/.brainstem/src/rapp_brainstem/utils/senses/'
+                                       : '~/.brainstem/src/rapp_brainstem/agents/';
+  if (dropHref) {
     body.appendChild(el('section', {}, [
-      el('h4', { text: 'Install (one-liner)' }),
-      el('div', { class: 'install-cmd' }, [
-        installCmd,
-        el('button', { class: 'copy', onclick: ev => { ev.stopPropagation(); copy(installCmd); } }, ['Copy']),
+      el('h4', { text: 'Install — drop it into your brainstem' }),
+      el('ol', { class: 'steps' }, [
+        el('li', {}, [
+          el('a', { class: 'btn primary dl', href: dropHref, download: dropName },
+            ['⬇ Download ' + dropName]),
+        ]),
+        el('li', { html: 'Drop the file into <code>' + dropDir + '</code>' }),
+        el('li', { text: 'Say anything in chat — it installs itself.' }),
       ]),
+      hatcherHref
+        ? el('p', { class: 'note', text: 'The whole rapplication — agent and UI — is baked into that one file. '
+            + 'Nothing downloads at install time and it works offline.' })
+        : null,
     ]));
   }
 
   const eggHref = r.egg_url || (r.kind === 'rapp' ? `api/v1/egg/${r.id}.egg` : null);
   if (eggHref) {
     body.appendChild(el('section', {}, [
-      el('h4', { text: 'Download rapplication (.egg)' }),
+      el('h4', { text: 'Advanced — raw rapplication cartridge' }),
       el('a', { class: 'btn egg-dl', href: eggHref, download: `${r.id}.egg` },
         ['⬇ Download ' + r.id + '.egg']),
     ]));
@@ -936,24 +961,9 @@ document.addEventListener('keydown', e => {
   }
 });
 
-function installCommandFor(r) {
-  if (r.kind === 'rapp' && r.raw_url) {
-    return `curl -fsSL ${r.raw_url} -o ~/.brainstem/src/rapp_brainstem/agents/${r.filename || (r.id + '_agent.py')}`;
-  }
-  if (r.kind === 'agent' && r.raw_url) {
-    const slug = (r.id || '').split('/', 2)[1] || r.id;
-    const fn = slug.endsWith('_agent') ? `${slug}.py` : `${slug}_agent.py`;
-    return `curl -fsSL ${r.raw_url} -o ~/.brainstem/src/rapp_brainstem/agents/${fn}`;
-  }
-  if (r.kind === 'sense' && r.raw_url) {
-    return `curl -fsSL ${r.raw_url} -o ~/.brainstem/src/rapp_brainstem/utils/senses/${r.name}_sense.py`;
-  }
-  return null;
-}
-
 // ─── Shareable deep links ───────────────────────────────────────────────
-// (The old chat-install command is deprecated — rapplications ship as a
-//  downloadable .egg; single-file agents install via the one-liner / RAR.)
+// (Install is a file drop, not a shell command: rapplications ship a hatcher
+//  agent.py with the egg baked in; bare agents and senses are already one file.)
 function shareUrlFor(id) {
   return location.origin + location.pathname + '#rapp=' + encodeURIComponent(id);
 }
