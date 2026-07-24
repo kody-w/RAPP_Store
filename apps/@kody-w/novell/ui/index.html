@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novell — adversarial pre-review</title>
+<style>
+  :root {
+    --bg: #0d0f13; --panel: #14181f; --edge: #232a35; --ink: #d7dee9;
+    --dim: #7c8798; --hot: #ff5f56; --warm: #ffbd2e; --cool: #27c93f;
+    --accent: #6ea8fe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  header {
+    padding: 14px 18px; border-bottom: 1px solid var(--edge);
+    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+  }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(150deg, #2b3442, #171c24);
+    border: 1px solid var(--edge); display: grid; place-items: center;
+    font-size: 20px; filter: grayscale(.3);
+  }
+  h1 { font-size: 16px; margin: 0; letter-spacing: .2px; }
+  .sub { color: var(--dim); font-size: 12px; margin-top: 1px; }
+  .spacer { flex: 1; }
+  main { flex: 1; display: flex; min-height: 0; }
+  .left {
+    width: 42%; min-width: 300px; border-right: 1px solid var(--edge);
+    display: flex; flex-direction: column; padding: 14px; gap: 10px;
+  }
+  .right { flex: 1; overflow-y: auto; padding: 14px 18px; }
+  textarea {
+    flex: 1; resize: none; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--edge); border-radius: 8px; padding: 12px;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    min-height: 140px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--edge);
+    border-radius: 7px; padding: 8px 14px; cursor: pointer; font-size: 13px;
+    font-weight: 500;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: #1e2a3d; border-color: #34527f; color: #cfe0ff; }
+  label.thr { color: var(--dim); font-size: 12px; display: flex;
+    align-items: center; gap: 6px; }
+  input[type=number] {
+    width: 62px; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--edge); border-radius: 6px; padding: 5px 7px;
+    font-size: 12px;
+  }
+  .gauge { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .score { font-size: 42px; font-weight: 700; line-height: 1; }
+  .score small { font-size: 15px; color: var(--dim); font-weight: 400; }
+  .reading { color: var(--dim); font-style: italic; margin: 2px 0 14px; }
+  .bar { height: 5px; background: var(--edge); border-radius: 3px;
+    overflow: hidden; margin-bottom: 16px; }
+  .bar i { display: block; height: 100%; transition: width .35s ease; }
+  .verdict {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: .6px; margin-left: 8px;
+    vertical-align: middle;
+  }
+  .verdict.pass { background: #14351d; color: var(--cool); }
+  .verdict.fail { background: #3a1614; color: var(--hot); }
+  .card {
+    background: var(--panel); border: 1px solid var(--edge);
+    border-left: 3px solid var(--hot); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 10px;
+  }
+  .card.ok { border-left-color: var(--cool); opacity: .62; }
+  .card h3 { margin: 0 0 6px; font-size: 13.5px; display: flex;
+    align-items: center; gap: 8px; }
+  .sev { font: 11px ui-monospace, monospace; color: var(--dim);
+    border: 1px solid var(--edge); border-radius: 4px; padding: 1px 6px; }
+  .barb { font-size: 14px; color: #fff; margin: 6px 0 9px;
+    border-left: 2px solid var(--edge); padding-left: 10px; font-style: italic; }
+  .meta { font-size: 12.5px; color: var(--dim); margin: 4px 0; }
+  .meta b { color: #a9b6c9; font-weight: 600; }
+  .empty { color: var(--dim); text-align: center; margin-top: 60px;
+    font-size: 13px; line-height: 1.7; }
+  .note {
+    font-size: 11.5px; color: var(--dim); border-top: 1px solid var(--edge);
+    padding-top: 9px; line-height: 1.5;
+  }
+  .badge {
+    font-size: 10.5px; border: 1px solid var(--edge); border-radius: 4px;
+    padding: 2px 7px; color: var(--dim);
+  }
+  .badge.live { color: var(--cool); border-color: #1d4128; }
+  .badge.local { color: var(--warm); border-color: #453213; }
+  pre.voice {
+    background: #0a0c10; border: 1px solid var(--edge); border-radius: 8px;
+    padding: 12px; white-space: pre-wrap; font-size: 12.5px; color: #b9c6d8;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="avatar">🧐</div>
+  <div>
+    <h1>Novell <span id="mode" class="badge">connecting…</span></h1>
+    <div class="sub">The hater you run before the real one shows up.</div>
+  </div>
+  <div class="spacer"></div>
+  <button id="lensBtn">Lens catalogue</button>
+</header>
+
+<main>
+  <div class="left">
+    <textarea id="artifact" placeholder="Paste the artifact Novell should attack — a pitch, a README, an architecture claim, a demo script.
+
+He reads only what is written down. If the evidence lives in your head, it does not count."></textarea>
+    <div class="row">
+      <button id="roast" class="primary">Roast it</button>
+      <button id="gate">Gate</button>
+      <label class="thr">threshold
+        <input type="number" id="threshold" value="25" min="0" max="100">
+      </label>
+    </div>
+    <div class="note" id="policy">
+      Novell is an archetype. He models no real person and stores no names —
+      custom lenses are scrubbed of emails, handles, phone numbers, URLs and
+      capitalised name runs before they are ever saved.
+    </div>
+  </div>
+
+  <div class="right" id="out">
+    <div class="empty">
+      Paste something on the left and press <b>Roast it</b>.<br>
+      Twelve lenses. Each one tells you the evidence that kills it.
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Cartridge protocol bridge ────────────────────────────────────────────
+  // The brainstem hosts this iframe and answers { rapp:"invoke", id, action, args }
+  // with { rapp:"result", id, result }.
+  const PARENT = window.parent !== window ? window.parent : null;
+  const pending = new Map();
+  let nextId = 1;
+  let liveBrainstem = false;
+
+  function invokeBrainstem(action, args) {
+    const id = "nv-" + (nextId++);
+    return new Promise((resolve) => {
+      pending.set(id, resolve);
+      PARENT.postMessage({ rapp: "invoke", id, action, args: args || {} }, "*");
+      setTimeout(() => {
+        if (pending.has(id)) {
+          pending.delete(id);
+          resolve({ ok: false, error: "timeout (8s) waiting for brainstem reply" });
+        }
+      }, 8000);
+    });
+  }
+
+  window.addEventListener("message", (e) => {
+    const m = e.data;
+    if (!m || m.rapp !== "result" || !m.id) return;
+    const cb = pending.get(m.id);
+    if (!cb) return;
+    pending.delete(m.id);
+    let payload = m.result;
+    if (typeof payload === "string") {
+      try { payload = JSON.parse(payload); } catch (_) {}
+    }
+    liveBrainstem = true;
+    setMode(true);
+    cb(payload);
+  });
+
+  // ── Standalone preview engine ────────────────────────────────────────────
+  // A MIRROR of the Python heuristic so the file is demoable with no host.
+  // The agent is authoritative; this exists so opening index.html directly
+  // still shows real behaviour rather than an error state.
+  const LENSES = [
+    {id:"not_ga",name:"The GA Gate",weight:10,
+     barb:"Cool. Is it GA? Because I can't put a preview on a customer's roadmap.",
+     asks:"Is this generally available and supported, or is it a prototype wearing product clothes?",
+     killed_by:"A GA/roadmap citation — or an explicit 'this is a prototype accelerator, not a shipped product' framing that doesn't pretend otherwise. Either is fine. Ambiguity is not.",
+     answered:["generally available","\\bGA\\b","roadmap","prototype","preview","not a product","unsupported"],
+     provoked:["production[- ]ready","enterprise[- ]grade"]},
+    {id:"body_parts",name:"Body Parts",weight:9,
+     barb:"You've stitched five things together and called it a platform. I count five things.",
+     asks:"Is this one coherent product, or an integration diagram in a trenchcoat?",
+     killed_by:"One install command, one artifact, one failure domain — demonstrated on a machine that didn't build it.",
+     answered:["single[- ]file","one command","one-liner","installer","self-contained","clean machine"],
+     provoked:["\\bglue\\b"]},
+    {id:"who_pays",name:"The Meter",weight:9,
+     barb:"Who's the billed party? Show me the meter or it's shelfware.",
+     asks:"What consumes budget, whose budget is it, and does it land on an invoice somebody already signed?",
+     killed_by:"A named existing entitlement it rides on, with the consumption path stated plainly. 'It's free' is not an answer; it's an unexamined cost.",
+     answered:["meter","billing","entitlement","\\bseat\\b","licen[cs]e","consum(es|ption)","\\bcost\\b","existing subscription"],
+     provoked:["\\bfree\\b","no cost","zero (cost|spend)"]},
+    {id:"already_exists",name:"The Roadmap Eraser",weight:8,
+     barb:"The platform ships this in two quarters. You've built a wrapper with an expiry date.",
+     asks:"What survives when the platform absorbs this capability?",
+     killed_by:"Naming the layer you own that the platform is structurally not going to build — or accepting the expiry date openly and pricing the work accordingly.",
+     answered:["complement","rides on","upstream","differentiat","the layer we own","deprecat"],
+     provoked:["nobody else","\\bunique\\b"]},
+    {id:"wont_scale",name:"Laptop Physics",weight:8,
+     barb:"Beautiful on your laptop. Now do 5,000 seats and tell me about tenant isolation.",
+     asks:"What breaks between one user and n users?",
+     killed_by:"A run at real n with numbers — or an honestly stated ceiling. A stated limit is credible; an unstated one is a landmine.",
+     answered:["scal(e|es|ing|ability)","tenan(t|cy)","concurren","load test","\\d{3,}\\s*(users|seats|requests)","isolat(ion|ed)","limits?"],
+     provoked:["works on my (machine|laptop)","locally"]},
+    {id:"no_support",name:"The 2AM Question",weight:8,
+     barb:"It breaks at 2am on a Sunday. Who gets paged? Because it isn't me.",
+     asks:"Who owns the pager, what's the SLA, and what's the rollback?",
+     killed_by:"A named owner plus a rollback path — or an 'unsupported, use at your own risk' label nobody could miss.",
+     answered:["\\bSLA\\b","on[- ]call","pager","rollback","support","owner","maintainer","at your own risk","revert"],
+     provoked:[]},
+    {id:"compliance",name:"The Auditor",weight:9,
+     barb:"Where does the data sit, who can read it, and what does the audit log say?",
+     asks:"Residency, DLP, retention, audit trail.",
+     killed_by:"A data-flow description naming every hop — and, more persuasively, naming what is never transmitted at all.",
+     answered:["residency","\\bDLP\\b","audit","retention","encrypt","never leaves","local[- ]first","on[- ]prem","compliance","GDPR","\\bPII\\b"],
+     provoked:["upload","\\bcloud\\b"]},
+    {id:"just_a_demo",name:"Demo Gravity",weight:9,
+     barb:"Great demo. Name one production user.",
+     asks:"Has anyone run this in anger, for longer than a meeting?",
+     killed_by:"One production instance with a duration and a number. Anonymised is fine — 'a national retailer, 11 weeks, 40 seats' beats a logo you can't cite.",
+     answered:["in production","production (user|instance|deployment)","\\d+\\s*(weeks|months)","live since","deployed"],
+     provoked:["\\bdemo\\b","proof of concept","\\bPoC\\b"]},
+    {id:"lock_in",name:"Bus Factor One",weight:7,
+     barb:"One maintainer, one proprietary format. What happens when you're on vacation?",
+     asks:"Can somebody else operate, fork, and exit this?",
+     killed_by:"A published spec, an independent implementation, and a documented export path. Two of three is arguable. Zero is fatal.",
+     answered:["spec(ification)?","open[- ]source","APACHE","\\bMIT\\b","export","fork","conformance","interoperab"],
+     provoked:["proprietary"]},
+    {id:"so_what",name:"The So-What",weight:10,
+     barb:"Okay. What number moved?",
+     asks:"Which business metric changed, by how much, measured how?",
+     killed_by:"A before/after with a unit and a timeframe. One real number outranks a page of adjectives.",
+     answered:["\\d+\\s*%","from \\d+ to \\d+","baseline","measured","\\d+\\s*(hours|days|minutes)"],
+     provoked:["transformative","game[- ]chang","revolutionary","unlock(s|ing)?"]},
+    {id:"novelty_tax",name:"Novelty Tax",weight:6,
+     barb:"You invented five nouns. Now I have to teach my team five nouns. Why?",
+     asks:"Does the new vocabulary earn the cost of learning it?",
+     killed_by:"Each coined term names a thing that genuinely had no name — plus a glossary short enough to read in one sitting.",
+     answered:["glossary","terminology","definitions?","in other words","which means"],
+     provoked:[]},
+    {id:"blast_radius",name:"Attack Surface",weight:9,
+     barb:"You gave an agent hands. What's the blast radius when it's wrong?",
+     asks:"What is the capability boundary, how scoped are the credentials, and where is the human in the loop?",
+     killed_by:"An enumerated capability boundary — specifically, the list of things it structurally cannot do, not the list of things it promises not to.",
+     answered:["capability boundar","least privilege","scoped","human[- ]in[- ]the[- ]loop","approval","sandbox","read[- ]only","cannot","permission"],
+     provoked:["autonomous","agentic","full access"]},
+  ];
+
+  function hits(pats, text) {
+    return (pats || []).filter((p) => new RegExp(p, "i").test(text));
+  }
+
+  function localEvaluate(text) {
+    return LENSES.map((L) => {
+      const answered = hits(L.answered, text);
+      const provoked = hits(L.provoked, text);
+      const lands = answered.length === 0;
+      let sev = L.weight;
+      if (lands && provoked.length) sev = Math.min(100, Math.round(sev * 1.5));
+      return Object.assign({}, L, {
+        lands, severity: lands ? sev : 0,
+        answered_by_signals: answered, provoked_by_signals: provoked,
+      });
+    }).sort((a, b) => b.severity - a.severity || a.id.localeCompare(b.id));
+  }
+
+  function localScore(findings) {
+    const landed = findings.filter((f) => f.lands);
+    const possible = findings.reduce((n, f) => n + f.weight, 0) || 1;
+    const raw = landed.reduce((n, f) => n + f.severity, 0);
+    const pct = Math.min(100, Math.round(100 * raw / possible));
+    return { novell_score: pct, landed: landed.length,
+             evaluated: findings.length, reading: reading(pct) };
+  }
+
+  function reading(p) {
+    if (p >= 75) return "He hasn't stopped talking. Nothing here is defended.";
+    if (p >= 50) return "He's enjoying himself. Half your claims are undefended.";
+    if (p >= 25) return "He got a few in. Fixable before anyone else reads this.";
+    if (p > 0)  return "He's bored. One or two loose threads.";
+    return "He has nothing. Suspicious — check you gave him a real artifact.";
+  }
+
+  // ── Dispatch: brainstem when present, local mirror otherwise ─────────────
+  async function call(action, args) {
+    if (PARENT) {
+      const r = await invokeBrainstem(action, args);
+      if (r && r.ok !== false) return r;
+      if (r && r.error && !/timeout|no parent/.test(r.error)) return r;
+    }
+    setMode(false);
+    const text = (args && args.artifact) || "";
+    if (action === "lenses") return { ok: true, count: LENSES.length, lenses: LENSES };
+    const findings = localEvaluate(text);
+    const score = localScore(findings);
+    if (action === "gate") {
+      const thr = (args && args.threshold) || 25;
+      const passed = score.novell_score <= thr;
+      return Object.assign({ ok: true, verdict: passed ? "PASS" : "FAIL",
+                             exit_code: passed ? 0 : 1, threshold: thr,
+                             findings }, score);
+    }
+    return Object.assign({ ok: true, findings }, score);
+  }
+
+  function setMode(live) {
+    const el = document.getElementById("mode");
+    el.textContent = live ? "brainstem" : "standalone";
+    el.className = "badge " + (live ? "live" : "local");
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  const $out = document.getElementById("out");
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function colorFor(p) {
+    return p >= 60 ? "var(--hot)" : p >= 25 ? "var(--warm)" : "var(--cool)";
+  }
+
+  function render(r, showVerdict) {
+    if (!r || r.ok === false) {
+      $out.innerHTML = '<div class="empty">' + esc((r && r.error) || "no result") + "</div>";
+      return;
+    }
+    const pct = r.novell_score || 0;
+    const col = colorFor(pct);
+    let html = '<div class="gauge"><div class="score" style="color:' + col + '">' +
+      pct + '<small>/100</small></div>';
+    if (showVerdict && r.verdict) {
+      html += '<span class="verdict ' + (r.verdict === "PASS" ? "pass" : "fail") +
+        '">' + r.verdict + "</span>";
+    }
+    html += "</div>";
+    html += '<div class="reading">' + esc(r.reading || "") + "</div>";
+    html += '<div class="bar"><i style="width:' + pct + "%;background:" + col + '"></i></div>';
+    if (r.voice) html += '<pre class="voice">' + esc(r.voice) + "</pre>";
+
+    const findings = r.findings || [];
+    const landed = findings.filter((f) => f.lands);
+    const held = findings.filter((f) => !f.lands);
+
+    if (!landed.length) {
+      html += '<div class="card ok"><h3>Nothing landed</h3><div class="meta">' +
+        "Every lens found its counter-evidence in the text.</div></div>";
+    }
+    landed.forEach((f) => {
+      html += '<div class="card"><h3>' + esc(f.name) +
+        '<span class="sev">sev ' + f.severity + "</span></h3>" +
+        '<div class="barb">“' + esc(f.barb) + '”</div>' +
+        '<div class="meta"><b>He\'s really asking:</b> ' + esc(f.asks) + "</div>" +
+        '<div class="meta"><b>Kill it with:</b> ' + esc(f.killed_by) + "</div></div>";
+    });
+    if (held.length) {
+      html += '<div class="meta" style="margin:18px 0 8px"><b>Defended (' +
+        held.length + ")</b></div>";
+      held.forEach((f) => {
+        html += '<div class="card ok"><h3>' + esc(f.name) + "</h3>" +
+          '<div class="meta">Answered by: <code>' +
+          esc((f.answered_by_signals || []).slice(0, 4).join(", ")) +
+          "</code></div></div>";
+      });
+    }
+    $out.innerHTML = html;
+  }
+
+  // ── Wiring ──────────────────────────────────────────────────────────────
+  const $art = document.getElementById("artifact");
+  const $roast = document.getElementById("roast");
+  const $gate = document.getElementById("gate");
+
+  async function go(action) {
+    const text = $art.value.trim();
+    if (!text) {
+      $out.innerHTML = '<div class="empty">Give him something to read first.</div>';
+      return;
+    }
+    $roast.disabled = $gate.disabled = true;
+    $out.innerHTML = '<div class="empty">Novell is reading…</div>';
+    const args = { artifact: text };
+    if (action === "gate") {
+      args.threshold = parseInt(document.getElementById("threshold").value, 10) || 25;
+    }
+    try {
+      render(await call(action, args), action === "gate");
+    } finally {
+      $roast.disabled = $gate.disabled = false;
+    }
+  }
+
+  $roast.addEventListener("click", () => go("roast"));
+  $gate.addEventListener("click", () => go("gate"));
+  $art.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") go("roast");
+  });
+
+  document.getElementById("lensBtn").addEventListener("click", async () => {
+    const r = await call("lenses", {});
+    const lenses = r.lenses || [];
+    $out.innerHTML = '<div class="meta" style="margin-bottom:12px"><b>' +
+      lenses.length + " lenses.</b> Each is a recurring objection, not a person.</div>" +
+      lenses.map((L) => '<div class="card ok"><h3>' + esc(L.name) +
+        '<span class="sev">w' + L.weight + "</span></h3>" +
+        '<div class="barb">“' + esc(L.barb) + '”</div>' +
+        '<div class="meta"><b>Kill it with:</b> ' + esc(L.killed_by) +
+        "</div></div>").join("");
+  });
+
+  setMode(false);
+  if (PARENT) call("policy", {}).catch(() => {});
+})();
+</script>
+</body>
+</html>

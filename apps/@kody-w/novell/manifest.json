@@ -1,0 +1,59 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "novell",
+  "name": "Novell",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "manifest_name": "@kody-w/novell",
+  "summary": "Adversarial pre-review. Twelve skeptic lenses roast your artifact and hand back the specific evidence that kills each objection. Run it as a pipeline gate so a draft fails in CI before a human ever reads it. Novell is an archetype — he ingests no transcripts, models no real person, and scrubs person-shaped tokens out of custom lenses before they are persisted.",
+  "tagline": "The hater you run before the real one shows up.",
+  "category": "analysis",
+  "tags": [
+    "rapplication",
+    "review",
+    "adversarial",
+    "red-team",
+    "pre-review",
+    "ci-gate",
+    "local-first",
+    "has-ui",
+    "zero-pii",
+    "archetype"
+  ],
+  "agent": "singleton/novell_agent.py",
+  "ui": "ui/index.html",
+  "license": "BSD-style",
+  "quality_tier": "community",
+  "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/novell",
+  "produced_by": {
+    "method": "hand-built",
+    "bundled_at": "2026-07-24T00:00:00Z",
+    "based_on": "rapp-application/1.0 spec + cartridge protocol §9 + workspace §12"
+  },
+  "tool": {
+    "name": "Novell",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["roast", "gate", "score", "lenses", "defend", "add_lens", "export", "import_json", "policy"]
+        },
+        "artifact": {"type": "string"},
+        "lenses": {"type": "array", "items": {"type": "string"}},
+        "threshold": {"type": "integer"},
+        "voice": {"type": "boolean"},
+        "objection": {"type": "string"},
+        "evidence": {"type": "string"},
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "barb": {"type": "string"},
+        "asks": {"type": "string"},
+        "killed_by": {"type": "string"},
+        "weight": {"type": "integer"},
+        "blob": {"type": "string"}
+      },
+      "required": ["action"]
+    }
+  }
+}

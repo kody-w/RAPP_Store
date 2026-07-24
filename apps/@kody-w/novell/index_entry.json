@@ -1,0 +1,27 @@
+{
+  "id": "novell",
+  "name": "Novell",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "summary": "Adversarial pre-review. Twelve skeptic lenses roast your artifact and hand back the specific evidence that kills each objection. Run it as a pipeline gate so a draft fails in CI before a human ever reads it.",
+  "tagline": "The hater you run before the real one shows up.",
+  "category": "analysis",
+  "tags": [
+    "rapplication",
+    "review",
+    "adversarial",
+    "red-team",
+    "pre-review",
+    "ci-gate",
+    "local-first",
+    "has-ui",
+    "zero-pii",
+    "archetype"
+  ],
+  "quality_tier": "community",
+  "singleton_filename": "novell_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/novell/singleton/novell_agent.py",
+  "ui_filename": "index.html",
+  "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/novell/ui/index.html",
+  "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/novell"
+}
