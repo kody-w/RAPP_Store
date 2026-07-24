@@ -862,10 +862,14 @@ function openModal(r) {
     ]));
   }
 
-  body.appendChild(el('section', {}, [
-    el('h4', { text: 'Install via brainstem (chat)' }),
-    el('div', { class: 'install-cmd' }, [chatInstallFor(r)]),
-  ]));
+  const eggHref = r.egg_url || (r.kind === 'rapp' ? `api/v1/egg/${r.id}.egg` : null);
+  if (eggHref) {
+    body.appendChild(el('section', {}, [
+      el('h4', { text: 'Download rapplication (.egg)' }),
+      el('a', { class: 'btn egg-dl', href: eggHref, download: `${r.id}.egg` },
+        ['⬇ Download ' + r.id + '.egg']),
+    ]));
+  }
 
   body.appendChild(el('section', {}, [
     el('h4', { text: 'Metadata' }),
@@ -902,10 +906,13 @@ function openModal(r) {
   }
   actions.appendChild(el('a', { class: 'btn ghost', href: SOURCES[r.kind === 'rapp' ? 'rapp' : r.kind].href, target: '_blank' },
     [SOURCES[r.kind === 'rapp' ? 'rapp' : r.kind].label + ' ↗']));
+  actions.appendChild(el('button', { class: 'btn', title: 'Copy a link straight to this rapplication',
+    onclick: () => copy(shareUrlFor(r.id)) }, ['🔗 Copy link']));
   m.appendChild(actions);
 
   $('#modal').classList.add('show');
   document.body.style.overflow = 'hidden';
+  history.replaceState(null, '', '#rapp=' + encodeURIComponent(r.id));
 }
 
 function kv(label, val) {
@@ -919,6 +926,7 @@ function kv(label, val) {
 function closeModal() {
   $('#modal').classList.remove('show');
   document.body.style.overflow = '';
+  if (location.hash.indexOf('rapp=') !== -1) history.replaceState(null, '', location.pathname + location.search);
 }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
@@ -943,12 +951,23 @@ function installCommandFor(r) {
   return null;
 }
 
-function chatInstallFor(r) {
-  if (r.kind === 'rapp')  return `Binder: install ${r.id}`;
-  if (r.kind === 'agent') return `Binder: install_agent ${r.id}`;
-  if (r.kind === 'sense') return `Binder: install_sense ${r.name}`;
-  return '';
+// ─── Shareable deep links ───────────────────────────────────────────────
+// (The old chat-install command is deprecated — rapplications ship as a
+//  downloadable .egg; single-file agents install via the one-liner / RAR.)
+function shareUrlFor(id) {
+  return location.origin + location.pathname + '#rapp=' + encodeURIComponent(id);
 }
+function openFromHash() {
+  const m = (location.hash || '').match(/rapp=([^&]+)/);
+  if (!m) return;
+  const id = decodeURIComponent(m[1]);
+  const r = state.rapps.find(x => x.id === id);
+  if (r) openModal(r);
+}
+window.addEventListener('hashchange', () => {
+  if (/rapp=/.test(location.hash)) openFromHash();
+  else closeModal();
+});
 
 // ─── Tabs + search ──────────────────────────────────────────────────────
 
@@ -966,7 +985,7 @@ $('#search').addEventListener('input', e => {
 
 // ─── Boot ───────────────────────────────────────────────────────────────
 
-loadAll();
+loadAll().then(openFromHash);
 </script>
 
 </body>
