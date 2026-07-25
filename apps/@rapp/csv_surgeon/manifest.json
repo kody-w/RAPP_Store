@@ -1,0 +1,22 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "csv_surgeon",
+  "name": "CSV Surgeon",
+  "version": "1.0.0",
+  "type": "rapplication",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/csv-surgeon",
+  "summary": "Profile a CSV \u2014 per-column types, null rate, cardinality, min/max \u2014 or find ragged rows, duplicate and whitespace-padded headers, duplicate records, or slice rows. Stdlib only, no network.",
+  "tagline": "Find the rows that will break something.",
+  "category": "data",
+  "tags": [
+    "csv",
+    "data",
+    "profiling",
+    "quality",
+    "local-first"
+  ],
+  "singleton_filename": "csv_surgeon_agent.py",
+  "ui_filename": "index.html",
+  "license": "Apache-2.0"
+}

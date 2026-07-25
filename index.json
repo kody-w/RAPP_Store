@@ -640,6 +640,37 @@
       "publisher": "@rapp",
       "quality_tier": "community",
       "produced_by": "rapp-membrane"
+    },
+    {
+      "id": "csv_surgeon",
+      "name": "CSV Surgeon",
+      "version": "1.0.0",
+      "summary": "Profile a CSV \u2014 per-column types, null rate, cardinality, min/max \u2014 or find ragged rows, duplicate and whitespace-padded headers, duplicate records, or slice rows. Stdlib only, no network.",
+      "tagline": "Find the rows that will break something.",
+      "category": "data",
+      "tags": [
+        "csv",
+        "data",
+        "profiling",
+        "quality",
+        "local-first",
+        "rapplication",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/csv-surgeon",
+      "singleton_filename": "csv_surgeon_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/csv_surgeon/singleton/csv_surgeon_agent.py",
+      "singleton_sha256": "4d500fd77ebdc677d2860167748f06d1280bfd10de365f759e3b0e9a682b4076",
+      "singleton_lines": 270,
+      "singleton_bytes": 11501,
+      "egg_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/api/v1/egg/csv_surgeon.egg",
+      "egg_note": "Full rapplication (singleton + UI) as an installable egg.",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/csv_surgeon/ui/index.html",
+      "ui_filename": "index.html",
+      "license": "Apache-2.0",
+      "publisher": "@rapp",
+      "quality_tier": "community",
+      "produced_by": "rapp-membrane"
     }
   ],
   "senses": [
