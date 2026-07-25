@@ -1,0 +1,22 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "markdown_medic",
+  "name": "Markdown Medic",
+  "version": "1.0.0",
+  "type": "rapplication",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/markdown-medic",
+  "summary": "Check a markdown file or docs folder for broken relative links and images, skipped heading levels and duplicate anchors, or generate a table of contents. Never makes network calls.",
+  "tagline": "Find what's broken in your docs before a reader does.",
+  "category": "docs",
+  "tags": [
+    "docs",
+    "markdown",
+    "lint",
+    "links",
+    "local-first"
+  ],
+  "singleton_filename": "markdown_medic_agent.py",
+  "ui_filename": "index.html",
+  "license": "Apache-2.0"
+}

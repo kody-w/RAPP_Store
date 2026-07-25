@@ -609,6 +609,37 @@
       "publisher": "@rapp",
       "quality_tier": "community",
       "produced_by": "rapp-membrane"
+    },
+    {
+      "id": "markdown_medic",
+      "name": "Markdown Medic",
+      "version": "1.0.0",
+      "summary": "Check a markdown file or docs folder for broken relative links and images, skipped heading levels and duplicate anchors, or generate a table of contents. Never makes network calls.",
+      "tagline": "Find what's broken in your docs before a reader does.",
+      "category": "docs",
+      "tags": [
+        "docs",
+        "markdown",
+        "lint",
+        "links",
+        "local-first",
+        "rapplication",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/markdown-medic",
+      "singleton_filename": "markdown_medic_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/markdown_medic/singleton/markdown_medic_agent.py",
+      "singleton_sha256": "68c349d82161b59278bb31dbbafad199f23d1cabba2487c9d0d79f0dfc68882f",
+      "singleton_lines": 237,
+      "singleton_bytes": 10311,
+      "egg_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/api/v1/egg/markdown_medic.egg",
+      "egg_note": "Full rapplication (singleton + UI) as an installable egg.",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/markdown_medic/ui/index.html",
+      "ui_filename": "index.html",
+      "license": "Apache-2.0",
+      "publisher": "@rapp",
+      "quality_tier": "community",
+      "produced_by": "rapp-membrane"
     }
   ],
   "senses": [
