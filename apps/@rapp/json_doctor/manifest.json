@@ -1,0 +1,22 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "json_doctor",
+  "name": "JSON Doctor",
+  "version": "1.0.0",
+  "type": "rapplication",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/json-doctor",
+  "summary": "Inspect, validate, diff or query JSON and JSONL without opening it. Infers shape with per-field coverage, points at the exact line and column of a syntax error, and compares two files structurally.",
+  "tagline": "Understand a JSON file without opening it.",
+  "category": "data",
+  "tags": [
+    "json",
+    "data",
+    "schema",
+    "diff",
+    "local-first"
+  ],
+  "singleton_filename": "json_doctor_agent.py",
+  "ui_filename": "index.html",
+  "license": "Apache-2.0"
+}

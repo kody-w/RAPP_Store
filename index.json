@@ -578,6 +578,37 @@
       "publisher": "@rapp",
       "quality_tier": "community",
       "produced_by": "rapp-membrane"
+    },
+    {
+      "id": "json_doctor",
+      "name": "JSON Doctor",
+      "version": "1.0.0",
+      "summary": "Inspect, validate, diff or query JSON and JSONL without opening it. Infers shape with per-field coverage, points at the exact line and column of a syntax error, and compares two files structurally.",
+      "tagline": "Understand a JSON file without opening it.",
+      "category": "data",
+      "tags": [
+        "json",
+        "data",
+        "schema",
+        "diff",
+        "local-first",
+        "rapplication",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/json-doctor",
+      "singleton_filename": "json_doctor_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/json_doctor/singleton/json_doctor_agent.py",
+      "singleton_sha256": "e532be574326b108ede0dbbd7d3c012cf275c9f2aee51793864c45546938f20e",
+      "singleton_lines": 265,
+      "singleton_bytes": 10970,
+      "egg_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/api/v1/egg/json_doctor.egg",
+      "egg_note": "Full rapplication (singleton + UI) as an installable egg.",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/json_doctor/ui/index.html",
+      "ui_filename": "index.html",
+      "license": "Apache-2.0",
+      "publisher": "@rapp",
+      "quality_tier": "community",
+      "produced_by": "rapp-membrane"
     }
   ],
   "senses": [
