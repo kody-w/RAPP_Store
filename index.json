@@ -577,7 +577,27 @@
       "license": "Apache-2.0",
       "publisher": "@rapp",
       "quality_tier": "community",
-      "produced_by": "rapp-membrane"
+      "produced_by": "rapp-membrane",
+      "skill_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/pii_scout/skill/SKILL.md",
+      "skill_filename": "SKILL.md",
+      "skill_sha256": "e8b528fee8c3f53d8be9f73d25067d5f1e4ee89cab401787154b98613bfa3aba",
+      "skill_bytes": 16901,
+      "install": {
+        "how": "Download two files. No terminal, no commands.",
+        "steps": [
+          {
+            "file": "SKILL.md",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/pii_scout/skill/SKILL.md",
+            "drop_into": "any skill-aware host (Claude Code, openclaw, openrappter)"
+          },
+          {
+            "file": "pii_scout_agent.py",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/pii_scout/singleton/pii_scout_agent.py",
+            "drop_into": "your brainstem's agents/ folder"
+          }
+        ],
+        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+      }
     },
     {
       "id": "json_doctor",
@@ -608,7 +628,27 @@
       "license": "Apache-2.0",
       "publisher": "@rapp",
       "quality_tier": "community",
-      "produced_by": "rapp-membrane"
+      "produced_by": "rapp-membrane",
+      "skill_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/json_doctor/skill/SKILL.md",
+      "skill_filename": "SKILL.md",
+      "skill_sha256": "dddd66d97e16ecc168b251f74c3fbfdf30ed19e208494326746fbbd8e680eb05",
+      "skill_bytes": 17168,
+      "install": {
+        "how": "Download two files. No terminal, no commands.",
+        "steps": [
+          {
+            "file": "SKILL.md",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/json_doctor/skill/SKILL.md",
+            "drop_into": "any skill-aware host (Claude Code, openclaw, openrappter)"
+          },
+          {
+            "file": "json_doctor_agent.py",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/json_doctor/singleton/json_doctor_agent.py",
+            "drop_into": "your brainstem's agents/ folder"
+          }
+        ],
+        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+      }
     },
     {
       "id": "markdown_medic",
@@ -639,7 +679,27 @@
       "license": "Apache-2.0",
       "publisher": "@rapp",
       "quality_tier": "community",
-      "produced_by": "rapp-membrane"
+      "produced_by": "rapp-membrane",
+      "skill_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/markdown_medic/skill/SKILL.md",
+      "skill_filename": "SKILL.md",
+      "skill_sha256": "960887aa2b6f912766bc9b69e317ada95eb8509e8763900c264dc9c9c1715036",
+      "skill_bytes": 17783,
+      "install": {
+        "how": "Download two files. No terminal, no commands.",
+        "steps": [
+          {
+            "file": "SKILL.md",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/markdown_medic/skill/SKILL.md",
+            "drop_into": "any skill-aware host (Claude Code, openclaw, openrappter)"
+          },
+          {
+            "file": "markdown_medic_agent.py",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/markdown_medic/singleton/markdown_medic_agent.py",
+            "drop_into": "your brainstem's agents/ folder"
+          }
+        ],
+        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+      }
     },
     {
       "id": "csv_surgeon",
@@ -670,7 +730,27 @@
       "license": "Apache-2.0",
       "publisher": "@rapp",
       "quality_tier": "community",
-      "produced_by": "rapp-membrane"
+      "produced_by": "rapp-membrane",
+      "skill_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/csv_surgeon/skill/SKILL.md",
+      "skill_filename": "SKILL.md",
+      "skill_sha256": "ac1399027168aa813fdc78427f23b411465ec0918fe3e394b2baf90f811c7b79",
+      "skill_bytes": 19946,
+      "install": {
+        "how": "Download two files. No terminal, no commands.",
+        "steps": [
+          {
+            "file": "SKILL.md",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/csv_surgeon/skill/SKILL.md",
+            "drop_into": "any skill-aware host (Claude Code, openclaw, openrappter)"
+          },
+          {
+            "file": "csv_surgeon_agent.py",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/csv_surgeon/singleton/csv_surgeon_agent.py",
+            "drop_into": "your brainstem's agents/ folder"
+          }
+        ],
+        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+      }
     },
     {
       "id": "log_detective",
@@ -701,7 +781,27 @@
       "license": "Apache-2.0",
       "publisher": "@rapp",
       "quality_tier": "community",
-      "produced_by": "rapp-membrane"
+      "produced_by": "rapp-membrane",
+      "skill_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/log_detective/skill/SKILL.md",
+      "skill_filename": "SKILL.md",
+      "skill_sha256": "163d659d4873d33aff7f5241b5f97a9dce17069a67453ad984a119507373d8b7",
+      "skill_bytes": 21017,
+      "install": {
+        "how": "Download two files. No terminal, no commands.",
+        "steps": [
+          {
+            "file": "SKILL.md",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/log_detective/skill/SKILL.md",
+            "drop_into": "any skill-aware host (Claude Code, openclaw, openrappter)"
+          },
+          {
+            "file": "log_detective_agent.py",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/log_detective/singleton/log_detective_agent.py",
+            "drop_into": "your brainstem's agents/ folder"
+          }
+        ],
+        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+      }
     },
     {
       "id": "toaster",
@@ -732,7 +832,27 @@
       "license": "Apache-2.0",
       "publisher": "@rapp",
       "quality_tier": "community",
-      "produced_by": "rapp-membrane"
+      "produced_by": "rapp-membrane",
+      "skill_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/toaster/skill/SKILL.md",
+      "skill_filename": "SKILL.md",
+      "skill_sha256": "348f7526de05a4641cfcd15d65a1ced91a649761e1a6dce35a93462bb0f56a62",
+      "skill_bytes": 68298,
+      "install": {
+        "how": "Download two files. No terminal, no commands.",
+        "steps": [
+          {
+            "file": "SKILL.md",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/toaster/skill/SKILL.md",
+            "drop_into": "any skill-aware host (Claude Code, openclaw, openrappter)"
+          },
+          {
+            "file": "toaster_agent.py",
+            "download": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/toaster/singleton/toaster_agent.py",
+            "drop_into": "your brainstem's agents/ folder"
+          }
+        ],
+        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+      }
     }
   ],
   "senses": [
