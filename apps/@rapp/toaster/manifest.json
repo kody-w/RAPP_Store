@@ -1,0 +1,22 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "toaster",
+  "name": "Toaster",
+  "version": "1.0.0",
+  "type": "rapplication",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/toaster",
+  "summary": "Carry a capability between agent.py, SKILL.md, openclaw and openrappter without losing fidelity. Toast a raw skill so it gains a typed contract and becomes measurable, then soak it to prove it does not drift across conversion routes.",
+  "tagline": "Raw prose in, measurable capability out.",
+  "category": "developer",
+  "tags": [
+    "skills",
+    "portability",
+    "drift",
+    "conversion",
+    "local-first"
+  ],
+  "singleton_filename": "toaster_agent.py",
+  "ui_filename": "index.html",
+  "license": "Apache-2.0"
+}

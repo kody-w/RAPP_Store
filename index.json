@@ -702,6 +702,37 @@
       "publisher": "@rapp",
       "quality_tier": "community",
       "produced_by": "rapp-membrane"
+    },
+    {
+      "id": "toaster",
+      "name": "Toaster",
+      "version": "1.0.0",
+      "summary": "Carry a capability between agent.py, SKILL.md, openclaw and openrappter without losing fidelity. Toast a raw skill so it gains a typed contract and becomes measurable, then soak it to prove it does not drift across conversion routes.",
+      "tagline": "Raw prose in, measurable capability out.",
+      "category": "developer",
+      "tags": [
+        "skills",
+        "portability",
+        "drift",
+        "conversion",
+        "local-first",
+        "rapplication",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/toaster",
+      "singleton_filename": "toaster_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/toaster/singleton/toaster_agent.py",
+      "singleton_sha256": "d4d540104c288152b2761b7890aaf263e58af286acaf702d09422b6f3f198e16",
+      "singleton_lines": 1739,
+      "singleton_bytes": 73820,
+      "egg_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/api/v1/egg/toaster.egg",
+      "egg_note": "Full rapplication (singleton + UI) as an installable egg.",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/toaster/ui/index.html",
+      "ui_filename": "index.html",
+      "license": "Apache-2.0",
+      "publisher": "@rapp",
+      "quality_tier": "community",
+      "produced_by": "rapp-membrane"
     }
   ],
   "senses": [
