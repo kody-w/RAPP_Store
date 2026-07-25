@@ -1,0 +1,22 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "log_detective",
+  "name": "Log Detective",
+  "version": "1.0.0",
+  "type": "rapplication",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/log-detective",
+  "summary": "Summarise a log file, cluster near-identical errors into signatures by shape rather than text, build a timeline so a spike has a timestamp, or grep with context. Reads plain text and JSON-lines. Never uploads anything.",
+  "tagline": "Ten thousand errors are usually four errors.",
+  "category": "operations",
+  "tags": [
+    "logs",
+    "debugging",
+    "observability",
+    "incident",
+    "local-first"
+  ],
+  "singleton_filename": "log_detective_agent.py",
+  "ui_filename": "index.html",
+  "license": "Apache-2.0"
+}

@@ -671,6 +671,37 @@
       "publisher": "@rapp",
       "quality_tier": "community",
       "produced_by": "rapp-membrane"
+    },
+    {
+      "id": "log_detective",
+      "name": "Log Detective",
+      "version": "1.0.0",
+      "summary": "Summarise a log file, cluster near-identical errors into signatures by shape rather than text, build a timeline so a spike has a timestamp, or grep with context. Reads plain text and JSON-lines. Never uploads anything.",
+      "tagline": "Ten thousand errors are usually four errors.",
+      "category": "operations",
+      "tags": [
+        "logs",
+        "debugging",
+        "observability",
+        "incident",
+        "local-first",
+        "rapplication",
+        "singleton"
+      ],
+      "manifest_name": "@rapp/log-detective",
+      "singleton_filename": "log_detective_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/log_detective/singleton/log_detective_agent.py",
+      "singleton_sha256": "5d3b06228dddc510fb3a84a30b1e3517387d52388cdf66e6879e4be9e5c7a81f",
+      "singleton_lines": 291,
+      "singleton_bytes": 12425,
+      "egg_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/api/v1/egg/log_detective.egg",
+      "egg_note": "Full rapplication (singleton + UI) as an installable egg.",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/log_detective/ui/index.html",
+      "ui_filename": "index.html",
+      "license": "Apache-2.0",
+      "publisher": "@rapp",
+      "quality_tier": "community",
+      "produced_by": "rapp-membrane"
     }
   ],
   "senses": [
