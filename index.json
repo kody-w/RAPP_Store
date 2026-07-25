@@ -542,6 +542,42 @@
       "ui_lines": 433,
       "egg_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/novell/eggs/novell.rapp.egg",
       "egg_sha256": "d358e3550342ccebeb14fcddfb29009d097fac4d555332eed6ee9a54fe2c6688"
+    },
+    {
+      "id": "pii_scout",
+      "name": "PII Scout",
+      "version": "1.0.0",
+      "summary": "Scan a folder for what must not be published \u2014 secrets, credential files, captured sessions, emails, home paths and any names you supply. Reports file and count, never the value.",
+      "tagline": "Find what must not ship, before it ships.",
+      "category": "operations",
+      "tags": [
+        "security",
+        "publishing",
+        "gate",
+        "local-first",
+        "singleton",
+        "rapplication"
+      ],
+      "manifest_name": "@rapp/pii-scout",
+      "singleton_filename": "pii_scout_agent.py",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/pii_scout/singleton/pii_scout_agent.py",
+      "singleton_sha256": "fcdbbcc12a04f5f7aebc69d619895c2edf7872354ac03821c0665b7818683513",
+      "singleton_lines": 204,
+      "singleton_bytes": 8850,
+      "egg_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/api/v1/egg/pii_scout.egg",
+      "egg_note": "Full rapplication (singleton + UI + manifest) as a portable egg.",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/pii_scout/ui/index.html",
+      "ui_filename": "index.html",
+      "example_call": {
+        "args": {
+          "path": ".",
+          "terms": "acme,globex"
+        }
+      },
+      "license": "Apache-2.0",
+      "publisher": "@rapp",
+      "quality_tier": "community",
+      "produced_by": "rapp-membrane"
     }
   ],
   "senses": [

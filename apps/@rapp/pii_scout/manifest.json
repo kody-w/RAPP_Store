@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "pii_scout",
+  "name": "PII Scout",
+  "version": "1.0.0",
+  "type": "rapplication",
+  "publisher": "@rapp",
+  "manifest_name": "@rapp/pii-scout",
+  "summary": "Scan a folder for what must not be published — secrets, credential files, captured sessions, emails, home paths and any names you supply. Reports file and count, never the value.",
+  "tagline": "Find what must not ship, before it ships.",
+  "category": "operations",
+  "tags": ["security", "publishing", "gate", "local-first", "singleton", "rapplication"],
+  "singleton_filename": "pii_scout_agent.py",
+  "ui_filename": "index.html",
+  "license": "Apache-2.0"
+}
