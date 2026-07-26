@@ -1,3 +1,59 @@
 {
-  "items": []
+  "items": [
+    {
+      "issue": 48,
+      "submitter": "@kody-w",
+      "mode": "federation",
+      "id": "rapp_crispy",
+      "version": "1.4.0",
+      "entry": {
+        "id": "rapp_crispy",
+        "name": "RAPP Crispy",
+        "version": "1.4.0",
+        "summary": "A local-first meeting stack. Records a meeting, removes background noise with DeepFilterNet3 (or RNNoise), transcribes it on a whisper.cpp server bound to 127.0.0.1, and writes Summary / Decisions / Action items / Open questions through a hook you own. Also puts a denoised virtual microphone in front of your meeting app. Audio, transcripts and notes are plain files under ~/.rappcrispy/meetings. Capture, denoising and transcription never leave the machine; the notes hook does whatever you point it at, and the default one calls `claude -p`, which sends the transcript to Anthropic. Denoise quality is measured, not asserted \u2014 action=bench reproduces it, including the case it handles badly.",
+        "category": "productivity",
+        "tags": [
+          "deepfilternet",
+          "denoise",
+          "has-ui",
+          "local-first",
+          "meetings",
+          "noise-cancellation",
+          "privacy",
+          "rapplication",
+          "transcription",
+          "virtual-microphone",
+          "whisper"
+        ],
+        "license": "MIT",
+        "publisher": "@kody-w",
+        "quality_tier": "community",
+        "tagline": "Record, denoise and transcribe meetings entirely on your own machine; summarise through a hook you choose.",
+        "manifest_name": "@kody-w/rapp-crispy-singleton",
+        "produced_by": {
+          "method": "single-file-agent + local-first ui",
+          "engines": [
+            "ffmpeg arnndn (RNNoise)",
+            "whisper.cpp server on 127.0.0.1"
+          ],
+          "source_files_collapsed": 1,
+          "bundled_at": "2026-07-25T00:00:00Z"
+        },
+        "singleton_filename": "rapp_crispy_agent.py",
+        "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-crispy/main/rapp_crispy/singleton/rapp_crispy_agent.py",
+        "singleton_sha256": "4229fed6d82f92d9561fd291f4bb61e7862c710f24d0b03b43f514745f665f72",
+        "singleton_lines": 655,
+        "singleton_bytes": 30251,
+        "ui_filename": "index.html",
+        "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-crispy/main/rapp_crispy/ui/index.html",
+        "source": {
+          "type": "federation",
+          "repo": "kody-w/rapp-crispy",
+          "ref": "main",
+          "path": "rapp_crispy",
+          "commit_sha": "66df7c58ce21dff1e96777404e84a8de4c3efcb9"
+        }
+      }
+    }
+  ]
 }
