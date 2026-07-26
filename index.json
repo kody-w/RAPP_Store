@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.1.0",
-  "generated_at": "2026-07-26T05:46:27Z",
+  "generated_at": "2026-07-26T06:58:45Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
@@ -857,8 +857,8 @@
     {
       "id": "rapp_crispy",
       "name": "RAPP Crispy",
-      "version": "1.2.1",
-      "summary": "A local-first meeting stack. Records a meeting, removes background noise with DeepFilterNet3 (or RNNoise), transcribes it on a whisper.cpp server bound to 127.0.0.1, and writes Summary / Decisions / Action items / Open questions through a hook you own. Also puts a denoised virtual microphone in front of your meeting app. Audio, transcripts and notes are plain files under ~/.rappcrispy/meetings and never leave the machine. Denoise quality is measured, not asserted — action=bench reproduces it, including the case it handles badly.",
+      "version": "1.3.0",
+      "summary": "A local-first meeting stack. Records a meeting, removes background noise with DeepFilterNet3 (or RNNoise), transcribes it on a whisper.cpp server bound to 127.0.0.1, and writes Summary / Decisions / Action items / Open questions through a hook you own. Also puts a denoised virtual microphone in front of your meeting app. Audio, transcripts and notes are plain files under ~/.rappcrispy/meetings. Capture, denoising and transcription never leave the machine; the notes hook does whatever you point it at, and the default one calls `claude -p`, which sends the transcript to Anthropic. Denoise quality is measured, not asserted — action=bench reproduces it, including the case it handles badly.",
       "category": "productivity",
       "tags": [
         "deepfilternet",
@@ -889,9 +889,9 @@
       },
       "singleton_filename": "rapp_crispy_agent.py",
       "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-crispy/main/rapp_crispy/singleton/rapp_crispy_agent.py",
-      "singleton_sha256": "13017b2ad39311c7bb024930c83c2c880fc7bfb33aeaef536b988e861dffe7bc",
-      "singleton_lines": 640,
-      "singleton_bytes": 29076,
+      "singleton_sha256": "d11032ea1b22964ff8800991c935e2084a0ed633cee7897e6c4f0b86294ef230",
+      "singleton_lines": 643,
+      "singleton_bytes": 29301,
       "ui_filename": "index.html",
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-crispy/main/rapp_crispy/ui/index.html",
       "source": {
@@ -899,7 +899,7 @@
         "repo": "kody-w/rapp-crispy",
         "ref": "main",
         "path": "rapp_crispy",
-        "commit_sha": "b703cd72dbbc3dc30cad18c53eb043e234dd256d"
+        "commit_sha": "9e2307ae57ab267df7110e2e8b3344930eed8160"
       }
     },
     {
