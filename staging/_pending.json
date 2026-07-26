@@ -113,9 +113,9 @@
         "manifest_name": "@kody-w/rapp-shot-singleton",
         "singleton_filename": "rapp_shot_agent.py",
         "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/main/rapp_shot/singleton/rapp_shot_agent.py",
-        "singleton_sha256": "986f6f69d60e92896193e8c0e3830d40b95bca272bcfc9f818c9fbe1725ab354",
-        "singleton_lines": 171,
-        "singleton_bytes": 8015,
+        "singleton_sha256": "363c2cd7d0bb17fc3075748b02825bb09d0f2e1122908f3c5147473863215ab9",
+        "singleton_lines": 172,
+        "singleton_bytes": 8042,
         "ui_filename": "index.html",
         "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/main/rapp_shot/ui/index.html",
         "source": {
@@ -123,7 +123,7 @@
           "repo": "kody-w/rapp-shot",
           "ref": "main",
           "path": "rapp_shot",
-          "commit_sha": "512a07c5cf3633176d8220f580b5a67f33bb263e"
+          "commit_sha": "84054b1e9140c62082e6260b70525b5c339e5787"
         }
       }
     },
