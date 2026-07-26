@@ -1,49 +1,6 @@
 {
   "items": [
     {
-      "issue": 50,
-      "submitter": "@kody-w",
-      "mode": "federation",
-      "id": "rapp_rewind",
-      "version": "1.0.0",
-      "entry": {
-        "id": "rapp_rewind",
-        "name": "RAPP Rewind",
-        "version": "1.0.0",
-        "summary": "A local, searchable memory of everything that has been on your screen. Captures on an interval, reads the text with Apple's on-device Vision OCR, and indexes it in SQLite FTS5 so you can search what you saw. Nothing leaves the machine: there is no network call anywhere in the capture, OCR, index or search path.",
-        "category": "productivity",
-        "tags": [
-          "rapplication",
-          "screen",
-          "ocr",
-          "search",
-          "memory",
-          "local-first",
-          "privacy",
-          "has-ui"
-        ],
-        "license": "MIT",
-        "publisher": "@kody-w",
-        "quality_tier": "community",
-        "tagline": "A local, searchable memory of everything that has been on your screen.",
-        "manifest_name": "@kody-w/rapp-rewind-singleton",
-        "singleton_filename": "rapp_rewind_agent.py",
-        "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-rewind/main/rapp_rewind/singleton/rapp_rewind_agent.py",
-        "singleton_sha256": "21509e1c02a236c2b8198d1daf0389ad9405ec58667ac5428068bbdc6f4c2343",
-        "singleton_lines": 135,
-        "singleton_bytes": 6180,
-        "ui_filename": "index.html",
-        "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-rewind/main/rapp_rewind/ui/index.html",
-        "source": {
-          "type": "federation",
-          "repo": "kody-w/rapp-rewind",
-          "ref": "main",
-          "path": "rapp_rewind",
-          "commit_sha": "75e0eb967141f99793c668b00b17241220642a30"
-        }
-      }
-    },
-    {
       "issue": 51,
       "submitter": "@kody-w",
       "mode": "federation",
@@ -179,6 +136,49 @@
           "ref": "main",
           "path": "rapp_voice",
           "commit_sha": "ac54bb2024e86493e34daa77234dfdcf89b7b47c"
+        }
+      }
+    },
+    {
+      "issue": 50,
+      "submitter": "@kody-w",
+      "mode": "federation",
+      "id": "rapp_rewind",
+      "version": "1.0.0",
+      "entry": {
+        "id": "rapp_rewind",
+        "name": "RAPP Rewind",
+        "version": "1.0.0",
+        "summary": "A local, searchable memory of everything that has been on your screen. Captures on an interval, reads the text with Apple's on-device Vision OCR, and indexes it in SQLite FTS5 so you can search what you saw. Nothing leaves the machine: there is no network call anywhere in the capture, OCR, index or search path.",
+        "category": "productivity",
+        "tags": [
+          "rapplication",
+          "screen",
+          "ocr",
+          "search",
+          "memory",
+          "local-first",
+          "privacy",
+          "has-ui"
+        ],
+        "license": "MIT",
+        "publisher": "@kody-w",
+        "quality_tier": "community",
+        "tagline": "A local, searchable memory of everything that has been on your screen.",
+        "manifest_name": "@kody-w/rapp-rewind-singleton",
+        "singleton_filename": "rapp_rewind_agent.py",
+        "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-rewind/main/rapp_rewind/singleton/rapp_rewind_agent.py",
+        "singleton_sha256": "21509e1c02a236c2b8198d1daf0389ad9405ec58667ac5428068bbdc6f4c2343",
+        "singleton_lines": 135,
+        "singleton_bytes": 6180,
+        "ui_filename": "index.html",
+        "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-rewind/main/rapp_rewind/ui/index.html",
+        "source": {
+          "type": "federation",
+          "repo": "kody-w/rapp-rewind",
+          "ref": "main",
+          "path": "rapp_rewind",
+          "commit_sha": "9a42ca04648f33438786898de0f548c45cf9b479"
         }
       }
     }
