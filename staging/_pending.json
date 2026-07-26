@@ -139,6 +139,48 @@
           "commit_sha": "75e0eb967141f99793c668b00b17241220642a30"
         }
       }
+    },
+    {
+      "issue": 51,
+      "submitter": "@kody-w",
+      "mode": "federation",
+      "id": "rapp_shot",
+      "version": "1.0.0",
+      "entry": {
+        "id": "rapp_shot",
+        "name": "RAPP Shot",
+        "version": "1.0.0",
+        "summary": "Capture, annotate and redact screenshots entirely on-device. Finds credentials in the pixels with Apple's Vision OCR and paints them out opaquely BEFORE the image is shared. Redaction is a solid fill, never a blur, because blur and pixelation are reversible often enough to have leaked real credentials.",
+        "category": "productivity",
+        "tags": [
+          "rapplication",
+          "screenshot",
+          "ocr",
+          "redaction",
+          "privacy",
+          "local-first",
+          "has-ui"
+        ],
+        "license": "MIT",
+        "publisher": "@kody-w",
+        "quality_tier": "community",
+        "tagline": "Capture, annotate and redact screenshots entirely on-device.",
+        "manifest_name": "@kody-w/rapp-shot-singleton",
+        "singleton_filename": "rapp_shot_agent.py",
+        "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/main/rapp_shot/singleton/rapp_shot_agent.py",
+        "singleton_sha256": "986f6f69d60e92896193e8c0e3830d40b95bca272bcfc9f818c9fbe1725ab354",
+        "singleton_lines": 171,
+        "singleton_bytes": 8015,
+        "ui_filename": "index.html",
+        "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/main/rapp_shot/ui/index.html",
+        "source": {
+          "type": "federation",
+          "repo": "kody-w/rapp-shot",
+          "ref": "main",
+          "path": "rapp_shot",
+          "commit_sha": "66bd893134967411916176a7a5b91f13ebabcb0e"
+        }
+      }
     }
   ]
 }
