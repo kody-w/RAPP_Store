@@ -70,6 +70,22 @@ Rebuild: `python3 scripts/build_pokedex_api.py` (walks `apps/@*/`, regenerates `
 https://raw.githubusercontent.com/kody-w/rapp_store/main/index.json
 ```
 
+## RAPP Zoo v2 prototype summons
+
+The additive [Zoo v2 Store extension](./specs/RAPP_ZOO_STORE_V2.md) provides a
+static prototype-summon data plane without changing the v1 catalog or Pokédex.
+`api/v2/discovery.json` is a small mutable pointer whose only target is an
+immutable generation document at a full 40-character commit-pinned GitHub Raw
+URL. Prototype artifacts and MIT license evidence are also commit-pinned and
+SHA-256 verified.
+
+Create, update, and deprecate commands arrive as structured, inert GitHub
+Issue JSON. An actor allowlist and deterministic validator turn an eligible
+issue into a tested two-commit catalog PR; nothing auto-merges. Live records
+are explicitly `prototype`, use the exact `RAPP/1` wire term and `rappid`
+identity form, preserve external blockers, and set ecosystem acceptance to
+`not-asserted`.
+
 ## Layout
 
 Each rapplication is a directory with at least:

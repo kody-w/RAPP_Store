@@ -1,0 +1,65 @@
+name: Zoo v2 — create prototype
+description: Propose a synthetic/non-production prototype summon for the v2 catalog
+title: "[ZOO V2 CREATE] prototype-id"
+labels:
+  - zoo-v2-crud
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is an inert data command. The Store never executes issue content
+        or the referenced artifact. A repository maintainer must add
+        `zoo-v2-eligible` before automation creates a tested PR; nothing auto-merges.
+
+        Use full `raw.githubusercontent.com` URLs pinned to an exact lowercase
+        40-character commit SHA. Hash both the artifact and MIT license evidence.
+        `RAPP/1` names the proposed chat wire; this form does **not** assert external
+        ecosystem acceptance.
+  - type: textarea
+    id: command
+    attributes:
+      label: Create command
+      render: json
+      description: Keep every field. Replace only the synthetic example values.
+      value: |
+        {
+          "schema": "rapp-zoo-store-command/2.0",
+          "operation": "create",
+          "id": "synthetic-example",
+          "prototype": {
+            "id": "synthetic-example",
+            "name": "Synthetic Example",
+            "version": "0.1.0",
+            "summary": "A synthetic prototype with no production or customer data.",
+            "status": "prototype",
+            "artifact": {
+              "url": "https://raw.githubusercontent.com/owner/repo/0000000000000000000000000000000000000000/path/prototype.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "media_type": "text/x-python"
+            },
+            "license": {
+              "spdx": "MIT",
+              "evidence_url": "https://raw.githubusercontent.com/owner/repo/0000000000000000000000000000000000000000/LICENSE",
+              "evidence_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            },
+            "wire_contract": "RAPP/1",
+            "identity": "rappid:@synthetic/synthetic-example:0000000000000000000000000000000000000000000000000000000000000000",
+            "ecosystem_acceptance": "not-asserted",
+            "external_blockers": [
+              "Independent RAPP/1 conformance and ecosystem admission have not been completed."
+            ]
+          }
+        }
+    validations:
+      required: true
+  - type: checkboxes
+    id: attestations
+    attributes:
+      label: Attestations
+      options:
+        - label: The entry and artifact contain only sample/synthetic data and no credentials.
+          required: true
+        - label: I understand that this is prototype/non-production discovery, not ecosystem acceptance.
+          required: true
+        - label: The pinned license evidence is MIT-first and the supplied hashes match the pinned bytes.
+          required: true

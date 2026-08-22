@@ -1,0 +1,112 @@
+name: Zoo v2 catalog issue to PR
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: zoo-v2-catalog
+  cancel-in-progress: false
+
+jobs:
+  catalog-pr:
+    if: |
+      github.event.label.name == 'zoo-v2-eligible' &&
+      startsWith(github.event.issue.title, '[ZOO V2 ')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate issue and build immutable generation
+        id: generation
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ALLOWED_ACTORS: ${{ github.repository_owner }},${{ vars.RAPP_ZOO_V2_ACTORS }}
+        run: |
+          set -euo pipefail
+          path="$(python3 scripts/zoo_v2_store.py apply-issue \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --discovery api/v2/discovery.json \
+            --output-dir api/v2/generations \
+            --allow-actors "$ALLOWED_ACTORS")"
+          expected="api/v2/generations/issue-${ISSUE_NUMBER}.json"
+          test "$path" = "$expected"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Test catalog
+        run: python3 -m pytest tests -q
+
+      - name: Commit immutable generation
+        id: generation_commit
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GENERATION_PATH: ${{ steps.generation.outputs.path }}
+        run: |
+          set -euo pipefail
+          branch="zoo-v2/issue-${ISSUE_NUMBER}"
+          git switch -c "$branch"
+          git config user.name "rapp-store-bot"
+          git config user.email "rapp-store-bot@users.noreply.github.com"
+          git add "$GENERATION_PATH"
+          git commit -m "catalog(v2): generation for issue #${ISSUE_NUMBER}"
+          commit="$(git rev-parse HEAD)"
+          test "${#commit}" -eq 40
+          git push --set-upstream origin "$branch"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Pin mutable discovery pointer
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GENERATION_PATH: ${{ steps.generation.outputs.path }}
+          GENERATION_COMMIT: ${{ steps.generation_commit.outputs.commit }}
+        run: |
+          set -euo pipefail
+          python3 scripts/zoo_v2_store.py pin-discovery \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit "$GENERATION_COMMIT" \
+            --generation-path "$GENERATION_PATH" \
+            --output api/v2/discovery.json
+          python3 scripts/zoo_v2_store.py validate-tree --root .
+          git add api/v2/discovery.json
+          git commit -m "catalog(v2): pin discovery for issue #${ISSUE_NUMBER}"
+          git push
+
+      - name: Open catalog pull request
+        id: pull_request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          BRANCH: ${{ steps.generation_commit.outputs.branch }}
+        run: |
+          set -euo pipefail
+          url="$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "catalog(v2): issue #${ISSUE_NUMBER}" \
+            --body "Validated Zoo v2 catalog CRUD for #${ISSUE_NUMBER}. This PR contains an immutable generation commit followed by a commit-pinned discovery pointer. It is not configured for auto-merge.")"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Report pull request
+        uses: actions/github-script@v7
+        env:
+          PR_URL: ${{ steps.pull_request.outputs.url }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Validated catalog PR: ${process.env.PR_URL}\n\nNo auto-merge is configured; maintainer review and merge remain required.`
+            });
