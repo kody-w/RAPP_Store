@@ -1,8 +1,11 @@
 # RAPP Zoo Store v2 — prototype summon extension
 
-`schema family: rapp-zoo-store-*/2.0`  
-`store status: canonical extension`  
-`artifact status: prototype / non-production`  
+`schema family: rapp-zoo-store-*/2.0`
+
+`store status: canonical extension`
+
+`artifact status: prototype / non-production`
+
 `external ecosystem acceptance: not asserted`
 
 This document defines the RAPP Store's versioned v2 surface for discovering
