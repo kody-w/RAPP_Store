@@ -173,6 +173,21 @@ class TestSecurityMutations:
         assert result["tombstones"][0]["id"] == "synthetic-example"
         assert result["tombstones"][0]["last_artifact_sha256"] == _prototype()["artifact"]["sha256"]
 
+        destructively_removed = deepcopy(result)
+        destructively_removed["tombstones"] = []
+        with pytest.raises(zoo.StoreError, match="E_DESTRUCTIVE_DELETE"):
+            zoo.validate_generation(
+                destructively_removed,
+                fetcher=_fetcher(_routes()),
+                previous=current,
+            )
+
+    def test_identity_hash_must_bind_artifact(self):
+        prototype = _prototype()
+        prototype["identity"] = "rappid:@synthetic/synthetic-example:" + "f" * 64
+        with pytest.raises(zoo.StoreError, match="E_IDENTITY_HASH"):
+            zoo.validate_prototype(prototype, _fetcher(_routes()))
+
     def test_prior_tombstone_mutation_rejected(self):
         tombstone = {
             "id": "old-prototype",

@@ -32,6 +32,7 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z][a-z0-9-]{2,63}$")
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 RAPPID_RE = re.compile(r"^rappid:@[a-z0-9](?:[a-z0-9-]{0,38})/[a-z][a-z0-9-]{2,63}:[0-9a-f]{64}$")
+UTC_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 JSON_BLOCK_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
 TITLE_RE = re.compile(r"^\[ZOO V2 (CREATE|UPDATE|DEPRECATE)\]\s+([a-z][a-z0-9-]{2,63})\s*$")
 
@@ -186,6 +187,8 @@ def validate_prototype(
     _require_exact_keys(artifact, {"url", "sha256", "media_type"}, set(), "artifact")
     validate_pinned_raw_url(artifact["url"], "artifact.url")
     expected = validate_hash(artifact["sha256"], "artifact.sha256")
+    if prototype["identity"].rsplit(":", 1)[-1] != expected:
+        raise StoreError("E_IDENTITY_HASH: rappid content hash must equal artifact.sha256")
     if artifact["media_type"] not in {
         "text/x-python", "application/json", "application/zip", "application/octet-stream"
     }:
@@ -283,8 +286,10 @@ def validate_tombstone(tombstone: object) -> dict:
         raise StoreError("E_TOMBSTONE: status must be 'deprecated'")
     if not isinstance(tombstone["reason"], str) or not tombstone["reason"]:
         raise StoreError("E_TOMBSTONE: reason is required")
-    if not isinstance(tombstone["deprecated_at"], str) or not tombstone["deprecated_at"]:
-        raise StoreError("E_TOMBSTONE: deprecated_at is required")
+    if not isinstance(tombstone["deprecated_at"], str) or not UTC_TIMESTAMP_RE.fullmatch(
+        tombstone["deprecated_at"]
+    ):
+        raise StoreError("E_TOMBSTONE: deprecated_at must be a UTC second timestamp")
     if not isinstance(tombstone["source_issue"], int) or tombstone["source_issue"] <= 0:
         raise StoreError("E_TOMBSTONE: source_issue must be a positive integer")
     if not isinstance(tombstone["last_version"], str) or not SEMVER_RE.fullmatch(
@@ -322,8 +327,10 @@ def validate_generation(
             "E_GENERATION: generation_id must be issue-<positive integer> "
             "or bootstrap-<YYYYMMDD>"
         )
-    if not isinstance(generation["created_at"], str) or not generation["created_at"]:
-        raise StoreError("E_GENERATION: created_at is required")
+    if not isinstance(generation["created_at"], str) or not UTC_TIMESTAMP_RE.fullmatch(
+        generation["created_at"]
+    ):
+        raise StoreError("E_GENERATION: created_at must be a UTC second timestamp")
     source_issue = generation["source_issue"]
     if source_issue is not None and (
         not isinstance(source_issue, int) or isinstance(source_issue, bool) or source_issue <= 0
@@ -362,6 +369,24 @@ def validate_generation(
             raise StoreError("E_TOMBSTONE_APPEND_ONLY: prior tombstones changed or disappeared")
         if len(tombstones) < len(previous_tombstones):
             raise StoreError("E_TOMBSTONE_APPEND_ONLY: tombstones cannot be removed")
+        previous_live = {item["id"]: item for item in previous.get("prototypes", [])}
+        current_live = {item["id"]: item for item in prototypes}
+        appended = tombstones[len(previous_tombstones):]
+        appended_by_id = {item["id"]: item for item in appended}
+        removed_ids = set(previous_live) - set(current_live)
+        if removed_ids != set(appended_by_id):
+            raise StoreError(
+                "E_DESTRUCTIVE_DELETE: every removed live id must become exactly one new tombstone"
+            )
+        for removed_id, tombstone in appended_by_id.items():
+            old = previous_live[removed_id]
+            if (
+                tombstone["last_version"] != old["version"]
+                or tombstone["last_artifact_sha256"] != old["artifact"]["sha256"]
+            ):
+                raise StoreError(
+                    "E_TOMBSTONE_PROVENANCE: tombstone must preserve the last version and artifact hash"
+                )
     return deepcopy(generation)
 
 
@@ -519,14 +544,31 @@ def validate_tree(root: Path, fetcher: Fetch = fetch_bytes, *, network: bool = F
         raise StoreError(f"E_DISCOVERY_TARGET: local generation is missing: {current_path}")
 
     generations = []
+    by_name = {}
     for path in sorted((root / "api" / "v2" / "generations").glob("*.json")):
         generation = json.loads(path.read_text())
         validate_generation(generation, fetcher, network=network)
         if canonical_json(generation) != path.read_bytes():
             raise StoreError(f"E_NON_CANONICAL_JSON: {path}")
         generations.append(generation)
+        by_name[path.name] = generation
     if not generations:
         raise StoreError("E_GENERATION: at least one immutable generation is required")
+    for generation in generations:
+        previous_url = generation["previous_generation_url"]
+        if previous_url is None:
+            continue
+        previous_name = previous_url.rsplit("/", 1)[-1]
+        if previous_name not in by_name:
+            raise StoreError(
+                f"E_GENERATION_CHAIN: local previous generation is missing: {previous_name}"
+            )
+        validate_generation(
+            generation,
+            fetcher,
+            network=network,
+            previous=by_name[previous_name],
+        )
 
     if canonical_json(discovery) != discovery_path.read_bytes():
         raise StoreError(f"E_NON_CANONICAL_JSON: {discovery_path}")

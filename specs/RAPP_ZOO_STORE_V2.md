@@ -18,7 +18,8 @@ content, artifacts, or license files. It does not add an engine endpoint.
   proposed chat contract; it is not evidence that another repository or
   governing body accepted the prototype.
 - `identity` is a full **`rappid:@owner/slug:<64-lowercase-hex>`** content
-  identity.
+  identity. For this single-artifact prototype surface, its hexadecimal tail
+  is exactly `artifact.sha256`.
 - `ecosystem_acceptance` is exactly **`not-asserted`**.
 - `status` is exactly **`prototype`** for live entries.
 - `external_blockers` is a non-empty list and travels forward on every
