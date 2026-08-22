@@ -253,6 +253,24 @@ class TestCrudAndPointer:
         )
         assert updated["prototypes"][0]["version"] == "0.2.0"
 
+    def test_update_cannot_erase_external_blocker(self):
+        current = _generation([_prototype()])
+        replacement = _prototype("0.2.0")
+        replacement["external_blockers"] = ["A less specific replacement blocker."]
+        update = zoo.validate_command(
+            _command("update", replacement),
+            "[ZOO V2 UPDATE] synthetic-example",
+        )
+        with pytest.raises(zoo.StoreError, match="E_EXTERNAL_BLOCKERS"):
+            zoo.apply_command(
+                current,
+                CURRENT_URL,
+                update,
+                issue_number=3,
+                timestamp="2026-08-22T19:18:00Z",
+                fetcher=_fetcher(_routes()),
+            )
+
     def test_actor_allowlist_is_exact_and_case_insensitive(self):
         actors = zoo.parse_allowlist("kody-w, Allowed-Bot")
         zoo.validate_actor("allowed-bot", actors)

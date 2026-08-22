@@ -440,6 +440,11 @@ def apply_command(
         replacement = validate_prototype(command["prototype"], fetcher, network=network)
         if _semver_tuple(replacement["version"]) <= _semver_tuple(prototypes[prototype_id]["version"]):
             raise StoreError("E_VERSION_NOT_BUMPED: update version must increase")
+        prior_blockers = prototypes[prototype_id]["external_blockers"]
+        if replacement["external_blockers"][:len(prior_blockers)] != prior_blockers:
+            raise StoreError(
+                "E_EXTERNAL_BLOCKERS: updates may append blockers but cannot remove or rewrite them"
+            )
         prototypes[prototype_id] = replacement
     elif operation == "deprecate":
         if prototype_id not in prototypes:

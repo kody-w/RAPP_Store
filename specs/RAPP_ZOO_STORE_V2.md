@@ -88,7 +88,8 @@ Three issue forms emit one fenced JSON command:
 
 There is deliberately no delete operation and no resurrection. A prior
 tombstone cannot be removed, edited, reordered ahead of prior tombstones, or
-reused as a live id.
+reused as a live id. Updates may append external blockers but cannot remove,
+reorder, or rewrite blockers inherited from the previous live entry.
 
 An issue becomes eligible only when a maintainer adds
 `zoo-v2-eligible`. `scripts/zoo_v2_store.py` then independently verifies that
