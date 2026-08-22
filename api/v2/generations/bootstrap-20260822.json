@@ -1,0 +1,33 @@
+{
+  "created_at": "2026-08-22T19:16:00Z",
+  "generation_id": "bootstrap-20260822",
+  "previous_generation_url": null,
+  "prototypes": [
+    {
+      "artifact": {
+        "media_type": "text/x-python",
+        "sha256": "48b2cc18c3adad4a2ef4a5a4ffa12df9b58c871d41d5b6c0729c73da7158dd7d",
+        "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/2ecb7b9a9f617d19c9403529992f178c434087ae/samples/zoo-v2/synthetic_echo_agent.py"
+      },
+      "ecosystem_acceptance": "not-asserted",
+      "external_blockers": [
+        "Independent RAPP/1 conformance and ecosystem admission have not been completed."
+      ],
+      "id": "synthetic-echo",
+      "identity": "rappid:@synthetic/synthetic-echo:48b2cc18c3adad4a2ef4a5a4ffa12df9b58c871d41d5b6c0729c73da7158dd7d",
+      "license": {
+        "evidence_sha256": "cfa97ee0bf2c47b10f1d2d59a5b7f7858136829b18b5a2731d3266f148d2f10e",
+        "evidence_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/2ecb7b9a9f617d19c9403529992f178c434087ae/samples/zoo-v2/LICENSE",
+        "spdx": "MIT"
+      },
+      "name": "Synthetic Echo",
+      "status": "prototype",
+      "summary": "A credential-free synthetic echo used only to demonstrate non-production prototype discovery.",
+      "version": "0.1.0",
+      "wire_contract": "RAPP/1"
+    }
+  ],
+  "schema": "rapp-zoo-store-generation/2.0",
+  "source_issue": null,
+  "tombstones": []
+}
