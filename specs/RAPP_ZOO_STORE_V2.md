@@ -46,13 +46,17 @@ It has exactly two fields:
 ```json
 {
   "schema": "rapp-zoo-store-discovery/2.0",
-  "generation_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/<40-char-commit>/api/v2/generations/issue-123.json"
+  "generation_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/<40-char-commit>/api/v2/generations/issue-123-<64-char-attempt-hash>.json"
 }
 ```
 
 The URL must use `raw.githubusercontent.com` and an exact lowercase
 40-character commit SHA. A branch, tag, abbreviated SHA, query string, or
-fragment is invalid. Discovery contains no catalog records.
+fragment is invalid. Its repository path is exactly
+`api/v2/generations/<valid-generation-id>.json`; prefixes, suffixes, shadow
+directories, traversal, and generation ids outside the schema are invalid.
+The executable parser and both JSON schemas use the same generation-id
+language. Discovery contains no catalog records.
 
 Each file under `api/v2/generations/` is an immutable
 `rapp-zoo-store-generation/2.0` document. A generation contains sorted live
@@ -77,6 +81,13 @@ actors/modes, and forbids update, non-fast-forward update, and deletion. The
 annotated tag check proves provenance; the ruleset prevents the proven ref
 from subsequently being rewritten or removed. Other named rulesets remain
 untouched.
+
+For an issue attempt, `<generation-id>` is
+`issue-<number>-<64-lowercase-hex>`. The hexadecimal component is derived from
+the canonical attempt fields other than the id itself, including the exact
+predecessor URL and digest. The generation path, issue branch
+`zoo-v2/<generation-id>`, and permanent tag are therefore specific to both
+content and predecessor rather than being a single issue-wide name.
 
 ## 3. Prototype requirements
 
@@ -117,10 +128,18 @@ Changing labels does not bypass actor validation.
 The release lane is serialized. GitHub Actions concurrency serializes active
 runs, and the release script also rejects a new issue while any different
 `zoo-v2/issue-*` PR or unfinished remote issue branch exists. A rerun for the
-same issue is allowed only when its generation bytes, predecessor URL/digest,
+same attempt is allowed only when its generation bytes, predecessor URL/digest,
 branch, tag target and annotation, discovery pointer, and PR state all match.
-It resumes after the last durable stage; it never force-rewrites a mismatched
-branch or tag. PR creation and the issue backlink comment are find-or-create.
+It resumes after the last durable stage. If `main` advanced, the retained stale
+attempt is validated and archived under its own permanent tag, then a rerun
+deterministically derives a new generation, branch, and tag from current
+discovery. No tag is deleted, moved, or force-fetched. PR creation and the
+issue backlink comment are find-or-create.
+
+Queue inspection first enumerates the bounded set of retained issue branches,
+then queries GitHub for each exact head branch. It never relies on a fixed
+repository-wide PR window. Malformed responses, a branch/PR bound, or an API
+failure fails closed.
 
 Issue JSON is never passed to a shell, template evaluator, Python importer,
 `eval`, or `exec`. Unknown fields and unknown operations are rejected.
@@ -133,8 +152,10 @@ Issue JSON is never passed to a shell, template evaluator, Python importer,
    license evidence, operation, allowlist, and tombstone history.
 2. Write and test one new immutable generation.
 3. Commit and push that generation; capture the resulting full commit SHA.
-4. Create and push its unique annotated permanent tag. A collision is accepted
-   only when its peeled commit and complete provenance annotation are exact.
+4. Re-fetch and revalidate current `main`, then create and atomically push its
+   unique annotated permanent tag under a compare-and-swap lease on that exact
+   main SHA. A collision is accepted only when its peeled commit and complete
+   provenance annotation are exact.
 5. Rewrite only `api/v2/discovery.json` to name the new generation at that
    exact commit.
 6. Validate the local tree, commit and push the pointer separately, and
@@ -159,11 +180,13 @@ path late in a large diff still gates.
 Protected paths are `api/v2/**`, the Zoo v2 schemas and issue forms, the Zoo
 v2 workflows, the Store/release/protection scripts, this specification, and
 the committed protection audit. A protected diff is refused unless it is from
-the same repository on an exact `zoo-v2/issue-<number>` branch or the one-time
+the same repository on an exact
+`zoo-v2/issue-<number>-<64-char-attempt-hash>` branch or the one-time
 `zoo-v2/bootstrap-protection` branch. Issue branches may change only their
-matching generation plus discovery; the bootstrap branch cannot change
-`api/v2/**`. A fork can pass only when it changes no protected path. Thus "not
-a Zoo branch" is never a bypass for a protected diff.
+matching exact generation plus discovery, and `validate-pr` independently
+requires that those are the complete changed-file set; the bootstrap branch
+cannot change `api/v2/**`. A fork can pass only when it changes no protected
+path. Thus "not a Zoo branch" is never a bypass for a protected diff.
 
 Both validator modules execute from an
 independent checkout of current `main`; the head checkout is passed only as
@@ -183,7 +206,9 @@ must be disabled. The check verifies the candidate's one-operation
 create/update/deprecate delta, predecessor URL and digest, pinned generation
 commit, annotated permanent tag, and fork boundary. On every `main` push,
 `.github/workflows/zoo-v2-main-advance.yml` reruns the same trusted validator
-for every open Zoo v2 PR as defense in depth. Merge safety does not depend on
+for every open retained Zoo v2 branch as defense in depth, using exact
+per-branch PR queries rather than a truncated repository-wide list. Merge
+safety does not depend on
 that asynchronous overwrite: GitHub's strict required-status barrier refuses
 a head that is not up to date with the exact current base. Main-advance runs
 cancel older runs, recheck the current base and head before publishing, and

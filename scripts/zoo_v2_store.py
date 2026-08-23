@@ -35,7 +35,11 @@ RAPPID_RE = re.compile(r"^rappid:@[a-z0-9](?:[a-z0-9-]{0,38})/[a-z][a-z0-9-]{2,6
 UTC_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 JSON_BLOCK_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
 TITLE_RE = re.compile(r"^\[ZOO V2 (CREATE|UPDATE|DEPRECATE)\]\s+([a-z][a-z0-9-]{2,63})\s*$")
-GENERATION_ID_RE = re.compile(r"^(?:issue-[1-9]\d*|bootstrap-\d{8})$")
+GENERATION_ID_PATTERN = r"(?:issue-[1-9][0-9]*-[0-9a-f]{64}|bootstrap-[0-9]{8})"
+GENERATION_ID_RE = re.compile(rf"^{GENERATION_ID_PATTERN}$")
+GENERATION_PATH_RE = re.compile(
+    rf"^api/v2/generations/(?P<generation_id>{GENERATION_ID_PATTERN})\.json$"
+)
 
 Fetch = Callable[[str], bytes]
 
@@ -88,6 +92,16 @@ def validate_pinned_raw_url(url: object, field: str) -> re.Match[str]:
     parts = match.group("path").split("/")
     if any(part in {"", ".", ".."} for part in parts):
         raise StoreError(f"E_PINNED_URL: {field} contains an unsafe path segment")
+    return match
+
+
+def validate_generation_raw_url(url: object, field: str) -> re.Match[str]:
+    match = validate_pinned_raw_url(url, field)
+    if not GENERATION_PATH_RE.fullmatch(match.group("path")):
+        raise StoreError(
+            f"E_DISCOVERY: {field} must use the exact repository path "
+            "api/v2/generations/<valid-generation-id>.json"
+        )
     return match
 
 
@@ -261,11 +275,9 @@ def validate_discovery(discovery: object) -> str:
     _require_exact_keys(discovery, {"schema", "generation_url"}, set(), "discovery")
     if discovery["schema"] != DISCOVERY_SCHEMA:
         raise StoreError(f"E_DISCOVERY: schema must be {DISCOVERY_SCHEMA}")
-    validate_pinned_raw_url(discovery["generation_url"], "discovery.generation_url")
-    if "/api/v2/generations/" not in discovery["generation_url"]:
-        raise StoreError("E_DISCOVERY: generation_url must name api/v2/generations/<file>.json")
-    if not discovery["generation_url"].endswith(".json"):
-        raise StoreError("E_DISCOVERY: generation_url must name a JSON generation")
+    validate_generation_raw_url(
+        discovery["generation_url"], "discovery.generation_url"
+    )
     return discovery["generation_url"]
 
 
@@ -377,8 +389,8 @@ def validate_generation(
         generation["generation_id"]
     ):
         raise StoreError(
-            "E_GENERATION: generation_id must be issue-<positive integer> "
-            "or bootstrap-<YYYYMMDD>"
+            "E_GENERATION: generation_id must be issue-<positive integer>-"
+            "<64-lowercase-hex> or bootstrap-<YYYYMMDD>"
         )
     if not isinstance(generation["created_at"], str) or not UTC_TIMESTAMP_RE.fullmatch(
         generation["created_at"]
@@ -391,16 +403,24 @@ def validate_generation(
         raise StoreError("E_GENERATION: source_issue must be null or a positive integer")
     if generation["generation_id"].startswith("issue-") and source_issue is None:
         raise StoreError("E_GENERATION: issue generations require source_issue")
-    if generation["generation_id"].startswith("issue-") and source_issue != int(
-        generation["generation_id"].removeprefix("issue-")
-    ):
-        raise StoreError("E_GENERATION: generation_id must match source_issue")
+    if generation["generation_id"].startswith("issue-"):
+        issue_prefix = generation["generation_id"].split("-", 2)[:2]
+        if source_issue != int(issue_prefix[1]):
+            raise StoreError("E_GENERATION: generation_id must match source_issue")
+        expected_id = generation_attempt_id(generation)
+        if generation["generation_id"] != expected_id:
+            raise StoreError(
+                "E_GENERATION: issue generation id must bind its exact attempt content "
+                "and predecessor"
+            )
     if generation["generation_id"].startswith("bootstrap-") and source_issue is not None:
         raise StoreError("E_GENERATION: bootstrap generations must use source_issue null")
     previous_url = generation["previous_generation_url"]
     previous_sha256 = generation.get("previous_generation_sha256")
     if previous_url is not None:
-        validate_pinned_raw_url(previous_url, "generation.previous_generation_url")
+        validate_generation_raw_url(
+            previous_url, "generation.previous_generation_url"
+        )
         validate_hash(previous_sha256, "generation.previous_generation_sha256")
     elif previous_sha256 is not None:
         raise StoreError(
@@ -487,6 +507,15 @@ def _semver_tuple(value: str) -> tuple[int, int, int]:
     return tuple(map(int, match.groups()))
 
 
+def generation_attempt_id(generation: dict) -> str:
+    source_issue = generation.get("source_issue")
+    if not isinstance(source_issue, int) or isinstance(source_issue, bool) or source_issue <= 0:
+        raise StoreError("E_GENERATION: attempt id requires a positive source_issue")
+    basis = deepcopy(generation)
+    basis.pop("generation_id", None)
+    return f"issue-{source_issue}-{sha256_bytes(canonical_json(basis))}"
+
+
 def apply_command(
     current: dict,
     current_url: str,
@@ -540,7 +569,6 @@ def apply_command(
 
     result = {
         "schema": GENERATION_SCHEMA,
-        "generation_id": f"issue-{issue_number}",
         "created_at": timestamp,
         "source_issue": issue_number,
         "previous_generation_url": current_url,
@@ -548,6 +576,7 @@ def apply_command(
         "prototypes": sorted(prototypes.values(), key=lambda item: item["id"]),
         "tombstones": tombstones,
     }
+    result["generation_id"] = generation_attempt_id(result)
     return validate_generation(
         result,
         fetcher,
@@ -592,7 +621,7 @@ def process_event(
         network=True,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / f"issue-{number}.json"
+    output = output_dir / f"{generation['generation_id']}.json"
     expected = canonical_json(generation)
     if output.exists():
         if output.read_bytes() != expected:
@@ -613,8 +642,11 @@ def generation_tag_name(generation_id: str) -> str:
 def generation_tag_message(generation: dict, generation_path: str) -> str:
     validate_generation(generation, network=False)
     path = Path(generation_path)
-    if path.is_absolute() or ".." in path.parts or path.suffix != ".json":
-        raise StoreError("E_GENERATION_PATH: unsafe generation path")
+    match = GENERATION_PATH_RE.fullmatch(path.as_posix())
+    if path.is_absolute() or not match:
+        raise StoreError("E_GENERATION_PATH: unsafe or non-generation path")
+    if match.group("generation_id") != generation["generation_id"]:
+        raise StoreError("E_GENERATION_PATH: path must match generation_id")
     return "\n".join([
         "RAPP Zoo Store v2 permanent generation",
         f"generation-id: {generation['generation_id']}",
@@ -648,7 +680,11 @@ def validate_candidate(
 
     candidate_discovery = json.loads(candidate_discovery_path.read_text())
     candidate_url = validate_discovery(candidate_discovery)
-    if candidate_url.rsplit("/", 1)[-1] != candidate_generation_path.name:
+    candidate_match = validate_generation_raw_url(
+        candidate_url, "discovery.generation_url"
+    )
+    candidate_relative = Path(*candidate_generation_path.parts[-4:]).as_posix()
+    if candidate_match.group("path") != candidate_relative:
         raise StoreError("E_DISCOVERY_TARGET: candidate discovery names another generation")
     candidate_bytes = candidate_generation_path.read_bytes()
     candidate = json.loads(candidate_bytes)
@@ -681,10 +717,11 @@ def pin_discovery(repository: str, commit: str, generation_path: str, output: Pa
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise StoreError("E_COMMIT: generation commit must be exactly 40 lowercase hex characters")
     path = Path(generation_path)
-    if path.is_absolute() or ".." in path.parts or path.suffix != ".json":
-        raise StoreError("E_GENERATION_PATH: path must be a safe repository-relative JSON path")
-    if path.parts[:3] != ("api", "v2", "generations"):
-        raise StoreError("E_GENERATION_PATH: generation must live under api/v2/generations/")
+    if path.is_absolute() or not GENERATION_PATH_RE.fullmatch(path.as_posix()):
+        raise StoreError(
+            "E_GENERATION_PATH: generation must use the exact path "
+            "api/v2/generations/<valid-generation-id>.json"
+        )
     generation_url = f"https://raw.githubusercontent.com/{repository}/{commit}/{path.as_posix()}"
     discovery = {"schema": DISCOVERY_SCHEMA, "generation_url": generation_url}
     validate_discovery(discovery)
@@ -696,8 +733,10 @@ def validate_tree(root: Path, fetcher: Fetch = fetch_bytes, *, network: bool = F
     discovery_path = root / "api" / "v2" / "discovery.json"
     discovery = json.loads(discovery_path.read_text())
     current_url = validate_discovery(discovery)
-    current_name = current_url.rsplit("/", 1)[-1]
-    current_path = root / "api" / "v2" / "generations" / current_name
+    current_match = validate_generation_raw_url(
+        current_url, "discovery.generation_url"
+    )
+    current_path = root / current_match.group("path")
     if not current_path.is_file():
         raise StoreError(f"E_DISCOVERY_TARGET: local generation is missing: {current_path}")
 

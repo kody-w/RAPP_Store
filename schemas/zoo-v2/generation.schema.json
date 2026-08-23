@@ -19,7 +19,7 @@
     },
     "generation_id": {
       "type": "string",
-      "pattern": "^(?:issue-[1-9][0-9]*|bootstrap-[0-9]{8})$"
+      "pattern": "^(?:issue-[1-9][0-9]*-[0-9a-f]{64}|bootstrap-[0-9]{8})$"
     },
     "created_at": {
       "type": "string",
@@ -43,7 +43,7 @@
         },
         {
           "type": "string",
-          "pattern": "^https://raw\\.githubusercontent\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[0-9a-f]{40}/api/v2/generations/[A-Za-z0-9.-]+\\.json$"
+          "pattern": "^https://raw\\.githubusercontent\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[0-9a-f]{40}/api/v2/generations/(?:issue-[1-9][0-9]*-[0-9a-f]{64}|bootstrap-[0-9]{8})\\.json$"
         }
       ]
     },

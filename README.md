@@ -80,7 +80,8 @@ URL. Prototype artifacts and MIT license evidence are also commit-pinned and
 SHA-256 verified.
 
 Store v2 writes are serialized through one restartable issue branch at a time.
-Every generation commit receives a deterministic annotated
+Every attempt derives content/predecessor-bound generation, branch, and tag
+names. Every generation commit receives an annotated
 `zoo-v2-generation-*` permanent tag before discovery can point at it. Required
 current-main validation checks both the predecessor URL and exact digest, and
 the scheduled audit proves tag and raw reachability independent of the PR
@@ -95,6 +96,10 @@ trusted context. The generation-tag ruleset is dedicated and has no bypass
 actors. Administrator branch/ruleset configuration is out-of-band, with a
 committed audit required before release. See the extension spec for App
 permissions, environment protection, configuration, and bootstrap order.
+Immediately before a tag is published, release re-fetches and revalidates
+`main`, then uses an atomic main lease with the tag push. A stale retained
+attempt is verified and permanently archived; a rerun derives a different
+attempt from the new predecessor rather than moving or deleting a tag.
 
 Create, update, and deprecate commands arrive as structured, inert GitHub
 Issue JSON. An actor allowlist and deterministic validator turn an eligible

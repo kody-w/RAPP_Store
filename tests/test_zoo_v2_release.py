@@ -14,6 +14,9 @@ import zoo_v2_release as release
 import zoo_v2_store as store
 
 VALIDATOR_APP_ID = 4242
+SAMPLE_ATTEMPT_ID = f"issue-42-{'d' * 64}"
+SAMPLE_ATTEMPT_PATH = f"api/v2/generations/{SAMPLE_ATTEMPT_ID}.json"
+SAMPLE_ATTEMPT_BRANCH = f"zoo-v2/{SAMPLE_ATTEMPT_ID}"
 
 
 def _prototype(version: str) -> dict:
@@ -42,10 +45,11 @@ def _prototype(version: str) -> dict:
     }
 
 
-def _git(root: Path, *args: str) -> str:
+def _git(root: Path, *args: str, input_text: str | None = None) -> str:
     result = subprocess.run(
         ["git", *args],
         cwd=root,
+        input=input_text,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -96,6 +100,20 @@ def _write_audit(root: Path, repository: str = "example/store") -> None:
     path.write_text(json.dumps(_valid_audit(repository), indent=2, sort_keys=True) + "\n")
 
 
+def _issue_path(work: Path, issue_number: int = 42) -> Path:
+    matches = list((work / "api/v2/generations").glob(f"issue-{issue_number}-*.json"))
+    assert len(matches) == 1
+    return matches[0]
+
+
+def _issue_relative(work: Path, issue_number: int = 42) -> str:
+    return _issue_path(work, issue_number).relative_to(work).as_posix()
+
+
+def _issue_branch(work: Path, issue_number: int = 42) -> str:
+    return f"zoo-v2/{_issue_path(work, issue_number).stem}"
+
+
 def _seed_remote(tmp_path: Path) -> tuple[Path, bytes, str]:
     remote = tmp_path / "remote.git"
     work = tmp_path / "work"
@@ -142,7 +160,6 @@ def _seed_remote(tmp_path: Path) -> tuple[Path, bytes, str]:
 
     issue_generation = {
         "schema": store.GENERATION_SCHEMA,
-        "generation_id": "issue-42",
         "created_at": "2026-08-22T20:00:00Z",
         "source_issue": 42,
         "previous_generation_url": base_url,
@@ -150,9 +167,58 @@ def _seed_remote(tmp_path: Path) -> tuple[Path, bytes, str]:
         "prototypes": [_prototype("0.2.0")],
         "tombstones": [],
     }
-    issue_path = work / "api/v2/generations/issue-42.json"
+    issue_generation["generation_id"] = store.generation_attempt_id(issue_generation)
+    issue_path = work / f"api/v2/generations/{issue_generation['generation_id']}.json"
     issue_path.write_bytes(store.canonical_json(issue_generation))
     return work, base_bytes, generation_commit
+
+
+def _advance_main(remote: Path, racer: Path) -> tuple[bytes, str]:
+    subprocess.run(["git", "clone", remote, racer], check=True, capture_output=True)
+    _git(racer, "config", "user.name", "Concurrent Store Bot")
+    _git(racer, "config", "user.email", "racer@example.invalid")
+    discovery = json.loads((racer / "api/v2/discovery.json").read_text())
+    predecessor_url = store.validate_discovery(discovery)
+    predecessor_path = racer / store.validate_generation_raw_url(
+        predecessor_url, "generation_url"
+    ).group("path")
+    predecessor_bytes = predecessor_path.read_bytes()
+    predecessor = json.loads(predecessor_bytes)
+    generation = {
+        "schema": store.GENERATION_SCHEMA,
+        "created_at": "2026-08-22T20:01:00Z",
+        "source_issue": 99,
+        "previous_generation_url": predecessor_url,
+        "previous_generation_sha256": store.sha256_bytes(predecessor_bytes),
+        "prototypes": [_prototype("0.1.1")],
+        "tombstones": [],
+    }
+    generation["generation_id"] = store.generation_attempt_id(generation)
+    relative = f"api/v2/generations/{generation['generation_id']}.json"
+    path = racer / relative
+    path.write_bytes(store.canonical_json(generation))
+    _git(racer, "add", relative)
+    _git(racer, "commit", "-m", "concurrent generation")
+    generation_commit = _git(racer, "rev-parse", "HEAD")
+    tag = store.generation_tag_name(generation["generation_id"])
+    _git(
+        racer,
+        "tag",
+        "-a",
+        tag,
+        generation_commit,
+        "-F",
+        "-",
+        input_text=store.generation_tag_message(generation, relative),
+    )
+    _git(racer, "push", "origin", f"refs/tags/{tag}:refs/tags/{tag}")
+    store.pin_discovery("example/store", generation_commit, relative, racer / "api/v2/discovery.json")
+    _git(racer, "add", "api/v2/discovery.json")
+    _git(racer, "commit", "-m", "advance main discovery")
+    _git(racer, "push", "origin", "HEAD:refs/heads/main")
+    return path.read_bytes(), (
+        f"https://raw.githubusercontent.com/example/store/{generation_commit}/{relative}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -161,9 +227,11 @@ def _seed_remote(tmp_path: Path) -> tuple[Path, bytes, str]:
 )
 def test_resume_after_each_git_failure_stage(tmp_path, stop_after):
     work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    branch = _issue_branch(work)
     kwargs = {
         "root": work,
-        "generation_path": "api/v2/generations/issue-42.json",
+        "generation_path": generation_path,
         "repository": "example/store",
         "issue_number": 42,
         "create_pr": False,
@@ -173,23 +241,25 @@ def test_resume_after_each_git_failure_stage(tmp_path, stop_after):
         release.resume_release(**kwargs, stop_after=stop_after)
 
     result = release.resume_release(**kwargs)
-    assert result["tag"] == "zoo-v2-generation-issue-42"
+    assert result["tag"] == f"zoo-v2-generation-{Path(generation_path).stem}"
     assert len(result["generation_commit"]) == 40
     assert _git(work, "rev-parse", f"{result['tag']}^{{commit}}") == result["generation_commit"]
     remote_discovery = json.loads(
-        _git(work, "show", "origin/zoo-v2/issue-42:api/v2/discovery.json")
+        _git(work, "show", f"origin/{branch}:api/v2/discovery.json")
     )
     assert f"/{result['generation_commit']}/" in remote_discovery["generation_url"]
 
 
 def test_resume_after_pr_is_find_or_create_idempotent(tmp_path):
     work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    branch = _issue_branch(work)
     calls = []
     durable_pr = {
         "number": 7,
         "url": "https://github.com/example/store/pull/7",
         "state": "OPEN",
-        "headRefName": "zoo-v2/issue-42",
+        "headRefName": branch,
         "baseRefName": "main",
     }
 
@@ -199,7 +269,7 @@ def test_resume_after_pr_is_find_or_create_idempotent(tmp_path):
 
     kwargs = {
         "root": work,
-        "generation_path": "api/v2/generations/issue-42.json",
+        "generation_path": generation_path,
         "repository": "example/store",
         "issue_number": 42,
         "pull_requests": [durable_pr],
@@ -211,9 +281,129 @@ def test_resume_after_pr_is_find_or_create_idempotent(tmp_path):
     result = release.resume_release(**kwargs)
     assert result["pr"] == durable_pr
     assert calls == [
-        ("example/store", 42, "zoo-v2/issue-42"),
-        ("example/store", 42, "zoo-v2/issue-42"),
+        ("example/store", 42, branch),
+        ("example/store", 42, branch),
     ]
+
+
+def test_main_advance_race_archives_attempt_and_retry_uses_new_predecessor(tmp_path):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    stale_path = _issue_relative(work)
+    stale_id = Path(stale_path).stem
+    remote = work.parent / "remote.git"
+    raced = {}
+
+    def advance(stage):
+        if stage == "before-tag-push":
+            raced["bytes"], raced["url"] = _advance_main(
+                remote, tmp_path / "racer"
+            )
+
+    with pytest.raises(release.ReleaseError, match="E_STALE_PREDECESSOR"):
+        release.resume_release(
+            work,
+            stale_path,
+            "example/store",
+            42,
+            create_pr=False,
+            base_generation_bytes=base_bytes,
+            stage_hook=advance,
+        )
+
+    stale_tag = f"zoo-v2-generation-{stale_id}"
+    assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{stale_tag}") == ""
+
+    _git(work, "fetch", "--prune", "origin", "main")
+    _git(work, "switch", "--discard-changes", "-C", "main", "origin/main")
+    retry = {
+        "schema": store.GENERATION_SCHEMA,
+        "created_at": "2026-08-22T20:00:00Z",
+        "source_issue": 42,
+        "previous_generation_url": raced["url"],
+        "previous_generation_sha256": store.sha256_bytes(raced["bytes"]),
+        "prototypes": [_prototype("0.2.0")],
+        "tombstones": [],
+    }
+    retry["generation_id"] = store.generation_attempt_id(retry)
+    retry_path = f"api/v2/generations/{retry['generation_id']}.json"
+    (work / retry_path).write_bytes(store.canonical_json(retry))
+
+    result = release.resume_release(
+        work,
+        retry_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=raced["bytes"],
+    )
+    assert result["tag"] != stale_tag
+    assert result["archived_tags"] == [stale_tag]
+    assert retry["previous_generation_url"] == raced["url"]
+    for tag in (stale_tag, result["tag"]):
+        assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{tag}")
+    remote_discovery = json.loads(
+        _git(work, "show", f"origin/{result['branch']}:api/v2/discovery.json")
+    )
+    assert retry["generation_id"] in remote_discovery["generation_url"]
+
+
+def test_catalog_pr_queries_are_exact_and_not_repository_windowed(
+    tmp_path, monkeypatch
+):
+    branches = {
+        f"zoo-v2/issue-7-{'7' * 64}",
+        f"zoo-v2/issue-8-{'8' * 64}",
+    }
+    old_unrelated = [
+        {"number": number, "head": {"ref": f"old-{number}"}}
+        for number in range(1, 151)
+    ]
+    relevant = {}
+    for index, branch in enumerate(sorted(branches), 200):
+        relevant[f"example:{branch}"] = [{
+            "number": index,
+            "html_url": f"https://github.com/example/store/pull/{index}",
+            "state": "open",
+            "merged_at": None,
+            "title": "catalog",
+            "head": {
+                "ref": branch,
+                "sha": f"{index:040x}",
+                "repo": {"full_name": "example/store"},
+            },
+            "base": {"ref": "main"},
+        }]
+    calls = []
+
+    def exact_query(_root, *args):
+        calls.append(args)
+        head_filter = next(arg.removeprefix("head=") for arg in args if arg.startswith("head="))
+        assert all(item["head"]["ref"] != head_filter for item in old_unrelated)
+        return relevant[head_filter]
+
+    monkeypatch.setattr(release, "_gh_json", exact_query)
+    result = release.list_catalog_prs(tmp_path, "example/store", branches)
+    assert {item["headRefName"] for item in result} == branches
+    assert len(calls) == len(branches)
+    assert all("--limit" not in call for call in calls)
+
+
+def test_catalog_pr_query_fails_closed_at_exact_branch_bound(tmp_path, monkeypatch):
+    branch = f"zoo-v2/issue-7-{'7' * 64}"
+    monkeypatch.setattr(
+        release,
+        "_gh_json",
+        lambda *_args: [{} for _ in range(release.MAX_PRS_PER_BRANCH)],
+    )
+    with pytest.raises(release.ReleaseError, match="E_QUEUE_INCOMPLETE"):
+        release.list_catalog_prs(tmp_path, "example/store", {branch})
+
+    def rate_limited(*_args):
+        raise release.ReleaseError("E_COMMAND: GitHub API rate limit exceeded")
+
+    monkeypatch.setattr(release, "_gh_json", rate_limited)
+    with pytest.raises(release.ReleaseError, match="rate limit"):
+        release.list_catalog_prs(tmp_path, "example/store", {branch})
 
 
 def test_queue_rejects_open_pr_or_unfinished_sibling():
@@ -221,36 +411,38 @@ def test_queue_rejects_open_pr_or_unfinished_sibling():
         release.validate_queue(42, set(), [{
             "number": 9,
             "state": "OPEN",
-            "headRefName": "zoo-v2/issue-9",
+            "headRefName": f"zoo-v2/issue-9-{'9' * 64}",
         }])
     with pytest.raises(release.ReleaseError, match="unfinished.*issue-8"):
-        release.validate_queue(42, {"zoo-v2/issue-8"}, [])
-    release.validate_queue(42, {"zoo-v2/issue-8"}, [{
+        release.validate_queue(42, {f"zoo-v2/issue-8-{'8' * 64}"}, [])
+    branch = f"zoo-v2/issue-8-{'8' * 64}"
+    release.validate_queue(42, {branch}, [{
         "number": 8,
         "state": "MERGED",
         "mergedAt": "2026-08-22T20:00:00Z",
-        "headRefName": "zoo-v2/issue-8",
+        "headRefName": branch,
     }])
 
 
-def test_mismatched_existing_branch_is_never_overwritten(tmp_path):
+def test_content_bound_attempt_is_never_overwritten(tmp_path):
     work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
     release.resume_release(
         work,
-        "api/v2/generations/issue-42.json",
+        generation_path,
         "example/store",
         42,
         create_pr=False,
         base_generation_bytes=base_bytes,
     )
-    issue_path = work / "api/v2/generations/issue-42.json"
+    issue_path = work / generation_path
     changed = json.loads(issue_path.read_text())
     changed["created_at"] = "2026-08-22T20:01:00Z"
     issue_path.write_bytes(store.canonical_json(changed))
-    with pytest.raises(release.ReleaseError, match="mismatched generation bytes"):
+    with pytest.raises(store.StoreError, match="bind its exact attempt content"):
         release.resume_release(
             work,
-            "api/v2/generations/issue-42.json",
+            generation_path,
             "example/store",
             42,
             create_pr=False,
@@ -297,7 +489,7 @@ def test_bootstrap_migration_refuses_same_name_with_wrong_provenance(tmp_path):
 
 def test_candidate_requires_exact_base_url_digest_and_crud_semantics(tmp_path):
     work, base_bytes, _ = _seed_remote(tmp_path)
-    candidate = work / "api/v2/generations/issue-42.json"
+    candidate = _issue_path(work)
     candidate_data = json.loads(candidate.read_text())
     candidate_commit = "b" * 40
     candidate_discovery = work / "candidate-discovery.json"
@@ -305,7 +497,7 @@ def test_candidate_requires_exact_base_url_digest_and_crud_semantics(tmp_path):
         "schema": store.DISCOVERY_SCHEMA,
         "generation_url": (
             "https://raw.githubusercontent.com/example/store/"
-            f"{candidate_commit}/api/v2/generations/issue-42.json"
+            f"{candidate_commit}/{candidate.relative_to(work).as_posix()}"
         ),
     }))
     base_discovery = work / "api/v2/discovery.json"
@@ -331,9 +523,11 @@ def test_candidate_requires_exact_base_url_digest_and_crud_semantics(tmp_path):
 
 def test_trusted_validator_ignores_candidate_script_mutations(tmp_path):
     work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    branch = _issue_branch(work)
     release.resume_release(
         work,
-        "api/v2/generations/issue-42.json",
+        generation_path,
         "example/store",
         42,
         create_pr=False,
@@ -341,7 +535,7 @@ def test_trusted_validator_ignores_candidate_script_mutations(tmp_path):
     )
     candidate = tmp_path / "candidate"
     subprocess.run(
-        ["git", "clone", "--branch", "zoo-v2/issue-42", work.parent / "remote.git", candidate],
+        ["git", "clone", "--branch", branch, work.parent / "remote.git", candidate],
         check=True,
         capture_output=True,
     )
@@ -351,10 +545,10 @@ def test_trusted_validator_ignores_candidate_script_mutations(tmp_path):
     scripts.mkdir()
     (scripts / "zoo_v2_release.py").write_text("raise SystemExit(0)\n")
     (scripts / "zoo_v2_store.py").write_text("raise SystemExit(0)\n")
-    generation_path = candidate / "api/v2/generations/issue-42.json"
-    generation = json.loads(generation_path.read_text())
+    candidate_generation_path = candidate / generation_path
+    generation = json.loads(candidate_generation_path.read_text())
     generation["previous_generation_sha256"] = "f" * 64
-    generation_path.write_bytes(store.canonical_json(generation))
+    candidate_generation_path.write_bytes(store.canonical_json(generation))
     _git(candidate, "add", ".")
     _git(candidate, "commit", "-m", "malicious validator and stale candidate")
 
@@ -383,6 +577,35 @@ def test_trusted_validator_ignores_candidate_script_mutations(tmp_path):
     )
     assert result.returncode == 1
     assert "E_DISCOVERY_TARGET" in result.stderr
+
+
+def test_validate_pr_rejects_shadow_and_extra_changed_paths(tmp_path):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    result = release.resume_release(
+        work,
+        generation_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=base_bytes,
+    )
+    candidate = tmp_path / "changed-set-candidate"
+    subprocess.run(
+        ["git", "clone", "--branch", result["branch"], work.parent / "remote.git", candidate],
+        check=True,
+        capture_output=True,
+    )
+    _git(candidate, "config", "user.name", "Candidate")
+    _git(candidate, "config", "user.email", "candidate@example.invalid")
+    shadow = candidate / "api/v2/shadow" / generation_path
+    shadow.parent.mkdir(parents=True)
+    shadow.write_text("{}\n")
+    (candidate / "README-shadow.md").write_text("unrelated\n")
+    _git(candidate, "add", ".")
+    _git(candidate, "commit", "-m", "add shadow and unrelated paths")
+    with pytest.raises(release.ReleaseError, match="changed-file set"):
+        release.validate_pr(candidate, "example/store")
 
 
 def _branch_settings() -> dict:
@@ -719,8 +942,8 @@ def test_protection_audit_requires_exact_app_and_empty_ruleset_bypass():
     [
         (["README.md"], "feature/docs", "example/store", "none"),
         (
-            ["api/v2/discovery.json", "api/v2/generations/issue-42.json"],
-            "zoo-v2/issue-42",
+            ["api/v2/discovery.json", SAMPLE_ATTEMPT_PATH],
+            SAMPLE_ATTEMPT_BRANCH,
             "example/store",
             "issue",
         ),
@@ -747,24 +970,24 @@ def test_protected_diff_gate_classifies_authorized_changes(
     ("paths", "branch", "head_repo"),
     [
         (
-            ["api/v2/discovery.json", "api/v2/generations/issue-42.json"],
+            ["api/v2/discovery.json", SAMPLE_ATTEMPT_PATH],
             "feature/bypass",
             "example/store",
         ),
         (
-            ["api/v2/discovery.json", "api/v2/generations/issue-42.json"],
-            "zoo-v2/issue-42",
+            ["api/v2/discovery.json", SAMPLE_ATTEMPT_PATH],
+            SAMPLE_ATTEMPT_BRANCH,
             "fork/store",
         ),
         (
             ["api/v2/discovery.json"],
-            "zoo-v2/issue-42",
+            SAMPLE_ATTEMPT_BRANCH,
             "example/store",
         ),
         (
-            ["api/v2/discovery.json", "api/v2/generations/issue-42.json",
+            ["api/v2/discovery.json", SAMPLE_ATTEMPT_PATH,
              "scripts/zoo_v2_store.py"],
-            "zoo-v2/issue-42",
+            SAMPLE_ATTEMPT_BRANCH,
             "example/store",
         ),
         (
@@ -857,17 +1080,19 @@ def test_changed_path_list_rejects_nul_oversize_and_count(tmp_path, monkeypatch)
 
 def test_release_refuses_without_admin_audit_before_git_mutation(tmp_path):
     work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    branch = _issue_branch(work)
     (work / protection.AUDIT_PATH).unlink()
     with pytest.raises(release.ReleaseError, match="E_PROTECTION_AUDIT"):
         release.resume_release(
             work,
-            "api/v2/generations/issue-42.json",
+            generation_path,
             "example/store",
             42,
             create_pr=False,
             base_generation_bytes=base_bytes,
         )
-    assert "zoo-v2/issue-42" not in _git(work, "branch", "--list")
+    assert branch not in _git(work, "branch", "--list")
 
 
 def test_workflows_lock_permissions_queue_validation_and_audit():
@@ -922,6 +1147,9 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     )[1].split("Ensure bootstrap", 1)[0]
     assert "GH_TOKEN: ${{ github.token }}" not in migration
     assert "Revalidate each open Zoo v2 PR with trusted main tooling" in main_advance
+    assert "list-prs" in main_advance
+    assert "gh pr list" not in main_advance
+    assert "--limit 100" not in main_advance
     assert "statuses: write" not in main_advance
     assert "actions/create-github-app-token@v2" in main_advance
     assert "GH_TOKEN: ${{ github.token }}" not in main_advance

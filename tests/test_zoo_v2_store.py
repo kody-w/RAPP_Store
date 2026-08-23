@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from copy import deepcopy
 from pathlib import Path
 
@@ -29,7 +30,7 @@ ARTIFACT_URL = (
 LICENSE_URL = f"https://raw.githubusercontent.com/example/synthetic/{COMMIT}/LICENSE"
 CURRENT_URL = (
     f"https://raw.githubusercontent.com/kody-w/RAPP_Store/{COMMIT}/"
-    "api/v2/generations/issue-1.json"
+    "api/v2/generations/bootstrap-20260822.json"
 )
 
 
@@ -71,9 +72,9 @@ def _prototype(version="0.1.0", artifact=ARTIFACT):
 def _generation(prototypes=None, tombstones=None):
     return {
         "schema": zoo.GENERATION_SCHEMA,
-        "generation_id": "issue-1",
+        "generation_id": "bootstrap-20260822",
         "created_at": "2026-08-22T19:16:00Z",
-        "source_issue": 1,
+        "source_issue": None,
         "previous_generation_url": None,
         "previous_generation_sha256": None,
         "prototypes": prototypes or [],
@@ -176,6 +177,9 @@ class TestSecurityMutations:
 
         destructively_removed = deepcopy(result)
         destructively_removed["tombstones"] = []
+        destructively_removed["generation_id"] = zoo.generation_attempt_id(
+            destructively_removed
+        )
         with pytest.raises(zoo.StoreError, match="E_DESTRUCTIVE_DELETE"):
             zoo.validate_generation(
                 destructively_removed,
@@ -201,13 +205,13 @@ class TestSecurityMutations:
         }
         previous = _generation(tombstones=[tombstone])
         current = deepcopy(previous)
-        current["generation_id"] = "issue-9"
         current["source_issue"] = 9
         current["previous_generation_url"] = CURRENT_URL
         current["previous_generation_sha256"] = zoo.sha256_bytes(
             zoo.canonical_json(previous)
         )
         current["tombstones"][0]["reason"] = "rewritten"
+        current["generation_id"] = zoo.generation_attempt_id(current)
         with pytest.raises(zoo.StoreError, match="E_TOMBSTONE_APPEND_ONLY"):
             zoo.validate_generation(
                 current,
@@ -253,6 +257,7 @@ class TestCrudAndPointer:
             {"allowed-bot"},
             _fetcher(routes),
         ) == first
+        assert first.name.startswith("issue-2-")
         first.write_text("{}\n")
         with pytest.raises(zoo.StoreError, match="E_IMMUTABLE_GENERATION"):
             zoo.process_event(
@@ -335,17 +340,34 @@ class TestCrudAndPointer:
         with pytest.raises(zoo.StoreError, match="unknown fields"):
             zoo.validate_discovery(pointer)
 
+    @pytest.mark.parametrize("path", [
+        "prefix/api/v2/generations/bootstrap-20260822.json",
+        "api/v2/generations/bootstrap-20260822.json/suffix",
+        "api/v2/generations/../generations/bootstrap-20260822.json",
+        "api/v2/generations/not-a-generation.json",
+        "api/v2/generations/issue-2.json",
+    ])
+    def test_discovery_rejects_shadow_generation_paths(self, path):
+        pointer = {
+            "schema": zoo.DISCOVERY_SCHEMA,
+            "generation_url": (
+                f"https://raw.githubusercontent.com/kody-w/RAPP_Store/{COMMIT}/{path}"
+            ),
+        }
+        with pytest.raises(zoo.StoreError, match="E_(?:DISCOVERY|PINNED_URL)"):
+            zoo.validate_discovery(pointer)
+
     def test_pin_discovery_writes_canonical_pointer(self, tmp_path):
         output = tmp_path / "discovery.json"
         zoo.pin_discovery(
             "kody-w/RAPP_Store",
             COMMIT,
-            "api/v2/generations/issue-2.json",
+            "api/v2/generations/bootstrap-20260822.json",
             output,
         )
         pointer = json.loads(output.read_text())
         assert set(pointer) == {"schema", "generation_url"}
-        assert f"/{COMMIT}/api/v2/generations/issue-2.json" in pointer["generation_url"]
+        assert f"/{COMMIT}/api/v2/generations/bootstrap-20260822.json" in pointer["generation_url"]
         assert output.read_bytes() == zoo.canonical_json(pointer)
 
     def test_schema_documents_are_valid_json(self):
@@ -355,6 +377,40 @@ class TestCrudAndPointer:
                 (root / "schemas" / "zoo-v2" / f"{name}.schema.json").read_text()
             )
             assert schema["$schema"].endswith("2020-12/schema")
+
+    def test_generation_url_parser_and_schemas_have_pattern_parity(self):
+        root = Path(__file__).resolve().parent.parent
+        discovery_schema = json.loads(
+            (root / "schemas/zoo-v2/discovery.schema.json").read_text()
+        )
+        generation_schema = json.loads(
+            (root / "schemas/zoo-v2/generation.schema.json").read_text()
+        )
+        discovery_pattern = discovery_schema["properties"]["generation_url"]["pattern"]
+        previous_pattern = generation_schema["properties"][
+            "previous_generation_url"
+        ]["oneOf"][1]["pattern"]
+        assert discovery_pattern == previous_pattern
+        valid_attempt = "issue-2-" + "d" * 64
+        paths = [
+            "api/v2/generations/bootstrap-20260822.json",
+            f"api/v2/generations/{valid_attempt}.json",
+            "shadow/api/v2/generations/bootstrap-20260822.json",
+            "api/v2/generations/bootstrap-20260822.json/suffix",
+            "api/v2/generations/issue-2.json",
+        ]
+        for path in paths:
+            url = (
+                "https://raw.githubusercontent.com/example/store/"
+                f"{COMMIT}/{path}"
+            )
+            schema_accepts = re.fullmatch(discovery_pattern, url) is not None
+            try:
+                zoo.validate_generation_raw_url(url, "test")
+                parser_accepts = True
+            except zoo.StoreError:
+                parser_accepts = False
+            assert parser_accepts == schema_accepts
 
     def test_storefront_has_additive_prototype_loader_and_dial(self):
         page = (Path(__file__).resolve().parent.parent / "index.html").read_text()

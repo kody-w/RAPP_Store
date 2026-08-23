@@ -63,7 +63,10 @@ jobs:
             --discovery api/v2/discovery.json \
             --output-dir api/v2/generations \
             --allow-actors "$ALLOWED_ACTORS")"
-          test "$path" = "api/v2/generations/issue-${ISSUE_NUMBER}.json"
+          [[ "$path" =~ ^api/v2/generations/issue-${ISSUE_NUMBER}-[0-9a-f]{64}\.json$ ]] || {
+            echo "Unexpected attempt-specific generation path: $path" >&2
+            exit 1
+          }
           echo "path=$path" >> "$GITHUB_OUTPUT"
 
       - name: Test catalog and security boundaries

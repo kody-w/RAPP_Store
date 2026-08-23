@@ -46,11 +46,12 @@ jobs:
           latest_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
             --jq .object.sha)"
           test "$latest_main" = "$BASE_SHA" || exit 0
-          gh pr list --state open --limit 100 \
-            --json number,headRefName,headRefOid,headRepository \
-            --jq '.[] | select(.headRefName | startswith("zoo-v2/issue-")) |
-                  [.number, .headRefName, .headRefOid,
-                   .headRepository.nameWithOwner] | @tsv' |
+          python3 "$tools" list-prs \
+            --root "$GITHUB_WORKSPACE" \
+            --repository "$GITHUB_REPOSITORY" \
+            --state open |
+            jq -r '.[] | [.number, .headRefName, .headRefOid,
+                          .headRepository] | @tsv' |
           while IFS=$'\t' read -r number branch sha head_repo; do
             test -n "$sha" || continue
             state=failure

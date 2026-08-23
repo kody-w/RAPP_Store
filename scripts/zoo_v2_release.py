@@ -14,12 +14,14 @@ import configure_zoo_v2_protection as protection
 import zoo_v2_store as store
 
 
-BRANCH_RE = re.compile(r"^zoo-v2/issue-([1-9]\d*)$")
+BRANCH_RE = re.compile(r"^zoo-v2/issue-([1-9][0-9]*)-([0-9a-f]{64})$")
 BOOTSTRAP_BRANCH = "zoo-v2/bootstrap-protection"
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 MAX_CHANGED_FILES = 10_000
 MAX_CHANGED_PATH_BYTES = 1_048_576
+MAX_ISSUE_BRANCHES = 250
+MAX_PRS_PER_BRANCH = 100
 PROTECTED_EXACT_PATHS = frozenset({
     ".github/zoo-v2-protection-audit.json",
     "scripts/configure_zoo_v2_protection.py",
@@ -75,10 +77,13 @@ def inspect_pr_change(
             "E_PROTECTED_PR: protected Store paths cannot be changed from a fork"
         )
     if BRANCH_RE.fullmatch(head_ref):
-        issue_number = head_ref.removeprefix("zoo-v2/issue-")
+        branch_match = BRANCH_RE.fullmatch(head_ref)
+        assert branch_match is not None
+        issue_number = branch_match.group(1)
+        generation_id = head_ref.removeprefix("zoo-v2/")
         allowed = {
             "api/v2/discovery.json",
-            f"api/v2/generations/issue-{issue_number}.json",
+            f"api/v2/generations/{generation_id}.json",
         }
         unexpected = sorted(set(protected) - allowed)
         if unexpected:
@@ -287,31 +292,85 @@ def _remote_issue_branches(root: Path, remote: str) -> set[str]:
         branch = ref.removeprefix("refs/heads/")
         if BRANCH_RE.fullmatch(branch):
             branches.add(branch)
+    if len(branches) > MAX_ISSUE_BRANCHES:
+        raise ReleaseError(
+            f"E_QUEUE_INCOMPLETE: more than {MAX_ISSUE_BRANCHES} retained issue branches"
+        )
     return branches
 
 
-def list_catalog_prs(root: Path, repository: str | None = None) -> list[dict]:
-    repo_args = ["--repo", repository] if repository else []
-    value = _gh_json(
-        root,
-        "pr",
-        "list",
-        *repo_args,
-        "--state",
-        "all",
-        "--limit",
-        "100",
-        "--json",
-        "number,url,state,mergedAt,headRefName,baseRefName,title",
+def _normalize_catalog_pr(value: object, repository: str, branch: str) -> dict:
+    if not isinstance(value, dict):
+        raise ReleaseError("E_GITHUB_RESPONSE: expected pull request objects")
+    head = value.get("head")
+    base = value.get("base")
+    if not isinstance(head, dict) or not isinstance(base, dict):
+        raise ReleaseError("E_GITHUB_RESPONSE: pull request refs are incomplete")
+    head_repo = head.get("repo")
+    head_repo_name = head_repo.get("full_name") if isinstance(head_repo, dict) else None
+    if head.get("ref") != branch or head_repo_name != repository:
+        raise ReleaseError("E_GITHUB_RESPONSE: exact branch query returned another head")
+    required = {
+        "number": value.get("number"),
+        "url": value.get("html_url"),
+        "state": value.get("state"),
+        "mergedAt": value.get("merged_at"),
+        "headRefName": head.get("ref"),
+        "headRefOid": head.get("sha"),
+        "headRepository": head_repo_name,
+        "baseRefName": base.get("ref"),
+        "title": value.get("title"),
+    }
+    if (
+        not isinstance(required["number"], int)
+        or not isinstance(required["url"], str)
+        or required["state"] not in {"open", "closed"}
+        or not isinstance(required["headRefOid"], str)
+        or not isinstance(required["baseRefName"], str)
+    ):
+        raise ReleaseError("E_GITHUB_RESPONSE: pull request fields are incomplete")
+    required["state"] = str(required["state"]).upper()
+    return required
+
+
+def list_catalog_prs(
+    root: Path,
+    repository: str,
+    branches: set[str] | None = None,
+) -> list[dict]:
+    """Query every retained issue branch exactly; never scan a truncated PR window."""
+    _validate_repository(repository)
+    retained = sorted(
+        _remote_issue_branches(root, "origin") if branches is None else branches
     )
-    if not isinstance(value, list):
-        raise ReleaseError("E_GITHUB_RESPONSE: expected a pull request array")
-    return [
-        item for item in value
-        if isinstance(item, dict)
-        and isinstance(item.get("headRefName"), str)
-        and BRANCH_RE.fullmatch(item["headRefName"])
-    ]
+    if len(retained) > MAX_ISSUE_BRANCHES or any(
+        not BRANCH_RE.fullmatch(branch) for branch in retained
+    ):
+        raise ReleaseError("E_QUEUE_INCOMPLETE: invalid or oversized retained branch set")
+    owner = repository.split("/", 1)[0]
+    result = []
+    for branch in retained:
+        value = _gh_json(
+            root,
+            "api",
+            "--method",
+            "GET",
+            f"repos/{repository}/pulls",
+            "-f",
+            "state=all",
+            "-f",
+            f"head={owner}:{branch}",
+            "-f",
+            f"per_page={MAX_PRS_PER_BRANCH}",
+        )
+        if not isinstance(value, list):
+            raise ReleaseError("E_GITHUB_RESPONSE: expected a pull request array")
+        if len(value) >= MAX_PRS_PER_BRANCH:
+            raise ReleaseError(
+                f"E_QUEUE_INCOMPLETE: at least {MAX_PRS_PER_BRANCH} PRs exist for {branch}"
+            )
+        result.extend(_normalize_catalog_pr(item, repository, branch) for item in value)
+    return result
 
 
 def validate_queue(
@@ -320,10 +379,17 @@ def validate_queue(
     pull_requests: list[dict],
 ) -> None:
     """Permit one issue lane; merged branches are durable history, not open lanes."""
-    branch = f"zoo-v2/issue-{issue_number}"
+    def belongs_to_issue(candidate: str) -> bool:
+        match = BRANCH_RE.fullmatch(candidate)
+        return match is not None and int(match.group(1)) == issue_number
+
     open_prs = [
         pr for pr in pull_requests
-        if pr.get("state") == "OPEN" and pr.get("headRefName") != branch
+        if pr.get("state") == "OPEN"
+        and (
+            not isinstance(pr.get("headRefName"), str)
+            or not belongs_to_issue(pr["headRefName"])
+        )
     ]
     if open_prs:
         blocked = ", ".join(f"#{pr.get('number')}" for pr in open_prs)
@@ -331,7 +397,9 @@ def validate_queue(
 
     by_branch = {pr.get("headRefName"): pr for pr in pull_requests}
     incomplete = []
-    for sibling in sorted(remote_branches - {branch}):
+    for sibling in sorted(
+        candidate for candidate in remote_branches if not belongs_to_issue(candidate)
+    ):
         prior = by_branch.get(sibling)
         if prior is None or not prior.get("mergedAt"):
             incomplete.append(sibling)
@@ -389,6 +457,7 @@ def ensure_permanent_tag(
     generation_commit: str,
     *,
     create: bool = True,
+    expected_main: str | None = None,
 ) -> str:
     tag = store.generation_tag_name(generation["generation_id"])
     message = store.generation_tag_message(generation, generation_path)
@@ -404,15 +473,12 @@ def ensure_permanent_tag(
         _git(
             root,
             "fetch",
-            "--force",
             remote,
             f"refs/tags/{tag}:refs/tags/{tag}",
         )
     elif not create:
         raise ReleaseError(f"E_PERMANENT_REF: missing durable annotated tag {tag}")
-    elif _tag_target(root, tag) is not None:
-        raise ReleaseError(f"E_REF_COLLISION: local {tag} exists but durable remote ref does not")
-    else:
+    elif _tag_target(root, tag) is None:
         _git(root, "tag", "-a", tag, generation_commit, "-F", "-", input_text=message)
 
     if _git(root, "cat-file", "-t", f"refs/tags/{tag}") != "tag":
@@ -423,7 +489,30 @@ def ensure_permanent_tag(
     if actual_message.rstrip("\n") != message.rstrip("\n"):
         raise ReleaseError(f"E_REF_COLLISION: {tag} annotation content/provenance differs")
     if not remote_exists:
-        _git(root, "push", remote, f"refs/tags/{tag}:refs/tags/{tag}")
+        if expected_main is None:
+            _git(root, "push", remote, f"refs/tags/{tag}:refs/tags/{tag}")
+        else:
+            if not COMMIT_SHA_RE.fullmatch(expected_main):
+                raise ReleaseError("E_BASE: expected current main must be a full commit SHA")
+            publication = _run(
+                [
+                    "git",
+                    "push",
+                    "--atomic",
+                    f"--force-with-lease=refs/heads/main:{expected_main}",
+                    remote,
+                    f"refs/tags/{tag}:refs/tags/{tag}",
+                    f"{expected_main}:refs/heads/main",
+                ],
+                cwd=root,
+                check=False,
+            )
+            if publication.returncode:
+                detail = publication.stderr.strip() or publication.stdout.strip()
+                raise ReleaseError(
+                    "E_STALE_PREDECESSOR: current main changed before permanent "
+                    f"tag publication: {detail}"
+                )
     return tag
 
 
@@ -455,7 +544,7 @@ def _validate_expected_predecessor(
 
 def _ensure_pr(root: Path, repository: str, issue_number: int, branch: str) -> dict:
     prs = [
-        pr for pr in list_catalog_prs(root, repository)
+        pr for pr in list_catalog_prs(root, repository, {branch})
         if pr.get("headRefName") == branch
     ]
     if len(prs) > 1:
@@ -533,6 +622,63 @@ def _ensure_pr(root: Path, repository: str, issue_number: int, branch: str) -> d
     return pr
 
 
+def _archive_prior_issue_attempts(
+    root: Path,
+    remote: str,
+    issue_number: int,
+    current_branch: str,
+    remote_branches: set[str],
+) -> list[str]:
+    """Verify and permanently tag retained attempts before permitting a retry."""
+    archived = []
+    for branch in sorted(remote_branches - {current_branch}):
+        match = BRANCH_RE.fullmatch(branch)
+        if match is None or int(match.group(1)) != issue_number:
+            continue
+        generation_id = branch.removeprefix("zoo-v2/")
+        generation_path = f"api/v2/generations/{generation_id}.json"
+        remote_revision = f"refs/remotes/{remote}/{branch}"
+        _git(
+            root,
+            "fetch",
+            remote,
+            f"refs/heads/{branch}:{remote_revision}",
+        )
+        generation_bytes = _show(root, remote_revision, generation_path)
+        if generation_bytes is None:
+            raise ReleaseError(
+                f"E_ARCHIVE_ATTEMPT: {branch} has no exact generation path"
+            )
+        try:
+            generation = json.loads(generation_bytes)
+        except json.JSONDecodeError as exc:
+            raise ReleaseError(
+                f"E_ARCHIVE_ATTEMPT: {branch} generation is invalid JSON"
+            ) from exc
+        store.validate_generation(generation, network=False)
+        if (
+            generation.get("source_issue") != issue_number
+            or generation.get("generation_id") != generation_id
+            or store.canonical_json(generation) != generation_bytes
+        ):
+            raise ReleaseError(
+                f"E_ARCHIVE_ATTEMPT: {branch} generation provenance differs"
+            )
+        generation_commit = _generation_commit(
+            root, remote_revision, generation_path
+        )
+        archived.append(
+            ensure_permanent_tag(
+                root,
+                remote,
+                generation,
+                generation_path,
+                generation_commit,
+            )
+        )
+    return archived
+
+
 def resume_release(
     root: Path,
     generation_path: str,
@@ -559,20 +705,31 @@ def resume_release(
         raise ReleaseError("E_NON_CANONICAL_JSON: expected issue generation is not canonical")
     if generation.get("source_issue") != issue_number:
         raise ReleaseError("E_ISSUE_MISMATCH: generation source_issue differs")
-    if generation.get("generation_id") != f"issue-{issue_number}" or path.stem != (
-        f"issue-{issue_number}"
+    generation_id = generation.get("generation_id")
+    if (
+        not isinstance(generation_id, str)
+        or not generation_id.startswith(f"issue-{issue_number}-")
+        or path.as_posix() != f"api/v2/generations/{generation_id}.json"
     ):
         raise ReleaseError("E_ISSUE_MISMATCH: generation id/path differs from issue")
 
-    branch = f"zoo-v2/issue-{issue_number}"
+    branch = f"zoo-v2/{generation_id}"
     tag = store.generation_tag_name(generation["generation_id"])
     _git(root, "fetch", "--prune", remote, "main")
+    remote_branches = _remote_issue_branches(root, remote)
     prs = (
-        list_catalog_prs(root, repository)
+        list_catalog_prs(root, repository, remote_branches)
         if pull_requests is None and create_pr
         else (pull_requests or [])
     )
-    validate_queue(issue_number, _remote_issue_branches(root, remote), prs)
+    validate_queue(issue_number, remote_branches, prs)
+    archived_tags = _archive_prior_issue_attempts(
+        root,
+        remote,
+        issue_number,
+        branch,
+        remote_branches,
+    )
     base_discovery_bytes = _validate_expected_predecessor(
         root,
         generation,
@@ -580,7 +737,7 @@ def resume_release(
         base_generation_bytes=base_generation_bytes,
     )
 
-    branch_exists = branch in _remote_issue_branches(root, remote)
+    branch_exists = branch in remote_branches
     local_expected = root / path
     if branch_exists:
         tracked = _run(
@@ -619,11 +776,36 @@ def resume_release(
     if stop_after == "generation-push":
         raise RuntimeError("simulated failure after generation push")
 
-    ensure_permanent_tag(root, remote, generation, path.as_posix(), generation_commit)
+    _git(root, "fetch", "--prune", remote, "main")
+    base_discovery_bytes = _validate_expected_predecessor(
+        root,
+        generation,
+        remote=remote,
+        base_generation_bytes=base_generation_bytes,
+    )
+    current_main = _git(root, "rev-parse", f"refs/remotes/{remote}/main")
+    if stage_hook:
+        stage_hook("before-tag-push")
+    ensure_permanent_tag(
+        root,
+        remote,
+        generation,
+        path.as_posix(),
+        generation_commit,
+        expected_main=current_main,
+    )
     if stage_hook:
         stage_hook("tag-push")
     if stop_after == "tag-push":
         raise RuntimeError("simulated failure after tag push")
+
+    _git(root, "fetch", "--prune", remote, "main")
+    base_discovery_bytes = _validate_expected_predecessor(
+        root,
+        generation,
+        remote=remote,
+        base_generation_bytes=base_generation_bytes,
+    )
 
     expected_discovery = store.canonical_json({
         "schema": store.DISCOVERY_SCHEMA,
@@ -657,6 +839,7 @@ def resume_release(
         "branch": branch,
         "tag": tag,
         "generation_commit": generation_commit,
+        "archived_tags": archived_tags,
         "pr": pr,
     }
 
@@ -668,12 +851,16 @@ def validate_pr(root: Path, repository: str, remote: str = "origin") -> None:
     base_bytes = _show(root, f"refs/remotes/{remote}/main", "api/v2/discovery.json")
     if base_bytes is None:
         raise ReleaseError("E_BASE: current origin/main discovery is missing")
+    base_sha = _git(root, "rev-parse", f"refs/remotes/{remote}/main")
+    head_sha = _git(root, "rev-parse", "HEAD")
     base_path = root / ".zoo-v2-main-discovery.json"
     base_path.write_bytes(base_bytes)
     try:
         discovery = json.loads((root / "api/v2/discovery.json").read_text())
         candidate_url = store.validate_discovery(discovery)
-        match = store.validate_pinned_raw_url(candidate_url, "discovery.generation_url")
+        match = store.validate_generation_raw_url(
+            candidate_url, "discovery.generation_url"
+        )
         if f"{match.group('owner')}/{match.group('repo')}" != repository:
             raise ReleaseError("E_REPOSITORY: discovery points outside this repository")
         commit = match.group("commit")
@@ -687,6 +874,32 @@ def validate_pr(root: Path, repository: str, remote: str = "origin") -> None:
             )
         _git(root, "merge-base", "--is-ancestor", commit, "HEAD")
         generation = json.loads(candidate_path.read_text())
+        generation_id = generation.get("generation_id")
+        source_issue = generation.get("source_issue")
+        if (
+            not isinstance(source_issue, int)
+            or not isinstance(generation_id, str)
+            or generation_path
+            != f"api/v2/generations/{generation_id}.json"
+            or not generation_id.startswith(f"issue-{source_issue}-")
+        ):
+            raise ReleaseError(
+                "E_PROTECTED_PR: candidate must use its issue's exact generation path"
+            )
+        changed = set(complete_changed_files(root, base_sha, head_sha))
+        expected_changed = {
+            "api/v2/discovery.json",
+            generation_path,
+        }
+        if changed != expected_changed:
+            raise ReleaseError(
+                "E_PROTECTED_PR: candidate changed-file set must be exactly "
+                + ", ".join(sorted(expected_changed))
+            )
+        if _generation_commit(root, "HEAD", generation_path) != commit:
+            raise ReleaseError(
+                "E_GENERATION_COMMIT: discovery must pin the introducing commit"
+            )
         ensure_permanent_tag(
             root,
             remote,
@@ -760,7 +973,7 @@ def audit_refs(
         )
         if not refs:
             raise ReleaseError(f"E_PERMANENT_REF: missing {tag}")
-        _git(root, "fetch", "--force", remote, f"refs/tags/{tag}:refs/tags/{tag}")
+        _git(root, "fetch", remote, f"refs/tags/{tag}:refs/tags/{tag}")
         commit = _tag_target(root, tag)
         if commit is None:
             raise ReleaseError(f"E_PERMANENT_REF: {tag} does not resolve to a commit")
@@ -839,6 +1052,12 @@ def main(argv: list[str] | None = None) -> int:
     validate.add_argument("--repository", required=True)
     validate.add_argument("--remote", default="origin")
 
+    list_prs = sub.add_parser("list-prs")
+    list_prs.add_argument("--root", default=".")
+    list_prs.add_argument("--repository", required=True)
+    list_prs.add_argument("--remote", default="origin")
+    list_prs.add_argument("--state", choices=("all", "open"), default="all")
+
     gate = sub.add_parser("gate-pr")
     gate.add_argument("--root", default=".")
     gate.add_argument("--base-sha", required=True)
@@ -883,6 +1102,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "validate-pr":
             validate_pr(root, args.repository, args.remote)
             print("Zoo v2 PR is based on current main and permanently protected.")
+        elif args.command == "list-prs":
+            branches = _remote_issue_branches(root, args.remote)
+            prs = list_catalog_prs(root, args.repository, branches)
+            if args.state == "open":
+                prs = [pr for pr in prs if pr.get("state") == "OPEN"]
+            print(json.dumps(prs, sort_keys=True))
         elif args.command == "gate-pr":
             mode = inspect_pr_change(
                 complete_changed_files(root, args.base_sha, args.head_sha),
