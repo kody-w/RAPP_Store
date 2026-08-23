@@ -3,6 +3,9 @@ name: Zoo v2 catalog issue to PR
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
 
 permissions:
   contents: write
@@ -10,14 +13,12 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: zoo-v2-catalog-integration-queue
+  # Contention coalescing only. The atomic remote lock and reconciliation are authoritative.
+  group: zoo-v2-catalog-integration-coalescing
   cancel-in-progress: false
 
 jobs:
   catalog-pr:
-    if: |
-      github.event.label.name == 'zoo-v2-eligible' &&
-      startsWith(github.event.issue.title, '[ZOO V2 ')
     environment: zoo-v2-validator
     runs-on: ubuntu-latest
     steps:
@@ -35,7 +36,19 @@ jobs:
           git config user.name "rapp-store-bot"
           git config user.email "rapp-store-bot@users.noreply.github.com"
 
+      - name: Reconcile complete eligible issue queue
+        id: reconcile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/zoo_v2_release.py reconcile \
+            --repository "$GITHUB_REPOSITORY" \
+            --event-output "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json" \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Require committed admin protection audit
+        if: steps.reconcile.outputs.selected == 'true'
         env:
           VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
         run: |
@@ -45,21 +58,23 @@ jobs:
             --validator-app-id "$VALIDATOR_APP_ID"
 
       - name: Ensure bootstrap has a permanent ref
+        if: steps.reconcile.outputs.selected == 'true'
         run: |
           python3 scripts/zoo_v2_release.py protect-bootstrap \
             --repository "$GITHUB_REPOSITORY"
 
       - name: Build exact issue-derived generation from current main
+        if: steps.reconcile.outputs.selected == 'true'
         id: generation
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ steps.reconcile.outputs.issue_number }}
           ALLOWED_ACTORS: ${{ github.repository_owner }},${{ vars.RAPP_ZOO_V2_ACTORS }}
         run: |
           set -euo pipefail
           git fetch --prune origin main
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
           path="$(python3 scripts/zoo_v2_store.py apply-issue \
-            --event-path "$GITHUB_EVENT_PATH" \
+            --event-path "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json" \
             --discovery api/v2/discovery.json \
             --output-dir api/v2/generations \
             --allow-actors "$ALLOWED_ACTORS")"
@@ -70,14 +85,16 @@ jobs:
           echo "path=$path" >> "$GITHUB_OUTPUT"
 
       - name: Test catalog and security boundaries
+        if: steps.reconcile.outputs.selected == 'true'
         run: |
           python3 -m pytest tests -q
           python3 scripts/zoo_v2_store.py validate-tree --root .
 
       - name: Resume serialized generation release and PR
+        if: steps.reconcile.outputs.selected == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ steps.reconcile.outputs.issue_number }}
           GENERATION_PATH: ${{ steps.generation.outputs.path }}
         run: |
           set -euo pipefail

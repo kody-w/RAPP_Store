@@ -125,21 +125,67 @@ the issue author is in the deterministic actor allowlist: the repository
 owner plus the comma-separated `RAPP_ZOO_V2_ACTORS` repository variable.
 Changing labels does not bypass actor validation.
 
-The release lane is serialized. GitHub Actions concurrency serializes active
-runs, and the release script also rejects a new issue while any different
-`zoo-v2/issue-*` PR or unfinished remote issue branch exists. A rerun for the
-same attempt is allowed only when its generation bytes, predecessor URL/digest,
-branch, tag target and annotation, discovery pointer, and PR state all match.
-It resumes after the last durable stage. If `main` advanced, the retained stale
-attempt is validated and archived under its own permanent tag, then a rerun
-deterministically derives a new generation, branch, and tag from current
-discovery. No tag is deleted, moved, or force-fetched. PR creation and the
-issue backlink comment are find-or-create.
+The release lane is serialized by the atomic remote
+`refs/heads/zoo-v2/release-lock` ref. The ref points to a unique metadata commit
+that binds repository, issue, generation attempt, workflow run, actor, and a
+stable rerun lease key. A normal push can create the absent ref exactly once;
+all concurrent creators but one are rejected. After acquisition, and again
+immediately before every branch or tag publication, the release script
+re-fetches `main` and repeats complete queue and predecessor validation.
+Cleanup uses `--force-with-lease` against the exact owner commit in `finally`,
+so it cannot delete a replacement lock. A process crash deliberately leaves a
+detectable lock. The same workflow run and issue attempt can adopt that exact
+lease on rerun.
+
+GitHub Actions `concurrency` is only a contention-coalescing optimization. It
+is not a queue and is not authoritative. The release script also rejects a new
+issue while any different `zoo-v2/issue-*` PR or unfinished remote issue branch
+exists. A rerun for the same attempt is allowed only when its generation bytes,
+predecessor URL/digest, branch, tag target and annotation, discovery pointer,
+and PR state all match. It resumes after the last durable stage. If `main`
+advanced, the retained stale attempt is validated and archived under its own
+permanent tag, then a rerun deterministically derives a new generation, branch,
+and tag from current discovery. No tag is deleted, moved, or force-fetched. PR
+creation, the issue backlink, and the `zoo-v2-processed` audit comment marker
+are find-or-create. The processed marker is added only after an exact PR exists.
 
 Queue inspection first enumerates the bounded set of retained issue branches,
 then queries GitHub for each exact head branch. It never relies on a fixed
 repository-wide PR window. Malformed responses, a branch/PR bound, or an API
 failure fails closed.
+
+The catalog workflow runs for issue-label notifications, manual dispatch, and
+twice-hourly schedule. Every run independently paginates all open
+`zoo-v2-eligible` issues, with an explicit 500-issue bound and one extra page
+probe. It reconciles processed, exact-PR, closed-unmerged, and explicitly
+`zoo-v2-tombstoned` states, then selects the oldest unprocessed command by
+creation timestamp and issue number. It never requires an issue number from
+the triggering event. Thus coalesced/dropped notifications cannot lose a
+command: scheduled runs keep selecting the next item after the current PR
+merges. Incomplete pages, malformed fields, premature processed labels,
+multiple open PRs, and unaudited closed-unmerged PRs fail closed. Labels and
+comments are add-only audit records.
+
+Stale-lock recovery is never automatic. A repository administrator must invoke
+`zoo_v2_release.py recover-lock` with the exact observed owner SHA, their
+authenticated actor, and a reason. Recovery verifies administrator permission,
+requires the recorded Actions run to be completed, performs complete exact-head
+PR inspection, and refuses if the run or an owner PR may still be active. It
+writes an issue audit comment (or a dedicated bootstrap recovery issue) before
+deleting the exact lease. The token used for recovery therefore needs only
+repository administration, Actions read, issue write, PR read, and contents
+write capabilities; routine catalog runs retain their narrower declared
+permissions.
+
+```bash
+# Deliberate break-glass action after inspecting the lock commit and owner run.
+export GITHUB_ACTOR="$(gh api user --jq .login)"
+python3 scripts/zoo_v2_release.py recover-lock \
+  --repository owner/repo \
+  --expected-owner-sha <exact-40-character-lock-commit> \
+  --admin-actor "$GITHUB_ACTOR" \
+  --reason "Audited reason the completed owner cannot clean up"
+```
 
 Issue JSON is never passed to a shell, template evaluator, Python importer,
 `eval`, or `exec`. Unknown fields and unknown operations are rejected.
@@ -148,18 +194,22 @@ Issue JSON is never passed to a shell, template evaluator, Python importer,
 
 `.github/workflows/zoo-v2-catalog-pr.yml` creates a reviewable branch:
 
-1. Parse and validate the eligible issue, current generation, URLs, hashes,
+1. Reconcile the complete eligible issue set and select its oldest pending
+   command, independent of the triggering event payload.
+2. Parse and validate the eligible issue, current generation, URLs, hashes,
    license evidence, operation, allowlist, and tombstone history.
-2. Write and test one new immutable generation.
-3. Commit and push that generation; capture the resulting full commit SHA.
-4. Re-fetch and revalidate current `main`, then create and atomically push its
+3. Write and test one new immutable generation.
+4. Acquire the atomic repository release lock, re-fetch current `main`, and
+   repeat complete queue and predecessor validation.
+5. Commit and push that generation; capture the resulting full commit SHA.
+6. Re-fetch and revalidate current `main`, then create and atomically push its
    unique annotated permanent tag under a compare-and-swap lease on that exact
    main SHA. A collision is accepted only when its peeled commit and complete
    provenance annotation are exact.
-5. Rewrite only `api/v2/discovery.json` to name the new generation at that
+7. Rewrite only `api/v2/discovery.json` to name the new generation at that
    exact commit.
-6. Validate the local tree, commit and push the pointer separately, and
-   find or create the PR and issue comment.
+8. Validate the local tree, commit and push the pointer separately, find or
+   create the PR and issue markers, and release only the exact lock lease.
 
 This ordering avoids a self-referential Git hash. The generation commit exists
 before its SHA is placed in discovery. The workflow never pushes catalog

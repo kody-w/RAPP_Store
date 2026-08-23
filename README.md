@@ -81,7 +81,12 @@ SHA-256 verified.
 
 Store v2 writes are serialized through one restartable issue branch at a time.
 Every attempt derives content/predecessor-bound generation, branch, and tag
-names. Every generation commit receives an annotated
+names. An atomic create-only remote lock ref, carrying workflow/issue/attempt
+owner metadata, is the repository-wide authority; Actions concurrency only
+coalesces contention and is not a queue. Exact-owner lease cleanup runs in
+`finally`, while crashes leave an explicit lock requiring audited admin-only
+recovery after the owner run and PR are proven inactive. Every generation
+commit receives an annotated
 `zoo-v2-generation-*` permanent tag before discovery can point at it. Required
 current-main validation checks both the predecessor URL and exact digest, and
 the scheduled audit proves tag and raw reachability independent of the PR
@@ -100,6 +105,11 @@ Immediately before a tag is published, release re-fetches and revalidates
 `main`, then uses an atomic main lease with the tag push. A stale retained
 attempt is verified and permanently archived; a rerun derives a different
 attempt from the new predecessor rather than moving or deleting a tag.
+Label, manual, and scheduled reconciliation fully paginate the bounded open
+eligible issue set, repair add-only PR/processed markers, and select the oldest
+unprocessed command without relying on a trigger issue number. Scheduled runs
+therefore drain coalesced or dropped issue notifications in order; incomplete
+API scans and contradictory markers fail closed.
 
 Create, update, and deprecate commands arrive as structured, inert GitHub
 Issue JSON. An actor allowlist and deterministic validator turn an eligible

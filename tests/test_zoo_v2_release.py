@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -221,6 +222,50 @@ def _advance_main(remote: Path, racer: Path) -> tuple[bytes, str]:
     )
 
 
+def _write_issue_attempt(
+    work: Path,
+    issue_number: int,
+    base_bytes: bytes,
+    *,
+    version: str,
+) -> str:
+    discovery = json.loads((work / "api/v2/discovery.json").read_text())
+    base_url = store.validate_discovery(discovery)
+    generation = {
+        "schema": store.GENERATION_SCHEMA,
+        "created_at": f"2026-08-22T20:{issue_number % 60:02d}:00Z",
+        "source_issue": issue_number,
+        "previous_generation_url": base_url,
+        "previous_generation_sha256": store.sha256_bytes(base_bytes),
+        "prototypes": [_prototype(version)],
+        "tombstones": [],
+    }
+    generation["generation_id"] = store.generation_attempt_id(generation)
+    relative = f"api/v2/generations/{generation['generation_id']}.json"
+    path = work / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(store.canonical_json(generation))
+    return relative
+
+
+def _eligible_issue(number: int, *, labels: list[str] | None = None) -> dict:
+    label_names = labels or [release.ELIGIBLE_LABEL]
+    return {
+        "number": number,
+        "title": f"[ZOO V2 UPDATE] synthetic-{number}",
+        "state": "open",
+        "created_at": f"2026-08-22T20:{number:02d}:00Z",
+        "updated_at": f"2026-08-22T20:{number:02d}:01Z",
+        "body": "```json\n{}\n```",
+        "user": {"login": "example"},
+        "labels": [
+            {"name": name}
+            for name in label_names
+        ],
+        "_label_names": sorted(label_names),
+    }
+
+
 @pytest.mark.parametrize(
     "stop_after",
     ["generation-push", "tag-push", "discovery-push"],
@@ -422,6 +467,363 @@ def test_queue_rejects_open_pr_or_unfinished_sibling():
         "mergedAt": "2026-08-22T20:00:00Z",
         "headRefName": branch,
     }])
+
+
+def test_atomic_release_lock_resumes_exact_owner_and_cleans_exact_lease(tmp_path):
+    work, _, _ = _seed_remote(tmp_path)
+    generation_id = Path(_issue_relative(work)).stem
+    owner = release.release_lock_owner(
+        "example/store",
+        42,
+        generation_id,
+        workflow_run_id="1001",
+        actor="store-bot",
+        workflow="catalog",
+    )
+    contender = release.release_lock_owner(
+        "example/store",
+        42,
+        generation_id,
+        workflow_run_id="1002",
+        actor="store-bot",
+        workflow="catalog",
+    )
+
+    lease = release.acquire_release_lock(work, "origin", owner)
+    resumed = release.acquire_release_lock(work, "origin", owner)
+    assert resumed["owner_sha"] == lease["owner_sha"]
+    assert release._remote_ref_sha(work, "origin", release.RELEASE_LOCK_REF) == (
+        lease["owner_sha"]
+    )
+    with pytest.raises(release.ReleaseError, match="E_RELEASE_LOCKED.*1001"):
+        release.acquire_release_lock(work, "origin", contender)
+    with pytest.raises(release.ReleaseError, match="E_RELEASE_LOCK_LEASE"):
+        release.release_release_lock(
+            work,
+            "origin",
+            {"owner_sha": "f" * 40},
+        )
+    assert release._remote_ref_sha(work, "origin", release.RELEASE_LOCK_REF) == (
+        lease["owner_sha"]
+    )
+    release.release_release_lock(work, "origin", lease)
+    assert release._remote_ref_sha(work, "origin", release.RELEASE_LOCK_REF) is None
+
+
+def test_two_remote_releasers_create_exactly_one_lane_then_queue_blocks(tmp_path):
+    first, base_bytes, _ = _seed_remote(tmp_path)
+    first_path = _issue_relative(first)
+    remote = tmp_path / "remote.git"
+    second = tmp_path / "second"
+    subprocess.run(["git", "clone", remote, second], check=True, capture_output=True)
+    _git(second, "config", "user.name", "Second Store Bot")
+    _git(second, "config", "user.email", "second@example.invalid")
+    second_path = _write_issue_attempt(second, 43, base_bytes, version="0.3.0")
+    acquired = threading.Event()
+    finish = threading.Event()
+    first_result = {}
+    first_errors = []
+    pr_calls = []
+
+    def hold_after_lock(stage):
+        if stage == "lock-acquired":
+            acquired.set()
+            assert finish.wait(timeout=10)
+
+    def ensure_pr(_root, _repository, issue_number, branch):
+        pr_calls.append((issue_number, branch))
+        return {
+            "number": 7,
+            "url": "https://github.com/example/store/pull/7",
+            "state": "OPEN",
+            "mergedAt": None,
+            "headRefName": branch,
+            "baseRefName": "main",
+        }
+
+    def run_first():
+        try:
+            first_result.update(release.resume_release(
+                first,
+                first_path,
+                "example/store",
+                42,
+                pull_requests=[],
+                base_generation_bytes=base_bytes,
+                stage_hook=hold_after_lock,
+                pr_ensurer=ensure_pr,
+                lock_owner=release.release_lock_owner(
+                    "example/store",
+                    42,
+                    Path(first_path).stem,
+                    workflow_run_id="2001",
+                    actor="store-bot",
+                    workflow="catalog",
+                ),
+            ))
+        except Exception as exc:  # pragma: no cover - asserted below
+            first_errors.append(exc)
+
+    thread = threading.Thread(target=run_first)
+    thread.start()
+    assert acquired.wait(timeout=10)
+    with pytest.raises(release.ReleaseError, match="E_RELEASE_LOCKED.*2001"):
+        release.resume_release(
+            second,
+            second_path,
+            "example/store",
+            43,
+            create_pr=False,
+            base_generation_bytes=base_bytes,
+            lock_owner=release.release_lock_owner(
+                "example/store",
+                43,
+                Path(second_path).stem,
+                workflow_run_id="2002",
+                actor="store-bot",
+                workflow="catalog",
+            ),
+        )
+    finish.set()
+    thread.join(timeout=20)
+    assert not thread.is_alive()
+    assert first_errors == []
+    assert first_result["pr"]["number"] == 7
+    assert pr_calls == [(42, first_result["branch"])]
+    assert release._remote_ref_sha(first, "origin", release.RELEASE_LOCK_REF) is None
+
+    with pytest.raises(release.ReleaseError, match="E_QUEUE_BUSY.*issue-42"):
+        release.resume_release(
+            second,
+            second_path,
+            "example/store",
+            43,
+            create_pr=False,
+            base_generation_bytes=base_bytes,
+            lock_owner=release.release_lock_owner(
+                "example/store",
+                43,
+                Path(second_path).stem,
+                workflow_run_id="2002",
+                actor="store-bot",
+                workflow="catalog",
+            ),
+        )
+    tags = _git(first, "ls-remote", "--tags", "origin", "refs/tags/zoo-v2-generation-issue-*")
+    assert len([line for line in tags.splitlines() if "^{}" not in line]) == 1
+    assert release._remote_ref_sha(first, "origin", release.RELEASE_LOCK_REF) is None
+
+
+def test_stale_lock_recovery_is_admin_audited_and_fails_closed(
+    tmp_path, monkeypatch
+):
+    work, _, _ = _seed_remote(tmp_path)
+    generation_id = Path(_issue_relative(work)).stem
+    owner = release.release_lock_owner(
+        "example/store",
+        42,
+        generation_id,
+        workflow_run_id="3001",
+        actor="store-bot",
+        workflow="catalog",
+    )
+    lease = release.acquire_release_lock(work, "origin", owner)
+    monkeypatch.setenv("GITHUB_ACTOR", "admin-user")
+    audit_calls = []
+
+    def github_json(_root, *args):
+        if args[-1] == "user":
+            return {"login": "admin-user"}
+        target = next((arg for arg in args if arg.startswith("repos/")), "")
+        if target.endswith("/collaborators/admin-user/permission"):
+            return {"permission": "admin", "user": {"login": "admin-user"}}
+        if target.endswith("/actions/runs/3001"):
+            return {"id": 3001, "status": "completed", "conclusion": "failure"}
+        if target.endswith("/pulls"):
+            return []
+        raise AssertionError(args)
+
+    monkeypatch.setattr(release, "_gh_json", github_json)
+    monkeypatch.setattr(
+        release,
+        "_gh",
+        lambda _root, *args: audit_calls.append(args) or "",
+    )
+    monkeypatch.setattr(
+        release,
+        "_gh_json",
+        lambda _root, *args: {"login": "different-user"}
+        if args[-1] == "user"
+        else github_json(_root, *args),
+    )
+    with pytest.raises(release.ReleaseError, match="administrator's user token"):
+        release.recover_stale_release_lock(
+            work,
+            "example/store",
+            lease["owner_sha"],
+            "Runner terminated before finally cleanup.",
+            "admin-user",
+        )
+    monkeypatch.setattr(release, "_gh_json", github_json)
+    result = release.recover_stale_release_lock(
+        work,
+        "example/store",
+        lease["owner_sha"],
+        "Runner terminated before finally cleanup.",
+        "admin-user",
+    )
+    assert result["recovered"] == lease["owner_sha"]
+    assert release._remote_ref_sha(work, "origin", release.RELEASE_LOCK_REF) is None
+    assert any("zoo-v2-lock-recovery" in " ".join(call) for call in audit_calls)
+
+    active_lease = release.acquire_release_lock(work, "origin", owner)
+
+    def active_json(_root, *args):
+        if args[-1] == "user":
+            return {"login": "admin-user"}
+        target = next((arg for arg in args if arg.startswith("repos/")), "")
+        if target.endswith("/collaborators/admin-user/permission"):
+            return {"permission": "admin", "user": {"login": "admin-user"}}
+        if target.endswith("/actions/runs/3001"):
+            return {"id": 3001, "status": "in_progress", "conclusion": None}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(release, "_gh_json", active_json)
+    with pytest.raises(release.ReleaseError, match="may still be active"):
+        release.recover_stale_release_lock(
+            work,
+            "example/store",
+            active_lease["owner_sha"],
+            "Unverified stale claim.",
+            "admin-user",
+        )
+    assert release._remote_ref_sha(work, "origin", release.RELEASE_LOCK_REF) == (
+        active_lease["owner_sha"]
+    )
+    release.release_release_lock(work, "origin", active_lease)
+
+
+def test_reconciliation_drains_three_coalesced_commands_in_order(monkeypatch, tmp_path):
+    issues = [_eligible_issue(number) for number in (1, 2, 3)]
+    prs = []
+    gh_calls = []
+    monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: issues)
+    monkeypatch.setattr(
+        release,
+        "_remote_issue_branches",
+        lambda *_args: {pr["headRefName"] for pr in prs},
+    )
+    monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: list(prs))
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: [])
+    monkeypatch.setattr(
+        release,
+        "_gh",
+        lambda _root, *args: gh_calls.append(args) or "",
+    )
+
+    first = release.reconcile_eligible_issues(tmp_path, "example/store")
+    assert first["selected"] == 1
+    assert first["event"]["issue"]["number"] == 1
+    assert "event" not in first["event"]
+
+    prs.append({
+        "number": 101,
+        "url": "https://github.com/example/store/pull/101",
+        "state": "OPEN",
+        "mergedAt": None,
+        "headRefName": f"zoo-v2/issue-1-{'1' * 64}",
+    })
+    blocked = release.reconcile_eligible_issues(tmp_path, "example/store")
+    assert blocked["selected"] is None
+    assert blocked["blocked_by_prs"] == [101]
+    assert any("zoo-v2-processed" in " ".join(call) for call in gh_calls)
+
+    prs[0]["state"] = "CLOSED"
+    prs[0]["mergedAt"] = "2026-08-22T21:00:00Z"
+    second = release.reconcile_eligible_issues(tmp_path, "example/store")
+    assert second["selected"] == 2
+    prs.append({
+        "number": 102,
+        "url": "https://github.com/example/store/pull/102",
+        "state": "CLOSED",
+        "mergedAt": "2026-08-22T22:00:00Z",
+        "headRefName": f"zoo-v2/issue-2-{'2' * 64}",
+    })
+    third = release.reconcile_eligible_issues(tmp_path, "example/store")
+    assert third["selected"] == 3
+    prs.append({
+        "number": 103,
+        "url": "https://github.com/example/store/pull/103",
+        "state": "CLOSED",
+        "mergedAt": "2026-08-22T23:00:00Z",
+        "headRefName": f"zoo-v2/issue-3-{'3' * 64}",
+    })
+    drained = release.reconcile_eligible_issues(tmp_path, "example/store")
+    assert drained["selected"] is None
+    assert [state["number"] for state in drained["states"]] == [1, 2, 3]
+
+
+def test_eligible_issue_scan_paginates_fully_and_fails_closed_at_bound(
+    monkeypatch, tmp_path
+):
+    calls = []
+    pages = {
+        1: [_eligible_issue(number) for number in range(1, 101)],
+        2: [_eligible_issue(number) for number in range(101, 104)],
+    }
+
+    def github_json(_root, *args):
+        page = int(next(arg.removeprefix("page=") for arg in args if arg.startswith("page=")))
+        calls.append(page)
+        return pages.get(page, [])
+
+    monkeypatch.setattr(release, "_gh_json", github_json)
+    result = release._eligible_issue_pages(tmp_path, "example/store")
+    assert len(result) == 103
+    assert calls == [1, 2]
+
+    monkeypatch.setattr(
+        release,
+        "_gh_json",
+        lambda _root, *args: [
+            _eligible_issue(
+                (int(next(
+                    arg.removeprefix("page=")
+                    for arg in args if arg.startswith("page=")
+                )) - 1) * 100 + index
+            )
+            for index in range(1, 101)
+        ],
+    )
+    with pytest.raises(release.ReleaseError, match="E_RECONCILE_INCOMPLETE"):
+        release._eligible_issue_pages(tmp_path, "example/store")
+
+
+def test_processed_and_tombstoned_markers_fail_closed_or_skip(monkeypatch, tmp_path):
+    processed = _eligible_issue(
+        1, labels=[release.ELIGIBLE_LABEL, release.PROCESSED_LABEL]
+    )
+    tombstoned = _eligible_issue(
+        2, labels=[release.ELIGIBLE_LABEL, release.TOMBSTONED_LABEL]
+    )
+    monkeypatch.setattr(
+        release,
+        "_eligible_issue_pages",
+        lambda *_args: [processed, tombstoned],
+    )
+    monkeypatch.setattr(release, "_remote_issue_branches", lambda *_args: set())
+    monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: [])
+    with pytest.raises(release.ReleaseError, match="marked before a PR exists"):
+        release.reconcile_eligible_issues(tmp_path, "example/store")
+
+    monkeypatch.setattr(
+        release,
+        "_eligible_issue_pages",
+        lambda *_args: [tombstoned],
+    )
+    result = release.reconcile_eligible_issues(tmp_path, "example/store")
+    assert result["selected"] is None
+    assert result["states"] == [{"number": 2, "state": "tombstoned"}]
 
 
 def test_content_bound_attempt_is_never_overwritten(tmp_path):
@@ -1102,7 +1504,18 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     audit = (root / ".github/workflows/zoo-v2-audit.yml").read_text()
     migration = (root / ".github/workflows/zoo-v2-bootstrap-protect.yml").read_text()
     main_advance = (root / ".github/workflows/zoo-v2-main-advance.yml").read_text()
-    assert "zoo-v2-catalog-integration-queue" in catalog
+    assert "zoo-v2-catalog-integration-coalescing" in catalog
+    assert "Contention coalescing only" in catalog
+    assert "schedule:" in catalog
+    assert "workflow_dispatch:" in catalog
+    assert "issues:" in catalog
+    assert "zoo_v2_release.py reconcile" in catalog
+    assert "--github-output \"$GITHUB_OUTPUT\"" in catalog
+    assert "steps.reconcile.outputs.issue_number" in catalog
+    assert "github.event.issue" not in catalog
+    assert "GITHUB_EVENT_PATH" not in catalog
+    assert release.RELEASE_LOCK_REF in (root / "scripts/zoo_v2_release.py").read_text()
+    assert "recover-lock" in (root / "scripts/zoo_v2_release.py").read_text()
     protection_check = "configure_zoo_v2_protection.py verify-audit"
     assert protection_check in catalog
     assert catalog.index(protection_check) < catalog.index("zoo_v2_release.py resume")
