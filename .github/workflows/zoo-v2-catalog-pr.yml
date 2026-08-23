@@ -34,6 +34,13 @@ jobs:
           git config user.name "rapp-store-bot"
           git config user.email "rapp-store-bot@users.noreply.github.com"
 
+      - name: Refuse release without strict main protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/configure_zoo_v2_protection.py verify \
+            --repository "$GITHUB_REPOSITORY"
+
       - name: Ensure bootstrap has a permanent ref
         run: |
           python3 scripts/zoo_v2_release.py protect-bootstrap \

@@ -6,25 +6,29 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
   statuses: write
+
+concurrency:
+  group: zoo-v2-current-main-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   current-main:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: startsWith(github.head_ref, 'zoo-v2/issue-')
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: main
           fetch-depth: 0
+          path: trusted-main
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         if: startsWith(github.head_ref, 'zoo-v2/issue-')
         with:
           python-version: '3.11'
-
-      - name: Fetch current main on every PR update
-        if: startsWith(github.head_ref, 'zoo-v2/issue-')
-        run: git fetch --force --prune origin main
 
       - name: Reject forked Store release branches
         if: |
@@ -32,28 +36,62 @@ jobs:
           github.event.pull_request.head.repo.full_name != github.repository
         run: exit 1
 
+      - uses: actions/checkout@v4
+        if: |
+          startsWith(github.head_ref, 'zoo-v2/issue-') &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
       - name: Reject stale predecessor and unprotected generation
         id: validation
         continue-on-error: true
         if: startsWith(github.head_ref, 'zoo-v2/issue-')
+        env:
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
         run: |
-          python3 scripts/zoo_v2_release.py validate-pr \
+          set -euo pipefail
+          git -C "$TRUSTED_ROOT" fetch --force --prune origin main
+          test "$(git -C "$TRUSTED_ROOT" rev-parse HEAD)" = \
+            "$(git -C "$TRUSTED_ROOT" rev-parse origin/main)"
+          PYTHONNOUSERSITE=1 \
+          PYTHONPATH="$TRUSTED_ROOT/scripts" \
+          python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" validate-pr \
+            --root "$CANDIDATE_ROOT" \
             --repository "$GITHUB_REPOSITORY"
 
       - name: Publish required current-main status
-        if: startsWith(github.head_ref, 'zoo-v2/issue-') && always()
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          IS_ZOO: ${{ startsWith(github.head_ref, 'zoo-v2/issue-') }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           RESULT: ${{ steps.validation.outcome }}
+          TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
         run: |
-          state=failure
-          test "$RESULT" = success && state=success
+          set -euo pipefail
+          current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            --jq .head.sha)"
+          test "$current_head" = "$HEAD_SHA" || exit 0
+          state=success
+          description='Not a Zoo v2 candidate'
+          if test "$IS_ZOO" = true; then
+            state=failure
+            test "$RESULT" = success && state=success
+            base_sha="$(git -C "$TRUSTED_ROOT" rev-parse HEAD)"
+            description="Validated against main ${base_sha:0:12}"
+          fi
           gh api --method POST \
             "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
             -f state="$state" \
             -f context='Zoo v2 current-main' \
-            -f description='Exact current-main predecessor and permanent-ref validation'
+            -f description="$description"
           test "$state" = success
 
       - name: Non-Zoo PR

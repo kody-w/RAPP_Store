@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+import configure_zoo_v2_protection as protection
 import zoo_v2_release as release
 import zoo_v2_store as store
 
@@ -281,6 +284,157 @@ def test_candidate_requires_exact_base_url_digest_and_crud_semantics(tmp_path):
         )
 
 
+def test_trusted_validator_ignores_candidate_script_mutations(tmp_path):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    release.resume_release(
+        work,
+        "api/v2/generations/issue-42.json",
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=base_bytes,
+    )
+    candidate = tmp_path / "candidate"
+    subprocess.run(
+        ["git", "clone", "--branch", "zoo-v2/issue-42", work.parent / "remote.git", candidate],
+        check=True,
+        capture_output=True,
+    )
+    _git(candidate, "config", "user.name", "Untrusted Candidate")
+    _git(candidate, "config", "user.email", "candidate@example.invalid")
+    scripts = candidate / "scripts"
+    scripts.mkdir()
+    (scripts / "zoo_v2_release.py").write_text("raise SystemExit(0)\n")
+    (scripts / "zoo_v2_store.py").write_text("raise SystemExit(0)\n")
+    generation_path = candidate / "api/v2/generations/issue-42.json"
+    generation = json.loads(generation_path.read_text())
+    generation["previous_generation_sha256"] = "f" * 64
+    generation_path.write_bytes(store.canonical_json(generation))
+    _git(candidate, "add", ".")
+    _git(candidate, "commit", "-m", "malicious validator and stale candidate")
+
+    trusted_root = Path(__file__).resolve().parent.parent
+    env = {
+        **os.environ,
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONPATH": str(trusted_root / "scripts"),
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(trusted_root / "scripts/zoo_v2_release.py"),
+            "validate-pr",
+            "--root",
+            str(candidate),
+            "--repository",
+            "example/store",
+        ],
+        cwd=trusted_root,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "E_DISCOVERY_TARGET" in result.stderr
+
+
+def test_protection_payload_and_verification_are_exact():
+    calls = []
+    configured = protection.protection_payload()
+    response = {
+        **configured,
+        "required_status_checks": {
+            "strict": True,
+            "contexts": [protection.STATUS_CONTEXT],
+        },
+        **{
+            key: {"enabled": value}
+            for key, value in {
+                "enforce_admins": True,
+                "required_conversation_resolution": True,
+                "allow_force_pushes": False,
+                "allow_deletions": False,
+                "block_creations": False,
+                "lock_branch": False,
+                "allow_fork_syncing": True,
+            }.items()
+        },
+    }
+
+    def api_call(method, endpoint, payload):
+        calls.append((method, endpoint, payload))
+        return response
+
+    protection.configure_and_verify("example/store", api_call)
+    assert calls == [
+        (
+            "PUT",
+            "repos/example/store/branches/main/protection",
+            configured,
+        ),
+        (
+            "GET",
+            "repos/example/store/branches/main/protection",
+            None,
+        ),
+    ]
+    assert configured["required_status_checks"] == {
+        "strict": True,
+        "contexts": ["Zoo v2 current-main"],
+    }
+    assert configured["enforce_admins"] is True
+    assert configured["allow_force_pushes"] is False
+    assert configured["allow_deletions"] is False
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda value: value["required_status_checks"].update(strict=False),
+        lambda value: value["required_status_checks"].update(contexts=[]),
+        lambda value: value.update(enforce_admins={"enabled": False}),
+        lambda value: value.update(allow_force_pushes={"enabled": True}),
+        lambda value: value.update(allow_deletions={"enabled": True}),
+        lambda value: value["required_pull_request_reviews"].update(
+            require_code_owner_reviews=True
+        ),
+        lambda value: value.update(required_pull_request_reviews=None),
+        lambda value: value.update(restrictions={"users": []}),
+    ],
+)
+def test_protection_verification_fails_closed(mutation):
+    settings = {
+        "required_status_checks": {
+            "strict": True,
+            "contexts": ["Zoo v2 current-main"],
+        },
+        "required_pull_request_reviews": {
+            "dismiss_stale_reviews": True,
+            "require_code_owner_reviews": False,
+            "required_approving_review_count": 1,
+            "require_last_push_approval": True,
+        },
+        "restrictions": None,
+        **{
+            key: {"enabled": value}
+            for key, value in {
+                "enforce_admins": True,
+                "required_conversation_resolution": True,
+                "allow_force_pushes": False,
+                "allow_deletions": False,
+                "block_creations": False,
+                "lock_branch": False,
+                "allow_fork_syncing": True,
+            }.items()
+        },
+    }
+    mutation(settings)
+    with pytest.raises(protection.ProtectionError, match="E_PROTECTION_VERIFY"):
+        protection.verify_settings(settings)
+
+
 def test_workflows_lock_permissions_queue_validation_and_audit():
     root = Path(__file__).resolve().parent.parent
     catalog = (root / ".github/workflows/zoo-v2-catalog-pr.yml").read_text()
@@ -289,18 +443,34 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     migration = (root / ".github/workflows/zoo-v2-bootstrap-protect.yml").read_text()
     main_advance = (root / ".github/workflows/zoo-v2-main-advance.yml").read_text()
     assert "zoo-v2-catalog-integration-queue" in catalog
+    protection_check = "configure_zoo_v2_protection.py verify"
+    assert protection_check in catalog
+    assert catalog.index(protection_check) < catalog.index("zoo_v2_release.py resume")
     assert "zoo_v2_release.py resume" in catalog
     assert "pull-requests: write" in catalog
-    assert "git fetch --force --prune origin main" in validation
-    assert "zoo_v2_release.py validate-pr" in validation
+    assert "path: trusted-main" in validation
+    assert "path: candidate" in validation
+    assert '"$TRUSTED_ROOT/scripts/zoo_v2_release.py" validate-pr' in validation
+    assert 'PYTHONPATH="$TRUSTED_ROOT/scripts"' in validation
+    assert '--root "$CANDIDATE_ROOT"' in validation
     assert "contents: read" in validation
+    assert "pull-requests: read" in validation
     assert "statuses: write" in validation
+    assert "cancel-in-progress: true" in validation
+    assert "IS_ZOO:" in validation
+    assert "Not a Zoo v2 candidate" in validation
     assert "Zoo v2 current-main" in validation
     assert "zoo_v2_release.py audit-refs" in audit
     assert "--network" in audit
     assert "contents: read" in audit
     assert "zoo_v2_release.py protect-bootstrap" in migration
+    assert protection_check in migration
+    assert migration.index(protection_check) < migration.index(
+        "zoo_v2_release.py protect-bootstrap"
+    )
     assert "contents: write" in migration
     assert "Revalidate each open Zoo v2 PR with trusted main tooling" in main_advance
     assert "statuses: write" in main_advance
     assert "Zoo v2 current-main" in main_advance
+    assert "cancel-in-progress: true" in main_advance
+    assert "BASE_SHA: ${{ github.sha }}" in main_advance

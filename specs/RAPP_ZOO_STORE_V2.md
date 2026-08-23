@@ -140,13 +140,21 @@ changes to `main`, never closes the control issue, and never enables
 auto-merge. The PR merge remains the human consent event.
 
 `.github/workflows/zoo-v2-pr-validation.yml` publishes the
-`Zoo v2 current-main` status from trusted validator code. Repository rules
-must require that exact status. It verifies the candidate's one-operation
+`Zoo v2 current-main` status. Both validator modules execute from an
+independent checkout of current `main`; the head checkout is passed only as
+the `--root` data tree and cannot shadow trusted imports. Repository branch
+protection must require that exact status with strict/up-to-date semantics,
+one approving PR review, stale-review dismissal, last-push approval, and admin
+enforcement. Force pushes and branch deletion must be disabled. The check
+verifies the candidate's one-operation
 create/update/deprecate delta, predecessor URL and digest, pinned generation
 commit, annotated permanent tag, and fork boundary. On every `main` push,
 `.github/workflows/zoo-v2-main-advance.yml` reruns the same trusted validator
-for every open Zoo v2 PR and overwrites that status, so a sibling generated
-from the former discovery cannot retain a stale green check.
+for every open Zoo v2 PR as defense in depth. Merge safety does not depend on
+that asynchronous overwrite: GitHub's strict required-status barrier refuses
+a head that is not up to date with the exact current base. Main-advance runs
+cancel older runs, recheck the current base and head before publishing, and
+record the validated base SHA in status metadata.
 
 `.github/workflows/zoo-v2-audit.yml` runs after v2 changes reach `main`, daily,
 and on demand. It proves that every generation and predecessor URL resolves to
@@ -168,6 +176,8 @@ Run:
 ```bash
 python3 -m pytest tests -q
 python3 scripts/zoo_v2_store.py validate-tree --root .
+python3 scripts/configure_zoo_v2_protection.py configure-verify \
+  --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py validate-pr --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py audit-refs \
   --repository kody-w/RAPP_Store --network
@@ -177,12 +187,26 @@ Add `--network` to re-fetch and hash every live artifact and license evidence.
 
 ### Bootstrap one-time migration
 
-The bootstrap generation predates the permanent-ref rule. Before the first
-Store v2 issue release, run the idempotent migration workflow **Zoo v2
-bootstrap permanent-ref migration**, or locally:
+The bootstrap generation predates both the permanent-ref rule and this
+protection script. The one permitted bootstrap sequence is:
+
+1. Merge the PR that first adds the trusted validation workflow and protection
+   script to `main`; no Store v2 candidate may be released in this interval.
+2. From an administrator-authenticated `gh` session, configure and verify the
+   merge barrier:
+
+   ```bash
+   python3 scripts/configure_zoo_v2_protection.py configure-verify \
+     --repository kody-w/RAPP_Store
+   ```
+
+3. Run the idempotent workflow **Zoo v2 bootstrap permanent-ref migration**,
+   or run the following locally.
 
 ```bash
 git fetch --prune origin main
+python3 scripts/configure_zoo_v2_protection.py verify \
+  --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py protect-bootstrap \
   --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py audit-refs \
@@ -192,7 +216,10 @@ python3 scripts/zoo_v2_release.py audit-refs \
 This creates `zoo-v2-generation-bootstrap-20260822` at the original generation
 commit. It refuses an existing lightweight tag, wrong target, altered
 annotation, or changed bootstrap bytes. The issue workflow repeats this check
-idempotently before every release.
+idempotently before every release and fails closed if strict protection cannot
+be read or no longer exactly matches the required policy. Re-run
+`configure-verify` before every Store v2 pre-release; it is mandatory, not an
+advisory audit.
 
 ## 7. Sample-data boundary
 
