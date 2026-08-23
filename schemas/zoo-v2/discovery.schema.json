@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kody-w.github.io/RAPP_Store/schemas/zoo-v2/discovery.schema.json",
+  "title": "RAPP Zoo Store v2 discovery pointer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generation_url"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rapp-zoo-store-discovery/2.0"
+    },
+    "generation_url": {
+      "type": "string",
+      "pattern": "^https://raw\\.githubusercontent\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[0-9a-f]{40}/api/v2/generations/(?:issue-[1-9][0-9]*-[0-9a-f]{64}|bootstrap-[0-9]{8})\\.json$"
+    }
+  }
+}

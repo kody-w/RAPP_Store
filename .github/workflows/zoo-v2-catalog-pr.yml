@@ -1,0 +1,127 @@
+name: Zoo v2 catalog issue to PR
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  # Contention coalescing only. The atomic remote lock and reconciliation are authoritative.
+  group: zoo-v2-catalog-integration-coalescing
+  cancel-in-progress: false
+
+jobs:
+  catalog-pr:
+    environment: zoo-v2-validator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Configure release identity
+        run: |
+          git config user.name "rapp-store-bot"
+          git config user.email "rapp-store-bot@users.noreply.github.com"
+
+      - name: Require exact committed validator App configuration
+        env:
+          VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$VALIDATOR_APP_ID"
+          test -n "$VALIDATOR_APP_SLUG"
+          test -n "$VALIDATOR_APP_LOGIN"
+          test -n "$VALIDATOR_APP_USER_ID"
+          test -n '${{ steps.validator-token.outputs.token }}'
+          python3 scripts/configure_zoo_v2_protection.py verify-audit \
+            --repository "$GITHUB_REPOSITORY" \
+            --validator-app-id "$VALIDATOR_APP_ID" \
+            --validator-app-slug "$VALIDATOR_APP_SLUG" \
+            --validator-app-login "$VALIDATOR_APP_LOGIN" \
+            --validator-app-user-id "$VALIDATOR_APP_USER_ID"
+
+      - name: Reconcile complete eligible issue queue
+        id: reconcile
+        env:
+          GH_TOKEN: ${{ steps.validator-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/zoo_v2_release.py reconcile \
+            --repository "$GITHUB_REPOSITORY" \
+            --event-output "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Ensure bootstrap has a permanent ref
+        if: steps.reconcile.outputs.selected == 'true'
+        run: |
+          python3 scripts/zoo_v2_release.py protect-bootstrap \
+            --repository "$GITHUB_REPOSITORY"
+
+      - name: Build exact issue-derived generation from current main
+        if: steps.reconcile.outputs.selected == 'true'
+        id: generation
+        env:
+          ISSUE_NUMBER: ${{ steps.reconcile.outputs.issue_number }}
+          ALLOWED_ACTORS: ${{ github.repository_owner }},${{ vars.RAPP_ZOO_V2_ACTORS }}
+        run: |
+          set -euo pipefail
+          git fetch --prune origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          path="$(python3 scripts/zoo_v2_store.py apply-issue \
+            --event-path "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json" \
+            --discovery api/v2/discovery.json \
+            --output-dir api/v2/generations \
+            --allow-actors "$ALLOWED_ACTORS")"
+          [[ "$path" =~ ^api/v2/generations/issue-${ISSUE_NUMBER}-[0-9a-f]{64}\.json$ ]] || {
+            echo "Unexpected attempt-specific generation path: $path" >&2
+            exit 1
+          }
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Test catalog and security boundaries
+        if: steps.reconcile.outputs.selected == 'true'
+        run: |
+          python3 -m pytest tests -q
+          python3 scripts/zoo_v2_store.py validate-tree --root .
+
+      - name: Resume serialized generation release and PR
+        if: steps.reconcile.outputs.selected == 'true'
+        env:
+          GH_TOKEN: ${{ steps.validator-token.outputs.token }}
+          ISSUE_NUMBER: ${{ steps.reconcile.outputs.issue_number }}
+          GENERATION_PATH: ${{ steps.generation.outputs.path }}
+          ALLOWED_ACTORS: ${{ github.repository_owner }},${{ vars.RAPP_ZOO_V2_ACTORS }}
+        run: |
+          set -euo pipefail
+          python3 scripts/zoo_v2_release.py resume \
+            --generation "$GENERATION_PATH" \
+            --repository "$GITHUB_REPOSITORY" \
+            --issue-number "$ISSUE_NUMBER" \
+            --event-path "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json" \
+            --allow-actors "$ALLOWED_ACTORS"

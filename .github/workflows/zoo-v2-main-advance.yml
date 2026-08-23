@@ -1,0 +1,134 @@
+name: Zoo v2 invalidate stale PRs after main advances
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoo-v2-main-advance
+  cancel-in-progress: true
+
+jobs:
+  revalidate-open-candidates:
+    environment: zoo-v2-validator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+          permission-statuses: write
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Require exact validator App configuration
+        env:
+          VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$VALIDATOR_APP_ID"
+          test -n "$VALIDATOR_APP_SLUG"
+          test -n "$VALIDATOR_APP_LOGIN"
+          test -n "$VALIDATOR_APP_USER_ID"
+          python3 scripts/configure_zoo_v2_protection.py verify-audit \
+            --repository "$GITHUB_REPOSITORY" \
+            --validator-app-id "$VALIDATOR_APP_ID" \
+            --validator-app-slug "$VALIDATOR_APP_SLUG" \
+            --validator-app-login "$VALIDATOR_APP_LOGIN" \
+            --validator-app-user-id "$VALIDATOR_APP_USER_ID"
+
+      - name: Revalidate each open Zoo v2 PR with trusted main tooling
+        env:
+          BASE_SHA: ${{ github.sha }}
+          VALIDATOR_TOKEN: ${{ steps.validator-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          test -n "$VALIDATOR_TOKEN"
+          tools="$GITHUB_WORKSPACE/scripts/zoo_v2_release.py"
+          export GH_TOKEN="$VALIDATOR_TOKEN"
+          git fetch --prune --tags origin main
+          latest_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            --jq .object.sha)"
+          test "$latest_main" = "$BASE_SHA" || exit 0
+          python3 "$tools" list-prs \
+            --root "$GITHUB_WORKSPACE" \
+            --repository "$GITHUB_REPOSITORY" \
+            --state open |
+            jq -r '.[] | [.number, .headRefName, .headRefOid,
+                          .headRepository] | @tsv' |
+          while IFS=$'\t' read -r number branch sha head_repo; do
+            test -n "$sha" || continue
+            state=failure
+            if test "$head_repo" = "$GITHUB_REPOSITORY"; then
+              git fetch --no-tags origin "$sha"
+              check_dir=".zoo-v2-check-${sha}"
+              git worktree add --detach "$check_dir" "$sha"
+              if mode="$(python3 "$tools" gate-pr \
+                  --root "$check_dir" \
+                  --base-sha "$BASE_SHA" \
+                  --head-sha "$sha" \
+                  --head-ref "$branch" \
+                  --head-repository "$head_repo" \
+                  --repository "$GITHUB_REPOSITORY")" &&
+                test "$mode" = issue &&
+                python3 "$tools" validate-pr \
+                  --root "$check_dir" \
+                  --repository "$GITHUB_REPOSITORY"; then
+                  state=success
+              fi
+              git worktree remove --force "$check_dir"
+            fi
+            latest_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+              --jq .object.sha)"
+            test "$latest_main" = "$BASE_SHA" || exit 0
+            current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${number}" \
+              --jq .head.sha)"
+            test "$current_head" = "$sha" || continue
+            description="Validated at main $BASE_SHA"
+            if test "$state" = failure; then
+              attempt="${branch#zoo-v2/}"
+              description="Stale attempt ${attempt##*-} at main $BASE_SHA"
+            fi
+            status_id="$(
+              GH_TOKEN="$VALIDATOR_TOKEN" gh api --method POST \
+                "repos/${GITHUB_REPOSITORY}/statuses/${sha}" \
+                -f state="$state" \
+                -f context='Zoo v2 current-main' \
+                -f description="$description" \
+                --jq .id
+            )"
+            [[ "$status_id" =~ ^[1-9][0-9]*$ ]]
+            if test "$state" = failure &&
+              [[ "$branch" =~ ^zoo-v2/issue-[1-9][0-9]*-[0-9a-f]{64}$ ]] &&
+              test "$head_repo" = "$GITHUB_REPOSITORY"; then
+              GH_TOKEN="$VALIDATOR_TOKEN" python3 "$tools" supersede-pr \
+                --root "$GITHUB_WORKSPACE" \
+                --repository "$GITHUB_REPOSITORY" \
+                --pr-number "$number" \
+                --base-sha "$BASE_SHA" \
+                --head-sha "$sha" \
+                --status-id "$status_id" ||
+                echo "PR #${number} was not an exact stale retry candidate; left open."
+            fi
+          done

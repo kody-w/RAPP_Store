@@ -1,0 +1,75 @@
+name: Zoo v2 persist merged command completion
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoo-v2-complete-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  complete:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      startsWith(github.event.pull_request.head.ref, 'zoo-v2/issue-') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    environment: zoo-v2-validator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: read
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Require exact committed validator App configuration
+        env:
+          VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$VALIDATOR_APP_ID"
+          test -n "$VALIDATOR_APP_SLUG"
+          test -n "$VALIDATOR_APP_LOGIN"
+          test -n "$VALIDATOR_APP_USER_ID"
+          test -n '${{ steps.validator-token.outputs.token }}'
+          python3 scripts/configure_zoo_v2_protection.py verify-audit \
+            --repository "$GITHUB_REPOSITORY" \
+            --validator-app-id "$VALIDATOR_APP_ID" \
+            --validator-app-slug "$VALIDATOR_APP_SLUG" \
+            --validator-app-login "$VALIDATOR_APP_LOGIN" \
+            --validator-app-user-id "$VALIDATOR_APP_USER_ID"
+
+      - name: Record exact merged attempt and close command
+        env:
+          GH_TOKEN: ${{ steps.validator-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          git fetch --prune --tags origin main
+          python3 scripts/zoo_v2_release.py complete-merge \
+            --repository "$GITHUB_REPOSITORY" \
+            --pr-number "$PR_NUMBER"

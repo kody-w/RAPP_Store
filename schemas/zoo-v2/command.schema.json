@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kody-w.github.io/RAPP_Store/schemas/zoo-v2/command.schema.json",
+  "title": "RAPP Zoo Store v2 CRUD command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "operation",
+    "id"
+  ],
+  "properties": {
+    "schema": {
+      "const": "rapp-zoo-store-command/2.0"
+    },
+    "operation": {
+      "enum": [
+        "create",
+        "update",
+        "deprecate"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,63}$"
+    },
+    "prototype": {
+      "$ref": "generation.schema.json#/$defs/prototype"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "enum": [
+              "create",
+              "update"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "prototype"
+        ],
+        "not": {
+          "required": [
+            "reason"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "deprecate"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reason"
+        ],
+        "not": {
+          "required": [
+            "prototype"
+          ]
+        }
+      }
+    }
+  ]
+}

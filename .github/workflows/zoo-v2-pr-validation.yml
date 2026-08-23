@@ -1,0 +1,188 @@
+name: Zoo v2 current-main validation
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: zoo-v2-current-main-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  current-main:
+    environment: zoo-v2-validator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: read
+          permission-statuses: write
+
+      - name: Check out trusted current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: trusted-main
+          persist-credentials: false
+
+      - name: Check out candidate as inert data
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Require exact validator App configuration
+        id: app-config
+        env:
+          VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$VALIDATOR_APP_ID"
+          test -n "$VALIDATOR_APP_SLUG"
+          test -n "$VALIDATOR_APP_LOGIN"
+          test -n "$VALIDATOR_APP_USER_ID"
+          python3 "$GITHUB_WORKSPACE/trusted-main/scripts/configure_zoo_v2_protection.py" \
+            verify-audit \
+            --repository "$GITHUB_REPOSITORY" \
+            --validator-app-id "$VALIDATOR_APP_ID" \
+            --validator-app-slug "$VALIDATOR_APP_SLUG" \
+            --validator-app-login "$VALIDATOR_APP_LOGIN" \
+            --validator-app-user-id "$VALIDATOR_APP_USER_ID"
+
+      - name: Inspect complete local diff with trusted main
+        id: inspection
+        continue-on-error: true
+        env:
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
+        run: |
+          set -euo pipefail
+          git -C "$TRUSTED_ROOT" fetch --no-tags --force origin main
+          base_sha="$(git -C "$TRUSTED_ROOT" rev-parse origin/main)"
+          test "$(git -C "$TRUSTED_ROOT" rev-parse HEAD)" = "$base_sha"
+          test "$(git -C "$CANDIDATE_ROOT" rev-parse HEAD)" = "$HEAD_SHA"
+          git -C "$CANDIDATE_ROOT" remote add trusted-base \
+            "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$CANDIDATE_ROOT" fetch --no-tags --force trusted-base \
+            "refs/heads/main:refs/remotes/trusted-base/main"
+          test "$(git -C "$CANDIDATE_ROOT" rev-parse trusted-base/main)" = "$base_sha"
+
+          set +e
+          mode="$(
+            PYTHONNOUSERSITE=1 \
+            PYTHONPATH="$TRUSTED_ROOT/scripts" \
+            python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" gate-pr \
+              --root "$CANDIDATE_ROOT" \
+              --base-sha "$base_sha" \
+              --head-sha "$HEAD_SHA" \
+              --head-ref "$HEAD_REF" \
+              --head-repository "$HEAD_REPOSITORY" \
+              --repository "$GITHUB_REPOSITORY"
+          )"
+          result=$?
+          set -e
+          test "$result" -eq 0 || mode=unauthorized
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          exit "$result"
+
+      - name: Run trusted-main validation for classified diff
+        id: validation
+        if: steps.inspection.outcome == 'success'
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ steps.inspection.outputs.base_sha }}
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MODE: ${{ steps.inspection.outputs.mode }}
+          TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
+        run: |
+          set -euo pipefail
+          test "$(git -C "$TRUSTED_ROOT" rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C "$CANDIDATE_ROOT" rev-parse HEAD)" = "$HEAD_SHA"
+          case "$MODE" in
+            none)
+              echo "No protected Store paths changed."
+              ;;
+            issue)
+              PYTHONNOUSERSITE=1 \
+              PYTHONPATH="$TRUSTED_ROOT/scripts" \
+              python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" validate-pr \
+                --root "$CANDIDATE_ROOT" \
+                --repository "$GITHUB_REPOSITORY" \
+                --remote trusted-base
+              ;;
+            bootstrap)
+              PYTHONNOUSERSITE=1 \
+              PYTHONPATH="$TRUSTED_ROOT/scripts" \
+              python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" \
+                validate-bootstrap-pr \
+                --root "$CANDIDATE_ROOT" \
+                --base-sha "$BASE_SHA" \
+                --head-sha "$HEAD_SHA" \
+                --repository "$GITHUB_REPOSITORY"
+              ;;
+            *)
+              echo "Unrecognized protected-diff classification: $MODE" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Publish App-bound required current-main status
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.validator-token.outputs.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          INSPECTION: ${{ steps.inspection.outcome }}
+          MODE: ${{ steps.inspection.outputs.mode }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RESULT: ${{ steps.validation.outcome }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            --jq .head.sha)"
+          test "$current_head" = "$HEAD_SHA" || exit 0
+          state=failure
+          description='Protected Store diff is not authorized'
+          if test '${{ steps.app-config.outcome }}' = success &&
+            test "$INSPECTION" = success && test "$RESULT" = success; then
+            state=success
+            if test "$MODE" = none; then
+              description='No protected Store paths changed'
+            else
+              base_sha='${{ steps.inspection.outputs.base_sha }}'
+              description="Trusted-main ${MODE} validation at ${base_sha:0:12}"
+            fi
+          fi
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state="$state" \
+            -f context='Zoo v2 current-main' \
+            -f description="$description"
+          test "$state" = success

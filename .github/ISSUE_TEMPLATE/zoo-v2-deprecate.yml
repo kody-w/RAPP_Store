@@ -1,0 +1,33 @@
+name: Zoo v2 — deprecate prototype
+description: Remove a prototype from live discovery by appending a permanent tombstone
+title: "[ZOO V2 DEPRECATE] prototype-id"
+labels:
+  - zoo-v2-crud
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Zoo v2 never destructively deletes an admitted id. Deprecation removes the
+        live card and appends an immutable tombstone carrying the last version and
+        artifact hash. Previous generation documents remain fetchable.
+  - type: textarea
+    id: command
+    attributes:
+      label: Deprecate command
+      render: json
+      value: |
+        {
+          "schema": "rapp-zoo-store-command/2.0",
+          "operation": "deprecate",
+          "id": "synthetic-example",
+          "reason": "The synthetic prototype has been superseded."
+        }
+    validations:
+      required: true
+  - type: checkboxes
+    id: attestations
+    attributes:
+      label: Attestations
+      options:
+        - label: I am requesting an append-only tombstone, not deletion or history rewriting.
+          required: true

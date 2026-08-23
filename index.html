@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAPP Store — apps, agents, senses for your local brainstem</title>
-<meta name="description" content="The RAPP Store. Browse rapplications, single-file agents, and per-channel senses. One curl install. Drop into your brainstem and run.">
+<title>RAPP Store — apps, agents, senses, and prototype summons</title>
+<meta name="description" content="The RAPP Store. Browse rapplications, agents, senses, and commit-pinned Zoo v2 prototype summons.">
 <style>
   :root {
     --bg:        #0a0c10;
@@ -236,6 +236,7 @@
   .badge.kind-agent   { background: rgba(88,166,255,.18); color: var(--accent); }
   .badge.kind-rapp    { background: rgba(247,120,186,.18); color: var(--pink); }
   .badge.kind-sense   { background: rgba(188,140,255,.18); color: var(--purple); }
+  .badge.kind-prototype { background: var(--orange-bg); color: var(--orange); }
 
   .empty {
     grid-column: 1 / -1; padding: 60px 30px; text-align: center;
@@ -394,13 +395,13 @@
       <div class="glyph">R</div>
       <div class="text">
         <h1>RAPP Store</h1>
-        <div class="sub">apps · agents · senses</div>
+        <div class="sub">apps · agents · senses · prototypes</div>
       </div>
     </a>
 
     <div class="search">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
-      <input type="text" id="search" placeholder="Search rapps, agents, senses…" autocomplete="off"/>
+      <input type="text" id="search" placeholder="Search rapps, agents, senses, prototypes…" autocomplete="off"/>
       <kbd>/</kbd>
     </div>
 
@@ -426,13 +427,14 @@
   <button class="tab" data-tab="rapp">Rapplications <span class="count" id="countRapp">0</span></button>
   <button class="tab" data-tab="agent">Agents <span class="count" id="countAgent">0</span></button>
   <button class="tab" data-tab="sense">Senses <span class="count" id="countSense">0</span></button>
+  <button class="tab" data-tab="prototype">Prototype summons <span class="count" id="countPrototype">0</span></button>
 </div>
 
 <div class="filter-row" id="filterRow"></div>
 
 <main class="catalog">
   <div class="grid" id="grid">
-    <div class="empty"><h3>Loading the ecosystem…</h3>Pulling rapplications, agents, and senses from three repos.</div>
+    <div class="empty"><h3>Loading the ecosystem…</h3>Pulling v1 catalogs and the additive Zoo v2 prototype generation.</div>
   </div>
 </main>
 
@@ -465,6 +467,7 @@
       <h5>Submit</h5>
       <ul>
         <li><a href="https://github.com/kody-w/RAPP_Store/issues/new?template=submit-rapplication.yml" target="_blank">[RAPP] new rapplication</a></li>
+        <li><a href="https://github.com/kody-w/RAPP_Store/issues/new?template=zoo-v2-create.yml" target="_blank">[ZOO V2] prototype summon</a></li>
         <li><a href="https://github.com/kody-w/RAR/issues/new" target="_blank">[AGENT] new agent</a></li>
         <li><a href="https://github.com/kody-w/RAPP_Sense_Store/issues/new?template=submit-sense.yml" target="_blank">[SENSE] new sense</a></li>
       </ul>
@@ -473,6 +476,7 @@
       <h5>Docs</h5>
       <ul>
         <li><a href="./SPEC.md">SPEC.md</a></li>
+        <li><a href="./specs/RAPP_ZOO_STORE_V2.md">Zoo v2 Store extension</a></li>
         <li><a href="https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md" target="_blank">Constitution</a></li>
         <li><a href="./docs/proposals/" target="_blank">Proposals</a></li>
         <li><a href="./vbrainstem.html">vBrainstem</a></li>
@@ -501,6 +505,9 @@ const SOURCES = {
   sense: { url: 'https://raw.githubusercontent.com/kody-w/RAPP_Sense_Store/main/index.json',
            label: 'RAPP_Sense_Store',
            href:  'https://kody-w.github.io/RAPP_Sense_Store/' },
+  prototype: { url: './api/v2/discovery.json',
+               label: 'Zoo v2 immutable generation',
+               href:  './specs/RAPP_ZOO_STORE_V2.md' },
 };
 
 // Curated featured rapp (rotates among these on each visit). The catalog
@@ -519,6 +526,7 @@ const CAT_ICON = {
   workspace:    '🗂️',
   agent:        '🤖',
   sense:        '🎙️',
+  prototype:    '🧪',
 };
 
 // ─── State ──────────────────────────────────────────────────────────────
@@ -528,7 +536,7 @@ const state = {
   tab: 'all',
   search: '',
   category: null,
-  loaded: { rapp: false, agent: false, sense: false },
+  loaded: { rapp: false, agent: false, sense: false, prototype: false },
 };
 
 // ─── DOM ────────────────────────────────────────────────────────────────
@@ -565,7 +573,7 @@ async function copy(text) {
 // ─── Loaders ────────────────────────────────────────────────────────────
 
 async function loadAll() {
-  await Promise.allSettled([loadRapps(), loadAgents(), loadSenses()]);
+  await Promise.allSettled([loadRapps(), loadAgents(), loadSenses(), loadPrototypes()]);
   renderHero();
   applyView();
 }
@@ -604,6 +612,31 @@ async function loadSenses() {
     state.loaded.sense = true;
   } catch (e) {
     console.warn('senses load failed:', e);
+  }
+}
+
+async function loadPrototypes() {
+  try {
+    const pointerResponse = await fetch(SOURCES.prototype.url, { cache: 'no-store' });
+    if (!pointerResponse.ok) throw new Error(`discovery HTTP ${pointerResponse.status}`);
+    const pointer = await pointerResponse.json();
+    const generationUrl = pointer && pointer.generation_url;
+    const pinned = /^https:\/\/raw\.githubusercontent\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/[0-9a-f]{40}\/api\/v2\/generations\/[A-Za-z0-9.-]+\.json$/;
+    if (pointer.schema !== 'rapp-zoo-store-discovery/2.0' || !pinned.test(generationUrl)) {
+      throw new Error('invalid or mutable Zoo v2 discovery pointer');
+    }
+    const generationResponse = await fetch(generationUrl, { cache: 'force-cache' });
+    if (!generationResponse.ok) throw new Error(`generation HTTP ${generationResponse.status}`);
+    const generation = await generationResponse.json();
+    if (generation.schema !== 'rapp-zoo-store-generation/2.0') {
+      throw new Error('unsupported Zoo v2 generation schema');
+    }
+    state.rapps.push(...(generation.prototypes || [])
+      .filter(item => item.status === 'prototype')
+      .map(item => normalizePrototype(item, generation, generationUrl)));
+    state.loaded.prototype = true;
+  } catch (e) {
+    console.warn('prototype summons load failed:', e);
   }
 }
 
@@ -668,6 +701,34 @@ function normalizeSense(s) {
     ui_url: null,
     sub_label: s.delimiter || 'sense',
     _orig: s,
+  };
+}
+function normalizePrototype(p, generation, generationUrl) {
+  return {
+    kind: 'prototype',
+    id: p.id,
+    name: p.name,
+    publisher: ((p.identity || '').match(/^rappid:(@[^/]+)/) || [])[1] || '@prototype',
+    version: p.version,
+    tagline: 'Prototype summon · non-production',
+    summary: p.summary,
+    category: 'prototype',
+    tier: 'experimental',
+    surfaces: ['summon'],
+    source: 'prototype',
+    raw_url: p.artifact && p.artifact.url,
+    ui_url: null,
+    sha256: p.artifact && p.artifact.sha256,
+    filename: p.artifact && p.artifact.url.split('/').pop(),
+    sub_label: 'RAPP/1 prototype',
+    generation_url: generationUrl,
+    generation_id: generation.generation_id,
+    external_blockers: p.external_blockers || [],
+    license: p.license,
+    identity: p.identity,
+    wire_contract: p.wire_contract,
+    ecosystem_acceptance: p.ecosystem_acceptance,
+    _orig: p,
   };
 }
 function surfacesFor(r) {
@@ -745,6 +806,7 @@ function applyView() {
   $('#countRapp').textContent  = state.rapps.filter(r => r.kind === 'rapp').length;
   $('#countAgent').textContent = state.rapps.filter(r => r.kind === 'agent').length;
   $('#countSense').textContent = state.rapps.filter(r => r.kind === 'sense').length;
+  $('#countPrototype').textContent = state.rapps.filter(r => r.kind === 'prototype').length;
   renderFilters();
   renderGrid(items);
 }
@@ -786,7 +848,12 @@ function renderGrid(items) {
 
   // When showing "All" without a search, group by kind.
   if (state.tab === 'all' && !state.search.trim() && !state.category) {
-    const order = [['rapp', 'Rapplications'], ['agent', 'Agents'], ['sense', 'Senses']];
+    const order = [
+      ['rapp', 'Rapplications'],
+      ['agent', 'Agents'],
+      ['sense', 'Senses'],
+      ['prototype', 'Prototype summons'],
+    ];
     for (const [k, label] of order) {
       const sub = items.filter(r => r.kind === k);
       if (!sub.length) continue;
@@ -829,7 +896,8 @@ function makeCard(r) {
 }
 
 function iconFor(r) {
-  return CAT_ICON[r.category] || (r.kind === 'sense' ? '🎙️' : r.kind === 'agent' ? '🤖' : '📦');
+  return CAT_ICON[r.category] ||
+    (r.kind === 'sense' ? '🎙️' : r.kind === 'agent' ? '🤖' : r.kind === 'prototype' ? '🧪' : '📦');
 }
 
 // ─── Modal ──────────────────────────────────────────────────────────────
@@ -861,6 +929,45 @@ function openModal(r) {
       el('span', { class: `badge surface-${s.replace('service','svc')}`, text: s })),
   ]));
 
+  if (r.kind === 'prototype') {
+    const summon = {
+      schema: 'rapp-zoo-prototype-summon/2.0',
+      id: r.id,
+      status: 'prototype',
+      artifact_url: r.raw_url,
+      artifact_sha256: r.sha256,
+      wire_contract: r.wire_contract,
+      identity: r.identity,
+      ecosystem_acceptance: r.ecosystem_acceptance,
+      external_blockers: r.external_blockers,
+      generation_url: r.generation_url,
+    };
+    body.appendChild(el('section', {}, [
+      el('h4', { text: 'Dial prototype — copy inert summon data' }),
+      el('p', {
+        class: 'note',
+        text: 'Copies a commit-pinned data envelope. The Store does not execute or install this prototype.',
+      }),
+      el('button', {
+        class: 'btn primary',
+        onclick: () => copy(JSON.stringify(summon, null, 2)),
+      }, ['☎ Dial prototype']),
+      el('a', {
+        class: 'btn',
+        href: r.raw_url,
+        target: '_blank',
+        rel: 'noopener',
+      }, ['View immutable artifact']),
+    ]));
+    if (r.external_blockers.length) {
+      body.appendChild(el('section', {}, [
+        el('h4', { text: 'External blockers' }),
+        el('ul', { class: 'steps' },
+          r.external_blockers.map(blocker => el('li', { text: blocker }))),
+      ]));
+    }
+  }
+
   // Install, in plain drop-it-in terms. Rapplications ship a hatcher agent.py
   // with the whole egg baked in; bare agents/senses are already one file.
   const hatcherHref = (r.kind === 'rapp') ? `api/v1/hatcher/${r.id}_hatcher_agent.py` : null;
@@ -869,7 +976,7 @@ function openModal(r) {
                                : (r.filename || `${r.id}.py`);
   const dropDir = (r.kind === 'sense') ? '~/.brainstem/src/rapp_brainstem/utils/senses/'
                                        : '~/.brainstem/src/rapp_brainstem/agents/';
-  if (dropHref) {
+  if (dropHref && r.kind !== 'prototype') {
     body.appendChild(el('section', {}, [
       el('h4', { text: 'Install — drop it into your brainstem' }),
       el('ol', { class: 'steps' }, [
@@ -905,6 +1012,10 @@ function openModal(r) {
       kv('Tier',      r.tier),
       r.sha256 ? kv('SHA-256', r.sha256.slice(0, 16) + '…') : null,
       r.filename ? kv('Filename', r.filename) : null,
+      r.wire_contract ? kv('Wire contract', r.wire_contract) : null,
+      r.identity ? kv('Identity', r.identity) : null,
+      r.ecosystem_acceptance ? kv('Ecosystem acceptance', r.ecosystem_acceptance) : null,
+      r.generation_id ? kv('Generation', r.generation_id) : null,
     ]),
   ]));
 
@@ -924,6 +1035,14 @@ function openModal(r) {
   if (r.raw_url) {
     actions.appendChild(el('a', { class: 'btn', href: r.raw_url, target: '_blank' },
       ['View source ↗']));
+  }
+  if (r.kind === 'prototype' && r.license && r.license.evidence_url) {
+    actions.appendChild(el('a', {
+      class: 'btn',
+      href: r.license.evidence_url,
+      target: '_blank',
+      rel: 'noopener',
+    }, ['MIT evidence ↗']));
   }
   if (r.ui_url) {
     actions.appendChild(el('a', { class: 'btn', href: `./vbrainstem.html#rapp=${r.id}&view=ui`, target: '_blank' },

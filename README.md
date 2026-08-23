@@ -70,6 +70,57 @@ Rebuild: `python3 scripts/build_pokedex_api.py` (walks `apps/@*/`, regenerates `
 https://raw.githubusercontent.com/kody-w/rapp_store/main/index.json
 ```
 
+## RAPP Zoo v2 prototype summons
+
+The additive [Zoo v2 Store extension](./specs/RAPP_ZOO_STORE_V2.md) provides a
+static prototype-summon data plane without changing the v1 catalog or Pokédex.
+`api/v2/discovery.json` is a small mutable pointer whose only target is an
+immutable generation document at a full 40-character commit-pinned GitHub Raw
+URL. Prototype artifacts and MIT license evidence are also commit-pinned and
+SHA-256 verified.
+
+Store v2 writes are serialized through one restartable issue branch at a time.
+Every attempt derives content/predecessor-bound generation, branch, and tag
+names. An atomic create-only remote lock ref, carrying workflow/issue/attempt
+owner metadata, is the repository-wide authority; Actions concurrency only
+coalesces contention and is not a queue. Exact-owner lease cleanup runs in
+`finally`, while crashes leave an explicit lock requiring audited admin-only
+recovery after the owner run and PR are proven inactive. Every generation
+commit receives an annotated
+`zoo-v2-generation-*` permanent tag before discovery can point at it. Required
+current-main validation checks both the predecessor URL and exact digest, and
+the scheduled audit proves tag and raw reachability independent of the PR
+merge method. An active repository ruleset prevents generation-tag updates and
+deletion. Every PR's changed paths are checked by trusted-main code; protected
+Store changes are limited to authorized same-repository release/bootstrap
+branches. The complete local three-dot Git diff is used instead of the
+3,000-file-limited PR-files API. The required status is bound to a dedicated
+validator GitHub App by exact context plus App ID; its protected environment
+holds the App ID, slug, bot login/database ID, and private key. The App is
+narrowly limited to commit-status write, issue write, pull-request write/read,
+and contents read. Only its installation token may write Zoo lifecycle
+markers, labels, issue closure, or stale-PR retirement; default Actions tokens
+and `github-actions[bot]` comments are untrusted. The generation-tag ruleset is dedicated and has no bypass
+actors. Administrator branch/ruleset configuration is out-of-band, with a
+committed audit required before release. See the extension spec for App
+permissions, environment protection, configuration, and bootstrap order.
+Immediately before a tag is published, release re-fetches and revalidates
+`main`, then uses an atomic main lease with the tag push. A stale retained
+attempt is verified and permanently archived; a rerun derives a different
+attempt from the new predecessor rather than moving or deleting a tag.
+Label, manual, and scheduled reconciliation fully paginate the bounded open
+eligible issue set, repair add-only PR/processed markers, and select the oldest
+unprocessed command without relying on a trigger issue number. Scheduled runs
+therefore drain coalesced or dropped issue notifications in order; incomplete
+API scans and contradictory markers fail closed.
+
+Create, update, and deprecate commands arrive as structured, inert GitHub
+Issue JSON. An actor allowlist and deterministic validator turn an eligible
+issue into a tested two-commit catalog PR; nothing auto-merges. Live records
+are explicitly `prototype`, use the exact `RAPP/1` wire term and `rappid`
+identity form, preserve external blockers, and set ecosystem acceptance to
+`not-asserted`.
+
 ## Layout
 
 Each rapplication is a directory with at least:

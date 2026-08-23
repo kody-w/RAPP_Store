@@ -1,0 +1,60 @@
+name: Zoo v2 — update prototype
+description: Replace a live prototype with a higher semver and newly verified pinned bytes
+title: "[ZOO V2 UPDATE] prototype-id"
+labels:
+  - zoo-v2-crud
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is inert JSON data, never executable input. Copy the current
+        prototype object, bump its semver, and replace its commit-pinned URLs and
+        hashes as needed. Existing immutable generations remain unchanged.
+  - type: textarea
+    id: command
+    attributes:
+      label: Update command
+      render: json
+      description: The prototype object uses the same fields as the create form.
+      value: |
+        {
+          "schema": "rapp-zoo-store-command/2.0",
+          "operation": "update",
+          "id": "synthetic-example",
+          "prototype": {
+            "id": "synthetic-example",
+            "name": "Synthetic Example",
+            "version": "0.2.0",
+            "summary": "A revised synthetic prototype with no production or customer data.",
+            "status": "prototype",
+            "artifact": {
+              "url": "https://raw.githubusercontent.com/owner/repo/0000000000000000000000000000000000000000/path/prototype.py",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "media_type": "text/x-python"
+            },
+            "license": {
+              "spdx": "MIT",
+              "evidence_url": "https://raw.githubusercontent.com/owner/repo/0000000000000000000000000000000000000000/LICENSE",
+              "evidence_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            },
+            "wire_contract": "RAPP/1",
+            "identity": "rappid:@synthetic/synthetic-example:0000000000000000000000000000000000000000000000000000000000000000",
+            "ecosystem_acceptance": "not-asserted",
+            "external_blockers": [
+              "Independent RAPP/1 conformance and ecosystem admission have not been completed."
+            ]
+          }
+        }
+    validations:
+      required: true
+  - type: checkboxes
+    id: attestations
+    attributes:
+      label: Attestations
+      options:
+        - label: The version is greater than the currently discovered version.
+          required: true
+        - label: The entry and artifact contain only sample/synthetic data and no credentials.
+          required: true
+        - label: External blockers remain explicit and ecosystem acceptance is `not-asserted`.
+          required: true
