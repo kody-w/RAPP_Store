@@ -131,7 +131,14 @@ that binds repository, issue, generation attempt, workflow run, actor, and a
 stable rerun lease key. A normal push can create the absent ref exactly once;
 all concurrent creators but one are rejected. After acquisition, and again
 immediately before every branch or tag publication, the release script
-re-fetches `main` and repeats complete queue and predecessor validation.
+re-fetches `main` and repeats complete queue and predecessor validation. It
+also fetches the exact selected issue endpoint and requires it to remain open,
+eligible, non-tombstoned, non-processed, and authored by an allowed actor.
+Title, body, complete label-name set, and `updated_at` must equal the
+reconciled snapshot. Trusted code regenerates the generation from those fresh
+issue bytes and the current predecessor and requires byte identity. Any edit,
+closure, or label race therefore aborts before the generation branch and tag
+are published atomically.
 Cleanup uses `--force-with-lease` against the exact owner commit in `finally`,
 so it cannot delete a replacement lock. A process crash deliberately leaves a
 detectable lock. The same workflow run and issue attempt can adopt that exact
@@ -142,12 +149,15 @@ is not a queue and is not authoritative. The release script also rejects a new
 issue while any different `zoo-v2/issue-*` PR or unfinished remote issue branch
 exists. A rerun for the same attempt is allowed only when its generation bytes,
 predecessor URL/digest, branch, tag target and annotation, discovery pointer,
-and PR state all match. It resumes after the last durable stage. If `main`
-advanced, the retained stale attempt is validated and archived under its own
-permanent tag, then a rerun deterministically derives a new generation, branch,
-and tag from current discovery. No tag is deleted, moved, or force-fetched. PR
-creation, the issue backlink, and the `zoo-v2-processed` audit comment marker
-are find-or-create. The processed marker is added only after an exact PR exists.
+and PR state all match. It resumes after the last durable stage. If ``main` advanced, trusted main-advance automation verifies and closes the stale
+unmerged PR, adds `zoo-v2-superseded`, and records an exact structured marker
+containing its PR, attempt, invalidating base, generation commit/path, and tag.
+The immutable branch and tag remain evidence. Scheduled reconciliation permits
+a retry only after validating that marker, exact closed-unmerged PR, stale
+predecessor, generation bytes, and permanent tag through GitHub/Git. It then
+derives a unique attempt from current discovery. Arbitrary PR closure remains
+blocked. Multiple audited supersessions remain retryable and retain the
+original command bytes.
 
 Queue inspection first enumerates the bounded set of retained issue branches,
 then queries GitHub for each exact head branch. It never relies on a fixed
@@ -164,7 +174,8 @@ the triggering event. Thus coalesced/dropped notifications cannot lose a
 command: scheduled runs keep selecting the next item after the current PR
 merges. Incomplete pages, malformed fields, premature processed labels,
 multiple open PRs, and unaudited closed-unmerged PRs fail closed. Labels and
-comments are add-only audit records.
+comments are add-only audit records. PR-open markers link exact PR numbers and
+attempts but never mark an issue processed.
 
 Stale-lock recovery is never automatic. A repository administrator must invoke
 `zoo_v2_release.py recover-lock` with the exact observed owner SHA, their
@@ -201,20 +212,32 @@ Issue JSON is never passed to a shell, template evaluator, Python importer,
 3. Write and test one new immutable generation.
 4. Acquire the atomic repository release lock, re-fetch current `main`, and
    repeat complete queue and predecessor validation.
-5. Commit and push that generation; capture the resulting full commit SHA.
-6. Re-fetch and revalidate current `main`, then create and atomically push its
-   unique annotated permanent tag under a compare-and-swap lease on that exact
-   main SHA. A collision is accepted only when its peeled commit and complete
-   provenance annotation are exact.
-7. Rewrite only `api/v2/discovery.json` to name the new generation at that
-   exact commit.
-8. Validate the local tree, commit and push the pointer separately, find or
-   create the PR and issue markers, and release only the exact lock lease.
+5. Commit that generation locally and capture its resulting full commit SHA.
+6. Rewrite only `api/v2/discovery.json` to name the new generation at that
+   exact commit and commit the pointer locally.
+7. Re-fetch and revalidate current `main` and the issue, then atomically push
+   the complete attempt branch and its unique annotated permanent tag under
+   compare-and-swap leases on exact `main` and the absent/exact attempt branch.
+   A collision is accepted only when the peeled commit, annotation, generation,
+   and discovery bytes are exact.
+8. Find or create the PR and structured issue backlink, then release only the
+   exact lock lease.
 
 This ordering avoids a self-referential Git hash. The generation commit exists
 before its SHA is placed in discovery. The workflow never pushes catalog
-changes to `main`, never closes the control issue, and never enables
-auto-merge. The PR merge remains the human consent event.
+changes to `main` and never enables auto-merge. The PR merge remains the human
+consent event. Opening a PR does not complete a command.
+
+After a merge, `.github/workflows/zoo-v2-merge-completion.yml` re-fetches the
+exact merged PR and current `main`, verifies the merged attempt bytes,
+discovery pointer, introducing commit, and permanent tag, then idempotently
+writes a trusted structured completion marker, adds `zoo-v2-processed`, and
+closes the issue. The marker records the exact merged PR, attempt, generation
+path/commit, tag, and merge timestamp. Reconciliation recognizes a processed
+label only after independently validating that trusted marker and exact merged
+PR through the API. The PR-open backlink allows recovery if completion is
+interrupted. Neither path depends on retained head branches or repository-wide
+PR history, so automatic head deletion cannot lose completion.
 
 `.github/workflows/zoo-v2-pr-validation.yml` publishes the
 `Zoo v2 current-main` status for every PR. It checks out current `main` as the
@@ -257,7 +280,11 @@ create/update/deprecate delta, predecessor URL and digest, pinned generation
 commit, annotated permanent tag, and fork boundary. On every `main` push,
 `.github/workflows/zoo-v2-main-advance.yml` reruns the same trusted validator
 for every open retained Zoo v2 branch as defense in depth, using exact
-per-branch PR queries rather than a truncated repository-wide list. Merge
+per-branch PR queries rather than a truncated repository-wide list. A stale
+candidate receives the App-authored failing status; trusted workflow
+automation then re-fetches the exact still-open PR, proves its predecessor is
+stale and its branch/tag evidence exact, records the superseded marker and
+label, and closes it. A merge race aborts retirement. Merge
 safety does not depend on
 that asynchronous overwrite: GitHub's strict required-status barrier refuses
 a head that is not up to date with the exact current base. Main-advance runs

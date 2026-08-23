@@ -32,6 +32,14 @@ RELEASE_LOCK_SCHEMA = "rapp-zoo-release-lock/1.0"
 PROCESSED_LABEL = "zoo-v2-processed"
 TOMBSTONED_LABEL = "zoo-v2-tombstoned"
 ELIGIBLE_LABEL = "zoo-v2-eligible"
+SUPERSEDED_LABEL = "zoo-v2-superseded"
+PR_MARKER_SCHEMA = "rapp-zoo-pr/1.0"
+COMPLETION_MARKER_SCHEMA = "rapp-zoo-completion/1.0"
+SUPERSEDED_MARKER_SCHEMA = "rapp-zoo-superseded/1.0"
+AUDIT_MARKER_RE = re.compile(
+    r"<!-- (?P<kind>zoo-v2-(?:pr|completed|superseded)) "
+    r"(?P<payload>\{[^\r\n]*\}) -->"
+)
 STORE_TITLE_RE = re.compile(r"^\[ZOO V2 (?:CREATE|UPDATE|DEPRECATE)\] ")
 PROTECTED_EXACT_PATHS = frozenset({
     ".github/zoo-v2-protection-audit.json",
@@ -839,22 +847,289 @@ def _issue_comments(root: Path, repository: str, issue_number: int) -> list[dict
     return comments
 
 
-def mark_issue_processed(
+def _audit_marker(kind: str, payload: dict) -> str:
+    return (
+        f"<!-- zoo-v2-{kind} "
+        f"{json.dumps(payload, sort_keys=True, separators=(',', ':'))} -->"
+    )
+
+
+def _trusted_comment(comment: dict, repository: str) -> bool:
+    user = comment.get("user")
+    login = user.get("login", "").lower() if isinstance(user, dict) else ""
+    owner = repository.split("/", 1)[0].lower()
+    return login in {owner, "github-actions[bot]"}
+
+
+def _marker_payloads(
+    comments: list[dict],
+    kind: str,
+    schema: str,
+    repository: str,
+) -> list[dict]:
+    payloads = []
+    expected_kind = f"zoo-v2-{kind}"
+    for comment in comments:
+        for match in AUDIT_MARKER_RE.finditer(comment["body"]):
+            if match.group("kind") != expected_kind:
+                continue
+            if not _trusted_comment(comment, repository):
+                continue
+            try:
+                payload = json.loads(match.group("payload"))
+            except json.JSONDecodeError as exc:
+                raise ReleaseError(
+                    f"E_AUDIT_MARKER: malformed {expected_kind} marker"
+                ) from exc
+            if not isinstance(payload, dict) or payload.get("schema") != schema:
+                raise ReleaseError(
+                    f"E_AUDIT_MARKER: invalid {expected_kind} schema"
+                )
+            payloads.append(payload)
+    return payloads
+
+
+def _exact_pr(root: Path, repository: str, pr_number: int) -> dict:
+    if (
+        not isinstance(pr_number, int)
+        or isinstance(pr_number, bool)
+        or pr_number <= 0
+    ):
+        raise ReleaseError("E_PR_STATE: invalid pull request number")
+    value = _gh_json(root, "api", f"repos/{repository}/pulls/{pr_number}")
+    if not isinstance(value, dict):
+        raise ReleaseError("E_GITHUB_RESPONSE: expected pull request object")
+    head = value.get("head")
+    branch = head.get("ref") if isinstance(head, dict) else None
+    if not isinstance(branch, str):
+        raise ReleaseError("E_GITHUB_RESPONSE: pull request head is incomplete")
+    return _normalize_catalog_pr(value, repository, branch)
+
+
+def _normalize_issue(value: object, issue_number: int) -> dict:
+    if not isinstance(value, dict) or value.get("number") != issue_number:
+        raise ReleaseError("E_ISSUE_SNAPSHOT: exact issue response is malformed")
+    user = value.get("user")
+    labels = value.get("labels")
+    required_strings = ("title", "state", "created_at", "updated_at", "body")
+    if (
+        any(not isinstance(value.get(key), str) for key in required_strings)
+        or not isinstance(user, dict)
+        or not isinstance(user.get("login"), str)
+        or not isinstance(labels, list)
+        or "pull_request" in value
+    ):
+        raise ReleaseError("E_ISSUE_SNAPSHOT: exact issue fields are incomplete")
+    label_names = []
+    for label in labels:
+        name = label.get("name") if isinstance(label, dict) else None
+        if not isinstance(name, str):
+            raise ReleaseError("E_ISSUE_SNAPSHOT: exact issue labels are incomplete")
+        label_names.append(name)
+    normalized = dict(value)
+    normalized["_label_names"] = sorted(set(label_names))
+    return normalized
+
+
+def _selected_snapshot(snapshot: object, issue_number: int) -> dict:
+    issue = snapshot.get("issue") if isinstance(snapshot, dict) else None
+    return _normalize_issue(issue, issue_number)
+
+
+def validate_selected_issue(
     root: Path,
     repository: str,
     issue_number: int,
+    snapshot: dict,
+    allowlist: set[str],
+    generation: dict,
+    expected_generation_bytes: bytes,
+    *,
+    remote: str = "origin",
+    base_generation_bytes: bytes | None = None,
+) -> dict:
+    """Bind an acquired release lease to one unchanged, still-eligible issue."""
+    reconciled = _selected_snapshot(snapshot, issue_number)
+    fresh = _normalize_issue(
+        _gh_json(root, "api", f"repos/{repository}/issues/{issue_number}"),
+        issue_number,
+    )
+    labels = set(fresh["_label_names"])
+    if fresh["state"] != "open":
+        raise ReleaseError("E_ISSUE_MUTATED: selected issue is no longer open")
+    if ELIGIBLE_LABEL not in labels:
+        raise ReleaseError("E_ISSUE_MUTATED: selected issue lost its eligible label")
+    forbidden = labels & {PROCESSED_LABEL, TOMBSTONED_LABEL}
+    if forbidden:
+        raise ReleaseError(
+            "E_ISSUE_MUTATED: selected issue has terminal label(s): "
+            + ", ".join(sorted(forbidden))
+        )
+    try:
+        store.validate_actor(fresh["user"]["login"], allowlist)
+    except store.StoreError as exc:
+        raise ReleaseError(str(exc)) from exc
+    for field in ("title", "body", "updated_at", "_label_names"):
+        if fresh[field] != reconciled[field]:
+            raise ReleaseError(
+                f"E_ISSUE_MUTATED: selected issue {field} changed after reconciliation"
+            )
+
+    discovery_bytes = _show(
+        root, f"refs/remotes/{remote}/main", "api/v2/discovery.json"
+    )
+    if discovery_bytes is None:
+        raise ReleaseError("E_BASE: origin/main has no Zoo v2 discovery")
+    current_url = store.validate_discovery(json.loads(discovery_bytes))
+    current_bytes = (
+        base_generation_bytes
+        if base_generation_bytes is not None
+        else store.fetch_bytes(current_url)
+    )
+    try:
+        current = json.loads(current_bytes)
+    except json.JSONDecodeError as exc:
+        raise ReleaseError("E_BASE: current generation is invalid JSON") from exc
+    store.validate_generation(current, network=False)
+    if store.canonical_json(current) != current_bytes:
+        raise ReleaseError("E_BASE: current generation is not canonical")
+    command = store.validate_command(
+        store.parse_issue_command(fresh["body"]),
+        fresh["title"],
+    )
+    regenerated = store.apply_command(
+        current,
+        current_url,
+        command,
+        issue_number=issue_number,
+        timestamp=fresh["updated_at"],
+        network=False,
+    )
+    regenerated_bytes = store.canonical_json(regenerated)
+    if regenerated_bytes != expected_generation_bytes or regenerated != generation:
+        raise ReleaseError(
+            "E_ISSUE_MUTATED: regenerated issue generation bytes differ"
+        )
+    return fresh
+
+
+def _completion_payload(
+    issue_number: int,
     pr: dict,
-) -> None:
-    """Add-only completion audit, and only when an exact PR already exists."""
+    generation_commit: str,
+) -> dict:
+    branch = pr.get("headRefName")
+    match = BRANCH_RE.fullmatch(branch) if isinstance(branch, str) else None
+    if match is None or int(match.group(1)) != issue_number:
+        raise ReleaseError("E_PROCESSED_MARKER: PR attempt does not match issue")
+    attempt = branch.removeprefix("zoo-v2/")
+    return {
+        "schema": COMPLETION_MARKER_SCHEMA,
+        "issue": issue_number,
+        "pr": pr["number"],
+        "attempt": attempt,
+        "generation": f"api/v2/generations/{attempt}.json",
+        "generation_commit": generation_commit,
+        "tag": store.generation_tag_name(attempt),
+        "merged_at": pr["mergedAt"],
+    }
+
+
+def _validate_completion_payload(
+    root: Path,
+    repository: str,
+    issue_number: int,
+    payload: dict,
+    *,
+    remote: str = "origin",
+) -> dict:
+    required = {
+        "schema", "issue", "pr", "attempt", "generation",
+        "generation_commit", "tag", "merged_at",
+    }
+    if set(payload) != required or payload.get("issue") != issue_number:
+        raise ReleaseError("E_PROCESSED_MARKER: completion marker fields differ")
+    pr = _exact_pr(root, repository, payload.get("pr"))
+    expected = _completion_payload(
+        issue_number,
+        pr,
+        payload.get("generation_commit"),
+    )
+    if pr.get("state") != "CLOSED" or not pr.get("mergedAt") or payload != expected:
+        raise ReleaseError("E_PROCESSED_MARKER: completion marker/merged PR differ")
+    generation_path = payload["generation"]
+    generation_bytes = _show(
+        root, f"refs/remotes/{remote}/main", generation_path
+    )
+    if generation_bytes is None:
+        raise ReleaseError("E_PROCESSED_MARKER: merged generation is absent from main")
+    committed_bytes = _show(
+        root, payload["generation_commit"], generation_path
+    )
+    if committed_bytes != generation_bytes:
+        raise ReleaseError("E_PROCESSED_MARKER: generation commit bytes differ")
+    generation = json.loads(generation_bytes)
     if (
-        not isinstance(pr, dict)
-        or not isinstance(pr.get("number"), int)
-        or not isinstance(pr.get("url"), str)
-        or _issue_number_from_branch(pr.get("headRefName")) != issue_number
-        or pr.get("state") not in {"OPEN", "CLOSED"}
+        generation.get("generation_id") != payload["attempt"]
+        or generation.get("source_issue") != issue_number
+        or store.canonical_json(generation) != generation_bytes
     ):
-        raise ReleaseError("E_PROCESSED_MARKER: exact issue PR is required")
-    marker = f"<!-- zoo-v2-processed:issue-{issue_number}:pr-{pr['number']} -->"
+        raise ReleaseError("E_PROCESSED_MARKER: merged generation provenance differs")
+    if _tag_target(root, payload["tag"]) != payload["generation_commit"]:
+        raise ReleaseError("E_PROCESSED_MARKER: permanent tag differs")
+    return pr
+
+
+def _ensure_issue_label(
+    root: Path,
+    repository: str,
+    issue_number: int,
+    label: str,
+) -> None:
+    label_metadata = {
+        PROCESSED_LABEL: (
+            "0e8a16",
+            "Zoo v2 command completed by a verified merged PR",
+        ),
+        SUPERSEDED_LABEL: (
+            "d4c5f9",
+            "Zoo v2 attempt superseded by a newer main generation",
+        ),
+    }
+    if label not in label_metadata:
+        raise ReleaseError("E_AUDIT_LABEL: unsupported lifecycle label")
+    color, description = label_metadata[label]
+    _gh(
+        root,
+        "label",
+        "create",
+        label,
+        "--repo",
+        repository,
+        "--color",
+        color,
+        "--description",
+        description,
+        "--force",
+    )
+    _gh(
+        root,
+        "api",
+        "--method",
+        "POST",
+        f"repos/{repository}/issues/{issue_number}/labels",
+        "-f",
+        f"labels[]={label}",
+    )
+
+
+def _ensure_audit_comment(
+    root: Path,
+    repository: str,
+    issue_number: int,
+    marker: str,
+    text: str,
+) -> None:
     comments = _issue_comments(root, repository, issue_number)
     if not any(marker in comment["body"] for comment in comments):
         _gh(
@@ -865,8 +1140,282 @@ def mark_issue_processed(
             "--repo",
             repository,
             "--body",
-            f"{marker}\nCatalog command is represented by PR {pr['url']}.",
+            f"{marker}\n{text}",
         )
+
+
+def finalize_merged_pr(
+    root: Path,
+    repository: str,
+    pr_number: int,
+    *,
+    remote: str = "origin",
+) -> dict:
+    """Persist a merged command independently of its retained head branch."""
+    _validate_repository(repository)
+    _git(root, "fetch", "--prune", remote, "main")
+    _git(root, "fetch", "--tags", remote)
+    pr = _exact_pr(root, repository, pr_number)
+    issue_number = _issue_number_from_branch(pr.get("headRefName"))
+    if (
+        issue_number is None
+        or pr.get("state") != "CLOSED"
+        or not pr.get("mergedAt")
+        or pr.get("baseRefName") != "main"
+    ):
+        raise ReleaseError("E_COMPLETE_MERGE: exact merged Zoo v2 PR is required")
+    attempt = pr["headRefName"].removeprefix("zoo-v2/")
+    generation_path = f"api/v2/generations/{attempt}.json"
+    main_revision = f"refs/remotes/{remote}/main"
+    generation_bytes = _show(root, main_revision, generation_path)
+    if generation_bytes is None:
+        raise ReleaseError("E_COMPLETE_MERGE: merged generation is absent from main")
+    generation = json.loads(generation_bytes)
+    store.validate_generation(generation, network=False)
+    if (
+        generation.get("generation_id") != attempt
+        or generation.get("source_issue") != issue_number
+        or store.canonical_json(generation) != generation_bytes
+    ):
+        raise ReleaseError("E_COMPLETE_MERGE: merged generation provenance differs")
+    discovery_bytes = _show(root, main_revision, "api/v2/discovery.json")
+    if discovery_bytes is None:
+        raise ReleaseError("E_COMPLETE_MERGE: merged discovery is absent")
+    discovery_url = store.validate_discovery(json.loads(discovery_bytes))
+    discovery_match = store.validate_generation_raw_url(
+        discovery_url, "discovery.generation_url"
+    )
+    if (
+        discovery_match.group("owner") + "/" + discovery_match.group("repo")
+        != repository
+        or discovery_match.group("path") != generation_path
+    ):
+        raise ReleaseError("E_COMPLETE_MERGE: main discovery does not select merged attempt")
+    generation_commit = discovery_match.group("commit")
+    if _show(root, generation_commit, generation_path) != generation_bytes:
+        raise ReleaseError("E_COMPLETE_MERGE: pinned generation commit bytes differ")
+    tag = store.generation_tag_name(attempt)
+    if _tag_target(root, tag) != generation_commit:
+        raise ReleaseError("E_COMPLETE_MERGE: permanent generation tag differs")
+
+    payload = _completion_payload(issue_number, pr, generation_commit)
+    marker = _audit_marker("completed", payload)
+    _ensure_audit_comment(
+        root,
+        repository,
+        issue_number,
+        marker,
+        (
+            f"Merged PR {pr['url']} completed attempt `{attempt}` with "
+            f"generation `{generation_path}` and permanent tag `{tag}`."
+        ),
+    )
+    _ensure_issue_label(root, repository, issue_number, PROCESSED_LABEL)
+    _gh(
+        root,
+        "api",
+        "--method",
+        "PATCH",
+        f"repos/{repository}/issues/{issue_number}",
+        "-f",
+        "state=closed",
+    )
+    return payload
+
+
+def _superseded_payload(
+    issue_number: int,
+    pr: dict,
+    base_sha: str,
+    generation_commit: str,
+) -> dict:
+    branch = pr.get("headRefName")
+    match = BRANCH_RE.fullmatch(branch) if isinstance(branch, str) else None
+    if (
+        match is None
+        or int(match.group(1)) != issue_number
+        or not COMMIT_SHA_RE.fullmatch(base_sha)
+        or not COMMIT_SHA_RE.fullmatch(generation_commit)
+    ):
+        raise ReleaseError("E_SUPERSEDED_MARKER: invalid attempt provenance")
+    attempt = branch.removeprefix("zoo-v2/")
+    return {
+        "schema": SUPERSEDED_MARKER_SCHEMA,
+        "issue": issue_number,
+        "pr": pr["number"],
+        "attempt": attempt,
+        "invalidating_base": base_sha,
+        "generation": f"api/v2/generations/{attempt}.json",
+        "generation_commit": generation_commit,
+        "tag": store.generation_tag_name(attempt),
+    }
+
+
+def _validate_superseded_payload(
+    root: Path,
+    repository: str,
+    issue_number: int,
+    payload: dict,
+    *,
+    allow_open: bool = False,
+) -> dict:
+    required = {
+        "schema", "issue", "pr", "attempt", "invalidating_base",
+        "generation", "generation_commit", "tag",
+    }
+    if set(payload) != required or payload.get("issue") != issue_number:
+        raise ReleaseError("E_SUPERSEDED_MARKER: marker fields differ")
+    pr = _exact_pr(root, repository, payload.get("pr"))
+    expected = _superseded_payload(
+        issue_number,
+        pr,
+        payload.get("invalidating_base"),
+        payload.get("generation_commit"),
+    )
+    allowed_states = {"CLOSED", "OPEN"} if allow_open else {"CLOSED"}
+    if (
+        pr.get("state") not in allowed_states
+        or pr.get("mergedAt")
+        or payload != expected
+    ):
+        raise ReleaseError("E_SUPERSEDED_MARKER: marker/closed PR differ")
+    generation_bytes = _show(
+        root, payload["generation_commit"], payload["generation"]
+    )
+    if generation_bytes is None:
+        raise ReleaseError("E_SUPERSEDED_MARKER: immutable generation is missing")
+    generation = json.loads(generation_bytes)
+    if (
+        generation.get("generation_id") != payload["attempt"]
+        or generation.get("source_issue") != issue_number
+        or store.canonical_json(generation) != generation_bytes
+    ):
+        raise ReleaseError("E_SUPERSEDED_MARKER: generation provenance differs")
+    if _tag_target(root, payload["tag"]) != payload["generation_commit"]:
+        raise ReleaseError("E_SUPERSEDED_MARKER: permanent tag differs")
+    base_discovery = _show(
+        root, payload["invalidating_base"], "api/v2/discovery.json"
+    )
+    if base_discovery is None:
+        raise ReleaseError("E_SUPERSEDED_MARKER: invalidating base is unavailable")
+    current_url = store.validate_discovery(json.loads(base_discovery))
+    if generation.get("previous_generation_url") == current_url:
+        raise ReleaseError("E_SUPERSEDED_MARKER: attempt is not stale at recorded base")
+    return pr
+
+
+def supersede_pr(
+    root: Path,
+    repository: str,
+    pr_number: int,
+    base_sha: str,
+    head_sha: str,
+) -> dict:
+    """Audit and close exactly one stale, unmerged attempt without deleting evidence."""
+    _validate_repository(repository)
+    if not COMMIT_SHA_RE.fullmatch(base_sha) or not COMMIT_SHA_RE.fullmatch(head_sha):
+        raise ReleaseError("E_SUPERSEDE: base/head must be full commit SHAs")
+    pr = _exact_pr(root, repository, pr_number)
+    issue_number = _issue_number_from_branch(pr.get("headRefName"))
+    if (
+        issue_number is None
+        or pr.get("state") != "OPEN"
+        or pr.get("mergedAt")
+        or pr.get("baseRefName") != "main"
+        or pr.get("headRefOid") != head_sha
+    ):
+        raise ReleaseError("E_SUPERSEDE: exact open unmerged Zoo v2 PR is required")
+    attempt = pr["headRefName"].removeprefix("zoo-v2/")
+    generation_path = f"api/v2/generations/{attempt}.json"
+    generation_bytes = _show(root, head_sha, generation_path)
+    if generation_bytes is None:
+        raise ReleaseError("E_SUPERSEDE: candidate generation is missing")
+    generation = json.loads(generation_bytes)
+    store.validate_generation(generation, network=False)
+    if (
+        generation.get("generation_id") != attempt
+        or generation.get("source_issue") != issue_number
+        or store.canonical_json(generation) != generation_bytes
+    ):
+        raise ReleaseError("E_SUPERSEDE: candidate generation provenance differs")
+    base_discovery = _show(root, base_sha, "api/v2/discovery.json")
+    if base_discovery is None:
+        raise ReleaseError("E_SUPERSEDE: current-main discovery is missing")
+    current_url = store.validate_discovery(json.loads(base_discovery))
+    if generation.get("previous_generation_url") == current_url:
+        raise ReleaseError("E_SUPERSEDE: candidate is not stale against current main")
+    generation_commit = _generation_commit(root, head_sha, generation_path)
+    tag = store.generation_tag_name(attempt)
+    if _tag_target(root, tag) != generation_commit:
+        raise ReleaseError("E_SUPERSEDE: candidate permanent tag differs")
+    generation_parent = _git(root, "rev-parse", f"{generation_commit}^")
+    if (
+        _git(root, "rev-parse", f"{head_sha}^") != generation_commit
+        or set(complete_changed_files(root, generation_parent, head_sha))
+        != {generation_path, "api/v2/discovery.json"}
+    ):
+        raise ReleaseError("E_SUPERSEDE: candidate attempt history/diff is not exact")
+    candidate_discovery_bytes = _show(
+        root, head_sha, "api/v2/discovery.json"
+    )
+    if candidate_discovery_bytes is None:
+        raise ReleaseError("E_SUPERSEDE: candidate discovery is missing")
+    candidate_url = store.validate_discovery(
+        json.loads(candidate_discovery_bytes)
+    )
+    candidate_match = store.validate_generation_raw_url(
+        candidate_url, "candidate discovery"
+    )
+    if (
+        candidate_match.group("owner") + "/" + candidate_match.group("repo")
+        != repository
+        or candidate_match.group("commit") != generation_commit
+        or candidate_match.group("path") != generation_path
+    ):
+        raise ReleaseError("E_SUPERSEDE: candidate discovery provenance differs")
+
+    current = _exact_pr(root, repository, pr_number)
+    if (
+        current.get("state") != "OPEN"
+        or current.get("mergedAt")
+        or current.get("headRefOid") != head_sha
+    ):
+        raise ReleaseError("E_SUPERSEDE_RACE: PR changed before retirement")
+    payload = _superseded_payload(
+        issue_number, current, base_sha, generation_commit
+    )
+    marker = _audit_marker("superseded", payload)
+    _gh(
+        root,
+        "api",
+        "--method",
+        "PATCH",
+        f"repos/{repository}/issues/{issue_number}",
+        "-f",
+        "state=open",
+    )
+    _ensure_audit_comment(
+        root,
+        repository,
+        issue_number,
+        marker,
+        (
+            f"Superseded PR {current['url']} at current base `{base_sha}`. "
+            f"Attempt `{attempt}`, generation `{generation_path}`, and permanent "
+            f"tag `{tag}` remain immutable evidence. Scheduled reconciliation may retry."
+        ),
+    )
+    _ensure_issue_label(root, repository, issue_number, SUPERSEDED_LABEL)
+    _gh(
+        root,
+        "api",
+        "--method",
+        "PATCH",
+        f"repos/{repository}/pulls/{pr_number}",
+        "-f",
+        "state=closed",
+    )
+    return payload
 
 
 def reconcile_eligible_issues(
@@ -893,9 +1442,70 @@ def reconcile_eligible_issues(
     for issue in issues:
         number = issue["number"]
         labels = set(issue["_label_names"])
-        issue_prs = by_issue.get(number, [])
+        comments = _issue_comments(root, repository, number)
+        issue_prs = list(by_issue.get(number, []))
+        pr_markers = _marker_payloads(
+            comments, "pr", PR_MARKER_SCHEMA, repository
+        )
+        for payload in pr_markers:
+            if set(payload) != {"schema", "issue", "pr", "attempt"}:
+                raise ReleaseError("E_PR_MARKER: marker fields differ")
+            if payload.get("issue") != number:
+                raise ReleaseError("E_PR_MARKER: marker issue differs")
+            pr = _exact_pr(root, repository, payload.get("pr"))
+            expected_branch = f"zoo-v2/{payload.get('attempt')}"
+            if (
+                pr.get("headRefName") != expected_branch
+                or _issue_number_from_branch(expected_branch) != number
+            ):
+                raise ReleaseError("E_PR_MARKER: marker/PR attempt differs")
+            if not any(existing.get("number") == pr["number"] for existing in issue_prs):
+                issue_prs.append(pr)
+
+        superseded_markers = _marker_payloads(
+            comments,
+            "superseded",
+            SUPERSEDED_MARKER_SCHEMA,
+            repository,
+        )
+        superseded = {}
+        for payload in superseded_markers:
+            superseded_pr = _validate_superseded_payload(
+                root,
+                repository,
+                number,
+                payload,
+                allow_open=True,
+            )
+            superseded[superseded_pr["number"]] = superseded_pr
+            if superseded_pr["state"] == "OPEN":
+                _gh(
+                    root,
+                    "api",
+                    "--method",
+                    "PATCH",
+                    f"repos/{repository}/pulls/{superseded_pr['number']}",
+                    "-f",
+                    "state=closed",
+                )
+                _ensure_issue_label(
+                    root, repository, number, SUPERSEDED_LABEL
+                )
+                _gh(
+                    root,
+                    "api",
+                    "--method",
+                    "PATCH",
+                    f"repos/{repository}/issues/{number}",
+                    "-f",
+                    "state=open",
+                )
+                for existing in issue_prs:
+                    if existing.get("number") == superseded_pr["number"]:
+                        existing["state"] = "CLOSED"
+
         active = [pr for pr in issue_prs if pr.get("state") == "OPEN"]
-        represented = active + [
+        merged = [
             pr for pr in issue_prs
             if pr.get("state") == "CLOSED" and pr.get("mergedAt")
         ]
@@ -907,14 +1517,34 @@ def reconcile_eligible_issues(
             raise ReleaseError(
                 f"E_RECONCILE_INCOMPLETE: issue #{number} has multiple open PRs"
             )
+        completion_markers = _marker_payloads(
+            comments, "completed", COMPLETION_MARKER_SCHEMA, repository
+        )
+        completed_prs = [
+            _validate_completion_payload(
+                root, repository, number, payload, remote=remote
+            )
+            for payload in completion_markers
+        ]
+        if len({pr["number"] for pr in completed_prs}) > 1:
+            raise ReleaseError(
+                f"E_PROCESSED_MARKER: issue #{number} has conflicting completions"
+            )
         if PROCESSED_LABEL in labels:
-            if not represented:
+            if not completed_prs:
                 raise ReleaseError(
-                    f"E_PROCESSED_MARKER: issue #{number} is marked before a PR exists"
+                    f"E_PROCESSED_MARKER: issue #{number} lacks a valid completion marker"
                 )
-            mark_issue_processed(root, repository, number, represented[-1])
+            _gh(
+                root,
+                "api",
+                "--method",
+                "PATCH",
+                f"repos/{repository}/issues/{number}",
+                "-f",
+                "state=closed",
+            )
             states.append({"number": number, "state": "processed"})
-            open_prs.extend(active)
             continue
         if TOMBSTONED_LABEL in labels:
             if active:
@@ -923,21 +1553,52 @@ def reconcile_eligible_issues(
                 )
             states.append({"number": number, "state": "tombstoned"})
             continue
-        if represented:
-            mark_issue_processed(root, repository, number, represented[-1])
-            states.append({"number": number, "state": "open-pr" if active else "closed"})
+        if completed_prs:
+            _ensure_issue_label(root, repository, number, PROCESSED_LABEL)
+            _gh(
+                root,
+                "api",
+                "--method",
+                "PATCH",
+                f"repos/{repository}/issues/{number}",
+                "-f",
+                "state=closed",
+            )
+            states.append({"number": number, "state": "processed"})
+            continue
+        if merged:
+            if len(merged) > 1:
+                raise ReleaseError(
+                    f"E_RECONCILE_INCOMPLETE: issue #{number} has multiple merged PRs"
+                )
+            finalize_merged_pr(
+                root, repository, merged[0]["number"], remote=remote
+            )
+            states.append({"number": number, "state": "processed"})
+            continue
+        if active:
+            states.append({"number": number, "state": "open-pr"})
             open_prs.extend(active)
             continue
         if closed_unmerged:
-            raise ReleaseError(
-                f"E_RECONCILE_BLOCKED: issue #{number} has a closed unmerged PR; "
-                f"add {TOMBSTONED_LABEL} only after an administrator audits abandonment"
-            )
+            untrusted_closures = [
+                pr["number"] for pr in closed_unmerged
+                if pr["number"] not in superseded
+            ]
+            if untrusted_closures:
+                raise ReleaseError(
+                    f"E_RECONCILE_BLOCKED: issue #{number} has arbitrary closed "
+                    "unmerged PR(s): "
+                    + ", ".join(f"#{pr}" for pr in untrusted_closures)
+                )
         if not STORE_TITLE_RE.match(issue["title"]):
             raise ReleaseError(
                 f"E_RECONCILE_INCOMPLETE: eligible issue #{number} has an invalid title"
             )
-        states.append({"number": number, "state": "pending"})
+        states.append({
+            "number": number,
+            "state": "retryable" if closed_unmerged else "pending",
+        })
         candidates.append(issue)
 
     if open_prs:
@@ -1053,6 +1714,9 @@ def ensure_permanent_tag(
     *,
     create: bool = True,
     expected_main: str | None = None,
+    publish_branch: str | None = None,
+    branch_head: str | None = None,
+    expected_branch: str | None = None,
 ) -> str:
     tag = store.generation_tag_name(generation["generation_id"])
     message = store.generation_tag_message(generation, generation_path)
@@ -1083,30 +1747,50 @@ def ensure_permanent_tag(
     actual_message = _git(root, "for-each-ref", "--format=%(contents)", f"refs/tags/{tag}")
     if actual_message.rstrip("\n") != message.rstrip("\n"):
         raise ReleaseError(f"E_REF_COLLISION: {tag} annotation content/provenance differs")
-    if not remote_exists:
-        if expected_main is None:
+    if publish_branch is not None:
+        if (
+            not BRANCH_RE.fullmatch(publish_branch)
+            or branch_head is None
+            or not COMMIT_SHA_RE.fullmatch(branch_head)
+            or (
+                expected_branch is not None
+                and not COMMIT_SHA_RE.fullmatch(expected_branch)
+            )
+        ):
+            raise ReleaseError("E_REF_PUBLICATION: invalid branch publication lease")
+    if not remote_exists or publish_branch is not None:
+        if expected_main is None and publish_branch is None:
             _git(root, "push", remote, f"refs/tags/{tag}:refs/tags/{tag}")
         else:
-            if not COMMIT_SHA_RE.fullmatch(expected_main):
+            if expected_main is None or not COMMIT_SHA_RE.fullmatch(expected_main):
                 raise ReleaseError("E_BASE: expected current main must be a full commit SHA")
+            command = [
+                "git",
+                "push",
+                "--atomic",
+                f"--force-with-lease=refs/heads/main:{expected_main}",
+            ]
+            if publish_branch is not None:
+                lease_value = expected_branch or ""
+                command.append(
+                    f"--force-with-lease=refs/heads/{publish_branch}:{lease_value}"
+                )
+            command.append(remote)
+            if not remote_exists:
+                command.append(f"refs/tags/{tag}:refs/tags/{tag}")
+            if publish_branch is not None:
+                command.append(f"{branch_head}:refs/heads/{publish_branch}")
+            command.append(f"{expected_main}:refs/heads/main")
             publication = _run(
-                [
-                    "git",
-                    "push",
-                    "--atomic",
-                    f"--force-with-lease=refs/heads/main:{expected_main}",
-                    remote,
-                    f"refs/tags/{tag}:refs/tags/{tag}",
-                    f"{expected_main}:refs/heads/main",
-                ],
+                command,
                 cwd=root,
                 check=False,
             )
             if publication.returncode:
                 detail = publication.stderr.strip() or publication.stdout.strip()
                 raise ReleaseError(
-                    "E_STALE_PREDECESSOR: current main changed before permanent "
-                    f"tag publication: {detail}"
+                    "E_STALE_PREDECESSOR: current main or attempt branch changed "
+                    f"before atomic ref/tag publication: {detail}"
                 )
     return tag
 
@@ -1159,7 +1843,7 @@ def _ensure_pr(root: Path, repository: str, issue_number: int, branch: str) -> d
             "",
             "The generation is protected by its permanent annotated tag before discovery is published.",
             "No auto-merge is configured; maintainer review and the required current-main check remain mandatory.",
-            f"<!-- zoo-v2-pr:issue-{issue_number} -->",
+            f"Tracks #{issue_number}; trusted automation records completion after merge.",
         ])
         url = _gh(
             root,
@@ -1187,9 +1871,15 @@ def _ensure_pr(root: Path, repository: str, issue_number: int, branch: str) -> d
             "title": title,
         }
 
-    marker = f"<!-- zoo-v2-pr:issue-{issue_number} -->"
+    attempt = branch.removeprefix("zoo-v2/")
+    marker = _audit_marker("pr", {
+        "schema": PR_MARKER_SCHEMA,
+        "issue": issue_number,
+        "pr": pr["number"],
+        "attempt": attempt,
+    })
     comments = _issue_comments(root, repository, issue_number)
-    if not any(isinstance(item, dict) and marker in str(item.get("body", "")) for item in comments):
+    if not any(marker in item["body"] for item in comments):
         _gh(
             root,
             "issue",
@@ -1198,9 +1888,11 @@ def _ensure_pr(root: Path, repository: str, issue_number: int, branch: str) -> d
             "--repo",
             repository,
             "--body",
-            f"{marker}\nValidated catalog PR: {pr['url']}",
+            (
+                f"{marker}\nValidated catalog PR: {pr['url']}. "
+                "Opening this PR does not complete the command."
+            ),
         )
-    mark_issue_processed(root, repository, issue_number, pr)
     return pr
 
 
@@ -1307,6 +1999,9 @@ def resume_release(
     stage_hook: Callable[[str], None] | None = None,
     pr_ensurer: Callable[[Path, str, int, str], dict] | None = None,
     lock_owner: dict | None = None,
+    issue_snapshot: dict | None = None,
+    allowed_actors: set[str] | None = None,
+    verify_issue: bool | None = None,
 ) -> dict:
     """Resume a release without rewriting any existing branch, tag, or PR state."""
     root = root.resolve()
@@ -1335,10 +2030,44 @@ def resume_release(
         issue_number,
         generation_id,
     )
+    must_verify_issue = create_pr if verify_issue is None else verify_issue
+    if must_verify_issue and (
+        issue_snapshot is None or not allowed_actors
+    ):
+        raise ReleaseError(
+            "E_ISSUE_SNAPSHOT: release requires a reconciled issue snapshot "
+            "and non-empty actor allowlist"
+        )
     lease = acquire_release_lock(root, remote, owner)
     try:
         if stage_hook:
             stage_hook("lock-acquired")
+        def revalidate() -> None:
+            _refresh_release_validation(
+                root,
+                repository,
+                issue_number,
+                generation,
+                remote=remote,
+                create_pr=create_pr,
+                pull_requests=pull_requests,
+                base_generation_bytes=base_generation_bytes,
+            )
+            if must_verify_issue:
+                assert issue_snapshot is not None
+                assert allowed_actors is not None
+                validate_selected_issue(
+                    root,
+                    repository,
+                    issue_number,
+                    issue_snapshot,
+                    allowed_actors,
+                    generation,
+                    expected_bytes,
+                    remote=remote,
+                    base_generation_bytes=base_generation_bytes,
+                )
+
         remote_branches, _, base_discovery_bytes = _refresh_release_validation(
             root,
             repository,
@@ -1349,15 +2078,18 @@ def resume_release(
             pull_requests=pull_requests,
             base_generation_bytes=base_generation_bytes,
         )
-        def revalidate() -> None:
-            _refresh_release_validation(
+        if must_verify_issue:
+            assert issue_snapshot is not None
+            assert allowed_actors is not None
+            validate_selected_issue(
                 root,
                 repository,
                 issue_number,
+                issue_snapshot,
+                allowed_actors,
                 generation,
+                expected_bytes,
                 remote=remote,
-                create_pr=create_pr,
-                pull_requests=pull_requests,
                 base_generation_bytes=base_generation_bytes,
             )
 
@@ -1371,6 +2103,7 @@ def resume_release(
         )
 
         branch_exists = branch in remote_branches
+        branch_expected_sha = None
         local_expected = root / path
         if branch_exists:
             tracked = _run(
@@ -1387,6 +2120,7 @@ def resume_release(
                 f"refs/heads/{branch}:refs/remotes/{remote}/{branch}",
             )
             remote_revision = f"refs/remotes/{remote}/{branch}"
+            branch_expected_sha = _git(root, "rev-parse", remote_revision)
             branch_bytes = _show(root, remote_revision, path.as_posix())
             if branch_bytes != expected_bytes:
                 raise ReleaseError(
@@ -1409,46 +2143,8 @@ def resume_release(
                 f"catalog(v2): generation for issue #{issue_number}",
             )
             generation_commit = _git(root, "rev-parse", "HEAD")
-            revalidate()
-            _git(
-                root,
-                "push",
-                "--set-upstream",
-                remote,
-                f"HEAD:refs/heads/{branch}",
-            )
         if _show(root, generation_commit, path.as_posix()) != expected_bytes:
             raise ReleaseError("E_GENERATION_COMMIT: generation commit content differs")
-        if stage_hook:
-            stage_hook("generation-push")
-        if stop_after == "generation-push":
-            raise RuntimeError("simulated failure after generation push")
-
-        _, _, base_discovery_bytes = _refresh_release_validation(
-            root,
-            repository,
-            issue_number,
-            generation,
-            remote=remote,
-            create_pr=create_pr,
-            pull_requests=pull_requests,
-            base_generation_bytes=base_generation_bytes,
-        )
-        current_main = _git(root, "rev-parse", f"refs/remotes/{remote}/main")
-        if stage_hook:
-            stage_hook("before-tag-push")
-        ensure_permanent_tag(
-            root,
-            remote,
-            generation,
-            path.as_posix(),
-            generation_commit,
-            expected_main=current_main,
-        )
-        if stage_hook:
-            stage_hook("tag-push")
-        if stop_after == "tag-push":
-            raise RuntimeError("simulated failure after tag push")
 
         _, _, base_discovery_bytes = _refresh_release_validation(
             root,
@@ -1477,20 +2173,46 @@ def resume_release(
                 "-m",
                 f"catalog(v2): pin discovery for issue #{issue_number}",
             )
-            revalidate()
-            _git(root, "push", remote, f"HEAD:refs/heads/{branch}")
         elif current_discovery != expected_discovery:
             raise ReleaseError(
                 "E_DISCOVERY_COLLISION: issue branch has a different discovery pointer"
             )
+        branch_head = _git(root, "rev-parse", "HEAD")
+
+        for publication_stage in (
+            "before-generation-push",
+            "before-tag-push",
+            "before-discovery-push",
+        ):
+            if stage_hook:
+                stage_hook(publication_stage)
+            revalidate()
+        current_main = _git(root, "rev-parse", f"refs/remotes/{remote}/main")
+        ensure_permanent_tag(
+            root,
+            remote,
+            generation,
+            path.as_posix(),
+            generation_commit,
+            expected_main=current_main,
+            publish_branch=branch,
+            branch_head=branch_head,
+            expected_branch=branch_expected_sha,
+        )
+        _git(root, "branch", "--set-upstream-to", f"{remote}/{branch}", branch)
         if _tag_target(root, tag) != generation_commit:
             raise ReleaseError(
                 "E_PERMANENT_REF: discovery cannot publish before permanent tag"
             )
-        if stage_hook:
-            stage_hook("discovery-push")
-        if stop_after == "discovery-push":
-            raise RuntimeError("simulated failure after discovery push")
+        for completed_stage in (
+            "generation-push",
+            "tag-push",
+            "discovery-push",
+        ):
+            if stage_hook:
+                stage_hook(completed_stage)
+            if stop_after == completed_stage:
+                raise RuntimeError(f"simulated failure after {completed_stage}")
 
         revalidate()
         ensure_pr = pr_ensurer or _ensure_pr
@@ -1738,6 +2460,8 @@ def main(argv: list[str] | None = None) -> int:
     resume.add_argument("--repository", required=True)
     resume.add_argument("--issue-number", type=int, required=True)
     resume.add_argument("--remote", default="origin")
+    resume.add_argument("--event-path", required=True)
+    resume.add_argument("--allow-actors", required=True)
 
     reconcile = sub.add_parser("reconcile")
     reconcile.add_argument("--root", default=".")
@@ -1753,6 +2477,19 @@ def main(argv: list[str] | None = None) -> int:
     recover.add_argument("--expected-owner-sha", required=True)
     recover.add_argument("--reason", required=True)
     recover.add_argument("--admin-actor", required=True)
+
+    complete = sub.add_parser("complete-merge")
+    complete.add_argument("--root", default=".")
+    complete.add_argument("--repository", required=True)
+    complete.add_argument("--pr-number", type=int, required=True)
+    complete.add_argument("--remote", default="origin")
+
+    supersede = sub.add_parser("supersede-pr")
+    supersede.add_argument("--root", default=".")
+    supersede.add_argument("--repository", required=True)
+    supersede.add_argument("--pr-number", type=int, required=True)
+    supersede.add_argument("--base-sha", required=True)
+    supersede.add_argument("--head-sha", required=True)
 
     validate = sub.add_parser("validate-pr")
     validate.add_argument("--root", default=".")
@@ -1798,12 +2535,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         root = Path(args.root)
         if args.command == "resume":
+            snapshot = json.loads(Path(args.event_path).read_text())
             result = resume_release(
                 root,
                 args.generation,
                 args.repository,
                 args.issue_number,
                 remote=args.remote,
+                issue_snapshot=snapshot,
+                allowed_actors=store.parse_allowlist(args.allow_actors),
+                verify_issue=True,
             )
             print(json.dumps(result, sort_keys=True))
         elif args.command == "reconcile":
@@ -1833,6 +2574,23 @@ def main(argv: list[str] | None = None) -> int:
                 args.reason,
                 args.admin_actor,
                 remote=args.remote,
+            )
+            print(json.dumps(result, sort_keys=True))
+        elif args.command == "complete-merge":
+            result = finalize_merged_pr(
+                root,
+                args.repository,
+                args.pr_number,
+                remote=args.remote,
+            )
+            print(json.dumps(result, sort_keys=True))
+        elif args.command == "supersede-pr":
+            result = supersede_pr(
+                root,
+                args.repository,
+                args.pr_number,
+                args.base_sha,
+                args.head_sha,
             )
             print(json.dumps(result, sort_keys=True))
         elif args.command == "validate-pr":

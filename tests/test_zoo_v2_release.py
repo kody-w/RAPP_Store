@@ -266,6 +266,58 @@ def _eligible_issue(number: int, *, labels: list[str] | None = None) -> dict:
     }
 
 
+def _matching_release_issue(work: Path, issue_number: int = 42) -> dict:
+    generation = json.loads(_issue_path(work, issue_number).read_text())
+    command = {
+        "schema": store.COMMAND_SCHEMA,
+        "operation": "update",
+        "id": "synthetic-example",
+        "prototype": generation["prototypes"][0],
+    }
+    body = f"```json\n{json.dumps(command, indent=2, sort_keys=True)}\n```"
+    return {
+        "number": issue_number,
+        "title": "[ZOO V2 UPDATE] synthetic-example",
+        "state": "open",
+        "created_at": generation["created_at"],
+        "updated_at": generation["created_at"],
+        "body": body,
+        "user": {"login": "example"},
+        "labels": [{"name": release.ELIGIBLE_LABEL}],
+    }
+
+
+def _issue_event(issue: dict, repository: str = "example/store") -> dict:
+    return {
+        "action": "reconciled",
+        "issue": json.loads(json.dumps(issue)),
+        "repository": {"full_name": repository},
+    }
+
+
+def _raw_pr(
+    number: int,
+    branch: str,
+    head_sha: str,
+    *,
+    state: str = "open",
+    merged_at: str | None = None,
+) -> dict:
+    return {
+        "number": number,
+        "html_url": f"https://github.com/example/store/pull/{number}",
+        "state": state,
+        "merged_at": merged_at,
+        "title": f"catalog(v2): {branch}",
+        "head": {
+            "ref": branch,
+            "sha": head_sha,
+            "repo": {"full_name": "example/store"},
+        },
+        "base": {"ref": "main"},
+    }
+
+
 @pytest.mark.parametrize(
     "stop_after",
     ["generation-push", "tag-push", "discovery-push"],
@@ -320,6 +372,7 @@ def test_resume_after_pr_is_find_or_create_idempotent(tmp_path):
         "pull_requests": [durable_pr],
         "base_generation_bytes": base_bytes,
         "pr_ensurer": ensure_pr,
+        "verify_issue": False,
     }
     with pytest.raises(RuntimeError, match="simulated failure after PR"):
         release.resume_release(**kwargs, stop_after="pr")
@@ -331,7 +384,169 @@ def test_resume_after_pr_is_find_or_create_idempotent(tmp_path):
     ]
 
 
-def test_main_advance_race_archives_attempt_and_retry_uses_new_predecessor(tmp_path):
+def test_opening_pr_records_only_link_marker_not_processed(monkeypatch, tmp_path):
+    branch = SAMPLE_ATTEMPT_BRANCH
+    calls = []
+    monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: [])
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: [])
+
+    def gh(_root, *args):
+        calls.append(args)
+        if args[:2] == ("pr", "create"):
+            return "https://github.com/example/store/pull/77"
+        return ""
+
+    monkeypatch.setattr(release, "_gh", gh)
+    pr = release._ensure_pr(tmp_path, "example/store", 42, branch)
+    assert pr["number"] == 77
+    body = next(
+        call[call.index("--body") + 1]
+        for call in calls
+        if call[:2] == ("issue", "comment")
+    )
+    assert release.PR_MARKER_SCHEMA in body
+    assert release.PROCESSED_LABEL not in "\n".join(" ".join(call) for call in calls)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "close",
+        "title",
+        "body",
+        "updated_at",
+        "eligible_removed",
+        "processed",
+        "tombstoned",
+        "labels_changed",
+        "actor",
+    ],
+)
+def test_locked_release_refetches_and_rejects_every_issue_mutation(
+    tmp_path, monkeypatch, mutation
+):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    issue = _matching_release_issue(work)
+    snapshot = _issue_event(issue)
+    fresh = json.loads(json.dumps(issue))
+
+    if mutation == "close":
+        fresh["state"] = "closed"
+    elif mutation == "title":
+        fresh["title"] += " edited"
+    elif mutation == "body":
+        fresh["body"] += "\nEdited."
+    elif mutation == "updated_at":
+        fresh["updated_at"] = "2026-08-22T20:00:01Z"
+    elif mutation == "eligible_removed":
+        fresh["labels"] = []
+    elif mutation == "processed":
+        fresh["labels"].append({"name": release.PROCESSED_LABEL})
+    elif mutation == "tombstoned":
+        fresh["labels"].append({"name": release.TOMBSTONED_LABEL})
+    elif mutation == "labels_changed":
+        fresh["labels"].append({"name": "documentation"})
+    else:
+        fresh["user"]["login"] = "intruder"
+
+    monkeypatch.setattr(
+        release,
+        "_gh_json",
+        lambda _root, *args: json.loads(json.dumps(fresh)),
+    )
+    with pytest.raises(release.ReleaseError, match="E_(ISSUE_MUTATED|ACTOR_NOT_ALLOWED)"):
+        release.resume_release(
+            work,
+            generation_path,
+            "example/store",
+            42,
+            create_pr=False,
+            pull_requests=[],
+            base_generation_bytes=base_bytes,
+            issue_snapshot=snapshot,
+            allowed_actors={"example"},
+            verify_issue=True,
+        )
+    branch = _issue_branch(work)
+    tag = store.generation_tag_name(Path(generation_path).stem)
+    assert _git(work, "ls-remote", "--heads", "origin", f"refs/heads/{branch}") == ""
+    assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{tag}") == ""
+
+
+@pytest.mark.parametrize(
+    "race_stage",
+    ["before-generation-push", "before-tag-push", "before-discovery-push"],
+)
+def test_issue_edit_race_aborts_before_atomic_ref_tag_publication(
+    tmp_path, monkeypatch, race_stage
+):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    issue = _matching_release_issue(work)
+    snapshot = _issue_event(issue)
+    fresh = json.loads(json.dumps(issue))
+    monkeypatch.setattr(
+        release,
+        "_gh_json",
+        lambda _root, *args: json.loads(json.dumps(fresh)),
+    )
+
+    def mutate(stage):
+        if stage == race_stage:
+            fresh["labels"].append({"name": "race-edit"})
+            fresh["updated_at"] = "2026-08-22T20:00:01Z"
+
+    with pytest.raises(release.ReleaseError, match="E_ISSUE_MUTATED"):
+        release.resume_release(
+            work,
+            generation_path,
+            "example/store",
+            42,
+            create_pr=False,
+            pull_requests=[],
+            base_generation_bytes=base_bytes,
+            issue_snapshot=snapshot,
+            allowed_actors={"example"},
+            verify_issue=True,
+            stage_hook=mutate,
+        )
+    branch = _issue_branch(work)
+    tag = store.generation_tag_name(Path(generation_path).stem)
+    assert _git(work, "ls-remote", "--heads", "origin", f"refs/heads/{branch}") == ""
+    assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{tag}") == ""
+
+
+def test_locked_release_regenerates_exact_bytes_from_reconciled_snapshot(
+    tmp_path, monkeypatch
+):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    issue = _matching_release_issue(work)
+    command = json.loads(store.JSON_BLOCK_RE.findall(issue["body"])[0])
+    command["prototype"]["summary"] = "Edited before locked generation."
+    issue["body"] = f"```json\n{json.dumps(command, indent=2, sort_keys=True)}\n```"
+    issue["updated_at"] = "2026-08-22T20:00:01Z"
+    snapshot = _issue_event(issue)
+    monkeypatch.setattr(release, "_gh_json", lambda *_args: issue)
+
+    with pytest.raises(release.ReleaseError, match="regenerated.*bytes differ"):
+        release.resume_release(
+            work,
+            generation_path,
+            "example/store",
+            42,
+            create_pr=False,
+            pull_requests=[],
+            base_generation_bytes=base_bytes,
+            issue_snapshot=snapshot,
+            allowed_actors={"example"},
+            verify_issue=True,
+        )
+    assert not _git(work, "ls-remote", "--heads", "origin", "refs/heads/zoo-v2/issue-*")
+
+
+def test_main_advance_race_publishes_no_partial_attempt_and_retry_uses_new_predecessor(tmp_path):
     work, base_bytes, _ = _seed_remote(tmp_path)
     stale_path = _issue_relative(work)
     stale_id = Path(stale_path).stem
@@ -382,10 +597,10 @@ def test_main_advance_race_archives_attempt_and_retry_uses_new_predecessor(tmp_p
         base_generation_bytes=raced["bytes"],
     )
     assert result["tag"] != stale_tag
-    assert result["archived_tags"] == [stale_tag]
+    assert result["archived_tags"] == []
     assert retry["previous_generation_url"] == raced["url"]
-    for tag in (stale_tag, result["tag"]):
-        assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{tag}")
+    assert not _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{stale_tag}")
+    assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{result['tag']}")
     remote_discovery = json.loads(
         _git(work, "show", f"origin/{result['branch']}:api/v2/discovery.json")
     )
@@ -552,6 +767,7 @@ def test_two_remote_releasers_create_exactly_one_lane_then_queue_blocks(tmp_path
                 base_generation_bytes=base_bytes,
                 stage_hook=hold_after_lock,
                 pr_ensurer=ensure_pr,
+                verify_issue=False,
                 lock_owner=release.release_lock_owner(
                     "example/store",
                     42,
@@ -707,6 +923,7 @@ def test_reconciliation_drains_three_coalesced_commands_in_order(monkeypatch, tm
     issues = [_eligible_issue(number) for number in (1, 2, 3)]
     prs = []
     gh_calls = []
+    finalized = []
     monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: issues)
     monkeypatch.setattr(
         release,
@@ -719,6 +936,11 @@ def test_reconciliation_drains_three_coalesced_commands_in_order(monkeypatch, tm
         release,
         "_gh",
         lambda _root, *args: gh_calls.append(args) or "",
+    )
+    monkeypatch.setattr(
+        release,
+        "finalize_merged_pr",
+        lambda _root, _repository, pr_number, **_kwargs: finalized.append(pr_number),
     )
 
     first = release.reconcile_eligible_issues(tmp_path, "example/store")
@@ -736,7 +958,7 @@ def test_reconciliation_drains_three_coalesced_commands_in_order(monkeypatch, tm
     blocked = release.reconcile_eligible_issues(tmp_path, "example/store")
     assert blocked["selected"] is None
     assert blocked["blocked_by_prs"] == [101]
-    assert any("zoo-v2-processed" in " ".join(call) for call in gh_calls)
+    assert not any("zoo-v2-processed" in " ".join(call) for call in gh_calls)
 
     prs[0]["state"] = "CLOSED"
     prs[0]["mergedAt"] = "2026-08-22T21:00:00Z"
@@ -761,6 +983,7 @@ def test_reconciliation_drains_three_coalesced_commands_in_order(monkeypatch, tm
     drained = release.reconcile_eligible_issues(tmp_path, "example/store")
     assert drained["selected"] is None
     assert [state["number"] for state in drained["states"]] == [1, 2, 3]
+    assert finalized == [101, 101, 102, 101, 102, 103]
 
 
 def test_eligible_issue_scan_paginates_fully_and_fails_closed_at_bound(
@@ -813,7 +1036,8 @@ def test_processed_and_tombstoned_markers_fail_closed_or_skip(monkeypatch, tmp_p
     )
     monkeypatch.setattr(release, "_remote_issue_branches", lambda *_args: set())
     monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: [])
-    with pytest.raises(release.ReleaseError, match="marked before a PR exists"):
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: [])
+    with pytest.raises(release.ReleaseError, match="lacks a valid completion marker"):
         release.reconcile_eligible_issues(tmp_path, "example/store")
 
     monkeypatch.setattr(
@@ -824,6 +1048,334 @@ def test_processed_and_tombstoned_markers_fail_closed_or_skip(monkeypatch, tmp_p
     result = release.reconcile_eligible_issues(tmp_path, "example/store")
     assert result["selected"] is None
     assert result["states"] == [{"number": 2, "state": "tombstoned"}]
+
+
+def test_merge_completion_survives_deleted_branch_and_ignores_pr_history(
+    tmp_path, monkeypatch
+):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    generation_path = _issue_relative(work)
+    released = release.resume_release(
+        work,
+        generation_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=base_bytes,
+    )
+    branch = released["branch"]
+    head_sha = _git(work, "rev-parse", "HEAD")
+    _git(work, "switch", "-C", "main", "origin/main")
+    _git(work, "merge", "--squash", f"origin/{branch}")
+    _git(work, "commit", "-m", "squash merged catalog attempt")
+    _git(work, "push", "origin", "main")
+    _git(work, "push", "origin", "--delete", branch)
+    _git(work, "fetch", "--prune", "--tags", "origin", "main")
+
+    raw_pr = _raw_pr(
+        501,
+        branch,
+        head_sha,
+        state="closed",
+        merged_at="2026-08-22T22:00:00Z",
+    )
+    exact_calls = []
+
+    def exact_api(_root, *args):
+        exact_calls.append(args)
+        assert args[-1] == "repos/example/store/pulls/501"
+        return raw_pr
+
+    gh_calls = []
+    monkeypatch.setattr(release, "_gh_json", exact_api)
+    monkeypatch.setattr(
+        release,
+        "_gh",
+        lambda _root, *args: gh_calls.append(args) or "",
+    )
+    pr_marker = release._audit_marker("pr", {
+        "schema": release.PR_MARKER_SCHEMA,
+        "issue": 42,
+        "pr": 501,
+        "attempt": Path(generation_path).stem,
+    })
+    pr_comment = {
+        "body": pr_marker,
+        "user": {"login": "github-actions[bot]"},
+    }
+    pending = _matching_release_issue(work)
+    pending["_label_names"] = [release.ELIGIBLE_LABEL]
+    monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [pending])
+    monkeypatch.setattr(release, "_remote_issue_branches", lambda *_args: set())
+    monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: [])
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: [pr_comment])
+    recovered = release.reconcile_eligible_issues(work, "example/store")
+    assert recovered["selected"] is None
+    assert recovered["states"] == [{"number": 42, "state": "processed"}]
+    assert not _git(work, "ls-remote", "--heads", "origin", f"refs/heads/{branch}")
+    comment_call = next(call for call in gh_calls if call[:2] == ("issue", "comment"))
+    marker_body = comment_call[comment_call.index("--body") + 1]
+    assert release.COMPLETION_MARKER_SCHEMA in marker_body
+    assert any(release.PROCESSED_LABEL in " ".join(call) for call in gh_calls)
+    assert any(
+        call[:4] == ("api", "--method", "PATCH", "repos/example/store/issues/42")
+        for call in gh_calls
+    )
+
+    processed = _matching_release_issue(work)
+    processed["labels"].append({"name": release.PROCESSED_LABEL})
+    processed["_label_names"] = sorted(
+        label["name"] for label in processed["labels"]
+    )
+    trusted_comment = {
+        "body": marker_body,
+        "user": {"login": "github-actions[bot]"},
+        "author_association": "NONE",
+    }
+    monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [processed])
+    monkeypatch.setattr(release, "_remote_issue_branches", lambda *_args: set())
+    monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: [])
+    monkeypatch.setattr(
+        release, "_issue_comments", lambda *_args: [trusted_comment]
+    )
+    reconciled = release.reconcile_eligible_issues(work, "example/store")
+    assert reconciled["selected"] is None
+    assert reconciled["states"] == [{"number": 42, "state": "processed"}]
+    assert exact_calls == [
+        ("api", "repos/example/store/pulls/501"),
+        ("api", "repos/example/store/pulls/501"),
+        ("api", "repos/example/store/pulls/501"),
+    ]
+
+
+def test_superseded_attempt_is_audited_retryable_and_uses_unique_predecessor(
+    tmp_path, monkeypatch
+):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    stale_path = _issue_relative(work)
+    released = release.resume_release(
+        work,
+        stale_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=base_bytes,
+    )
+    branch = released["branch"]
+    head_sha = _git(work, "rev-parse", "HEAD")
+    raced_bytes, raced_url = _advance_main(
+        work.parent / "remote.git", tmp_path / "supersede-racer"
+    )
+    _git(work, "fetch", "--prune", "--tags", "origin", "main")
+    base_sha = _git(work, "rev-parse", "origin/main")
+    pr_state = {"state": "open", "merged_at": None}
+
+    def exact_api(_root, *args):
+        assert args[-1] == "repos/example/store/pulls/601"
+        return _raw_pr(
+            601,
+            branch,
+            head_sha,
+            state=pr_state["state"],
+            merged_at=pr_state["merged_at"],
+        )
+
+    gh_calls = []
+    monkeypatch.setattr(release, "_gh_json", exact_api)
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: [])
+    monkeypatch.setattr(
+        release,
+        "_gh",
+        lambda _root, *args: gh_calls.append(args) or "",
+    )
+    superseded = release.supersede_pr(
+        work, "example/store", 601, base_sha, head_sha
+    )
+    assert superseded["attempt"] == Path(stale_path).stem
+    assert superseded["invalidating_base"] == base_sha
+    assert superseded["tag"] == released["tag"]
+    assert _git(work, "ls-remote", "--heads", "origin", f"refs/heads/{branch}")
+    assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{released['tag']}")
+    marker_call = next(call for call in gh_calls if call[:2] == ("issue", "comment"))
+    marker_body = marker_call[marker_call.index("--body") + 1]
+    assert release.SUPERSEDED_MARKER_SCHEMA in marker_body
+    assert any(release.SUPERSEDED_LABEL in " ".join(call) for call in gh_calls)
+
+    normalized_open = release._normalize_catalog_pr(
+        exact_api(work, "api", "repos/example/store/pulls/601"),
+        "example/store",
+        branch,
+    )
+    pending = _matching_release_issue(work)
+    pending["labels"].append({"name": release.SUPERSEDED_LABEL})
+    pending["_label_names"] = sorted(label["name"] for label in pending["labels"])
+    trusted_comment = {
+        "body": marker_body,
+        "user": {"login": "github-actions[bot]"},
+        "author_association": "NONE",
+    }
+    monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [pending])
+    monkeypatch.setattr(
+        release, "_remote_issue_branches", lambda *_args: {branch}
+    )
+    monkeypatch.setattr(
+        release, "list_catalog_prs", lambda *_args: [normalized_open]
+    )
+    monkeypatch.setattr(
+        release, "_issue_comments", lambda *_args: [trusted_comment]
+    )
+    reconciliation = release.reconcile_eligible_issues(work, "example/store")
+    assert reconciliation["selected"] == 42
+    assert reconciliation["states"] == [{"number": 42, "state": "retryable"}]
+    assert reconciliation["event"]["issue"]["body"] == pending["body"]
+    assert any(
+        call[:4] == ("api", "--method", "PATCH", "repos/example/store/pulls/601")
+        for call in gh_calls
+    )
+
+    _git(work, "switch", "--discard-changes", "-C", "main", "origin/main")
+    retry = {
+        "schema": store.GENERATION_SCHEMA,
+        "created_at": "2026-08-22T20:00:00Z",
+        "source_issue": 42,
+        "previous_generation_url": raced_url,
+        "previous_generation_sha256": store.sha256_bytes(raced_bytes),
+        "prototypes": [_prototype("0.2.0")],
+        "tombstones": [],
+    }
+    retry["generation_id"] = store.generation_attempt_id(retry)
+    retry_path = f"api/v2/generations/{retry['generation_id']}.json"
+    (work / retry_path).write_bytes(store.canonical_json(retry))
+    retry_release = release.resume_release(
+        work,
+        retry_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=raced_bytes,
+    )
+    assert retry_release["branch"] != branch
+    assert retry_release["tag"] != released["tag"]
+    assert retry["previous_generation_url"] == raced_url
+
+
+def test_supersede_merge_race_refuses_to_close_or_mark(tmp_path, monkeypatch):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    stale_path = _issue_relative(work)
+    released = release.resume_release(
+        work,
+        stale_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=base_bytes,
+    )
+    branch = released["branch"]
+    head_sha = _git(work, "rev-parse", "HEAD")
+    _advance_main(work.parent / "remote.git", tmp_path / "merge-racer")
+    _git(work, "fetch", "--prune", "--tags", "origin", "main")
+    base_sha = _git(work, "rev-parse", "origin/main")
+    responses = [
+        _raw_pr(701, branch, head_sha),
+        _raw_pr(
+            701,
+            branch,
+            head_sha,
+            state="closed",
+            merged_at="2026-08-22T22:00:00Z",
+        ),
+    ]
+    monkeypatch.setattr(release, "_gh_json", lambda *_args: responses.pop(0))
+    gh_calls = []
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: [])
+    monkeypatch.setattr(
+        release,
+        "_gh",
+        lambda _root, *args: gh_calls.append(args) or "",
+    )
+    with pytest.raises(release.ReleaseError, match="E_SUPERSEDE_RACE"):
+        release.supersede_pr(work, "example/store", 701, base_sha, head_sha)
+    assert gh_calls == []
+
+
+def test_multiple_trusted_supersessions_retry_without_command_loss(
+    monkeypatch, tmp_path
+):
+    issue = _eligible_issue(42, labels=[
+        release.ELIGIBLE_LABEL,
+        release.SUPERSEDED_LABEL,
+    ])
+    issue["body"] = "```json\n{\"command\":\"preserved\"}\n```"
+    branches = [
+        f"zoo-v2/issue-42-{'1' * 64}",
+        f"zoo-v2/issue-42-{'2' * 64}",
+    ]
+    prs = [
+        {
+            "number": 801 + index,
+            "url": f"https://github.com/example/store/pull/{801 + index}",
+            "state": "CLOSED",
+            "mergedAt": None,
+            "headRefName": branch,
+        }
+        for index, branch in enumerate(branches)
+    ]
+    comments = []
+    for pr, branch in zip(prs, branches):
+        payload = {
+            "schema": release.SUPERSEDED_MARKER_SCHEMA,
+            "issue": 42,
+            "pr": pr["number"],
+            "attempt": branch.removeprefix("zoo-v2/"),
+            "invalidating_base": "a" * 40,
+            "generation": (
+                "api/v2/generations/"
+                f"{branch.removeprefix('zoo-v2/')}.json"
+            ),
+            "generation_commit": "b" * 40,
+            "tag": store.generation_tag_name(branch.removeprefix("zoo-v2/")),
+        }
+        comments.append({
+            "body": release._audit_marker("superseded", payload),
+            "user": {"login": "github-actions[bot]"},
+        })
+    monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [issue])
+    monkeypatch.setattr(
+        release, "_remote_issue_branches", lambda *_args: set(branches)
+    )
+    monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: prs)
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: comments)
+    monkeypatch.setattr(
+        release,
+        "_validate_superseded_payload",
+        lambda _root, _repo, _issue, payload, **_kwargs: next(
+            pr for pr in prs if pr["number"] == payload["pr"]
+        ),
+    )
+    result = release.reconcile_eligible_issues(tmp_path, "example/store")
+    assert result["selected"] == 42
+    assert result["states"] == [{"number": 42, "state": "retryable"}]
+    assert result["event"]["issue"]["body"] == issue["body"]
+
+
+def test_arbitrary_closed_unmerged_pr_remains_blocked(monkeypatch, tmp_path):
+    issue = _eligible_issue(42)
+    branch = f"zoo-v2/issue-42-{'4' * 64}"
+    pr = {
+        "number": 901,
+        "url": "https://github.com/example/store/pull/901",
+        "state": "CLOSED",
+        "mergedAt": None,
+        "headRefName": branch,
+    }
+    monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [issue])
+    monkeypatch.setattr(
+        release, "_remote_issue_branches", lambda *_args: {branch}
+    )
+    monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: [pr])
+    monkeypatch.setattr(release, "_issue_comments", lambda *_args: [])
+    with pytest.raises(release.ReleaseError, match="arbitrary closed unmerged"):
+        release.reconcile_eligible_issues(tmp_path, "example/store")
 
 
 def test_content_bound_attempt_is_never_overwritten(tmp_path):
@@ -1504,6 +2056,10 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     audit = (root / ".github/workflows/zoo-v2-audit.yml").read_text()
     migration = (root / ".github/workflows/zoo-v2-bootstrap-protect.yml").read_text()
     main_advance = (root / ".github/workflows/zoo-v2-main-advance.yml").read_text()
+    completion = (
+        root / ".github/workflows/zoo-v2-merge-completion.yml"
+    ).read_text()
+    release_source = (root / "scripts/zoo_v2_release.py").read_text()
     assert "zoo-v2-catalog-integration-coalescing" in catalog
     assert "Contention coalescing only" in catalog
     assert "schedule:" in catalog
@@ -1520,6 +2076,8 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert protection_check in catalog
     assert catalog.index(protection_check) < catalog.index("zoo_v2_release.py resume")
     assert "zoo_v2_release.py resume" in catalog
+    assert '--event-path "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json"' in catalog
+    assert '--allow-actors "$ALLOWED_ACTORS"' in catalog
     assert "pull-requests: write" in catalog
     assert "pull_request_target:" in validation
     assert "Inspect complete local diff with trusted main" in validation
@@ -1546,6 +2104,12 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "No protected Store paths changed" in validation
     assert "validate-bootstrap-pr" in validation
     assert "Zoo v2 current-main" in validation
+    assert "complete-merge" in completion
+    assert "pull_request_target:" in completion
+    assert "types: [closed]" in completion
+    assert "github.event.pull_request.merged == true" in completion
+    assert "issues: write" in completion
+    assert "fetch-depth: 0" in completion
     assert "zoo_v2_release.py audit-refs" in audit
     assert "--network" in audit
     assert "contents: read" in audit
@@ -1566,8 +2130,17 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "statuses: write" not in main_advance
     assert "actions/create-github-app-token@v2" in main_advance
     assert "GH_TOKEN: ${{ github.token }}" not in main_advance
+    assert "VALIDATOR_TOKEN: ${{ steps.validator-token.outputs.token }}" in main_advance
+    assert "RETIRE_TOKEN: ${{ github.token }}" in main_advance
+    assert "supersede-pr" in main_advance
+    assert "issues: write" in main_advance
+    assert "pull-requests: write" in main_advance
     assert "zoo_v2_release.py\" gate-pr" not in main_advance
     assert '"$tools" gate-pr' in main_advance
     assert "Zoo v2 current-main" in main_advance
     assert "cancel-in-progress: true" in main_advance
     assert "BASE_SHA: ${{ github.sha }}" in main_advance
+    assert "--atomic" in release_source
+    assert "validate_selected_issue(" in release_source
+    assert release.COMPLETION_MARKER_SCHEMA in release_source
+    assert release.SUPERSEDED_MARKER_SCHEMA in release_source

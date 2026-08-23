@@ -96,9 +96,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.reconcile.outputs.issue_number }}
           GENERATION_PATH: ${{ steps.generation.outputs.path }}
+          ALLOWED_ACTORS: ${{ github.repository_owner }},${{ vars.RAPP_ZOO_V2_ACTORS }}
         run: |
           set -euo pipefail
           python3 scripts/zoo_v2_release.py resume \
             --generation "$GENERATION_PATH" \
             --repository "$GITHUB_REPOSITORY" \
-            --issue-number "$ISSUE_NUMBER"
+            --issue-number "$ISSUE_NUMBER" \
+            --event-path "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json" \
+            --allow-actors "$ALLOWED_ACTORS"
