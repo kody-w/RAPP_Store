@@ -1,7 +1,7 @@
 name: Zoo v2 current-main validation
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
@@ -17,8 +17,8 @@ jobs:
   current-main:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        if: startsWith(github.head_ref, 'zoo-v2/issue-')
+      - name: Check out trusted current main
+        uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
@@ -26,20 +26,46 @@ jobs:
           persist-credentials: false
 
       - uses: actions/setup-python@v5
-        if: startsWith(github.head_ref, 'zoo-v2/issue-')
         with:
           python-version: '3.11'
 
-      - name: Reject forked Store release branches
-        if: |
-          startsWith(github.head_ref, 'zoo-v2/issue-') &&
-          github.event.pull_request.head.repo.full_name != github.repository
-        run: exit 1
+      - name: Inspect every changed path with trusted main
+        id: inspection
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
+        run: |
+          set -euo pipefail
+          changed="$RUNNER_TEMP/zoo-v2-pr-${PR_NUMBER}-files.txt"
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+            --jq '.[] | .filename, (.previous_filename // empty)' |
+            sort -u > "$changed"
+          set +e
+          mode="$(
+            PYTHONNOUSERSITE=1 \
+            PYTHONPATH="$TRUSTED_ROOT/scripts" \
+            python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" gate-pr \
+              --changed-files "$changed" \
+              --head-ref "$HEAD_REF" \
+              --head-repository "$HEAD_REPOSITORY" \
+              --repository "$GITHUB_REPOSITORY"
+          )"
+          result=$?
+          set -e
+          test "$result" -eq 0 || mode=unauthorized
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          exit "$result"
 
-      - uses: actions/checkout@v4
+      - name: Check out authorized candidate as inert data
         if: |
-          startsWith(github.head_ref, 'zoo-v2/issue-') &&
-          github.event.pull_request.head.repo.full_name == github.repository
+          steps.inspection.outcome == 'success' &&
+          steps.inspection.outputs.mode != 'none'
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
@@ -47,30 +73,54 @@ jobs:
           path: candidate
           persist-credentials: false
 
-      - name: Reject stale predecessor and unprotected generation
+      - name: Run trusted-main validation for classified diff
         id: validation
+        if: steps.inspection.outcome == 'success'
         continue-on-error: true
-        if: startsWith(github.head_ref, 'zoo-v2/issue-')
         env:
           CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          MODE: ${{ steps.inspection.outputs.mode }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
         run: |
           set -euo pipefail
-          git -C "$TRUSTED_ROOT" fetch --force --prune origin main
-          test "$(git -C "$TRUSTED_ROOT" rev-parse HEAD)" = \
-            "$(git -C "$TRUSTED_ROOT" rev-parse origin/main)"
-          PYTHONNOUSERSITE=1 \
-          PYTHONPATH="$TRUSTED_ROOT/scripts" \
-          python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" validate-pr \
-            --root "$CANDIDATE_ROOT" \
-            --repository "$GITHUB_REPOSITORY"
+          changed="$RUNNER_TEMP/zoo-v2-pr-${PR_NUMBER}-files.txt"
+          case "$MODE" in
+            none)
+              echo "No protected Store paths changed."
+              ;;
+            issue)
+              git -C "$TRUSTED_ROOT" fetch --force --prune origin main
+              test "$(git -C "$TRUSTED_ROOT" rev-parse HEAD)" = \
+                "$(git -C "$TRUSTED_ROOT" rev-parse origin/main)"
+              PYTHONNOUSERSITE=1 \
+              PYTHONPATH="$TRUSTED_ROOT/scripts" \
+              python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" validate-pr \
+                --root "$CANDIDATE_ROOT" \
+                --repository "$GITHUB_REPOSITORY"
+              ;;
+            bootstrap)
+              PYTHONNOUSERSITE=1 \
+              PYTHONPATH="$TRUSTED_ROOT/scripts" \
+              python3 "$TRUSTED_ROOT/scripts/zoo_v2_release.py" \
+                validate-bootstrap-pr \
+                --root "$CANDIDATE_ROOT" \
+                --changed-files "$changed" \
+                --repository "$GITHUB_REPOSITORY"
+              ;;
+            *)
+              echo "Unrecognized protected-diff classification: $MODE" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Publish required current-main status
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          IS_ZOO: ${{ startsWith(github.head_ref, 'zoo-v2/issue-') }}
+          INSPECTION: ${{ steps.inspection.outcome }}
+          MODE: ${{ steps.inspection.outputs.mode }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RESULT: ${{ steps.validation.outcome }}
           TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
@@ -79,13 +129,16 @@ jobs:
           current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
             --jq .head.sha)"
           test "$current_head" = "$HEAD_SHA" || exit 0
-          state=success
-          description='Not a Zoo v2 candidate'
-          if test "$IS_ZOO" = true; then
-            state=failure
-            test "$RESULT" = success && state=success
-            base_sha="$(git -C "$TRUSTED_ROOT" rev-parse HEAD)"
-            description="Validated against main ${base_sha:0:12}"
+          state=failure
+          description='Protected Store diff is not authorized'
+          if test "$INSPECTION" = success && test "$RESULT" = success; then
+            state=success
+            if test "$MODE" = none; then
+              description='No protected Store paths changed'
+            else
+              base_sha="$(git -C "$TRUSTED_ROOT" rev-parse HEAD)"
+              description="Trusted-main ${MODE} validation at ${base_sha:0:12}"
+            fi
           fi
           gh api --method POST \
             "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
@@ -93,7 +146,3 @@ jobs:
             -f context='Zoo v2 current-main' \
             -f description="$description"
           test "$state" = success
-
-      - name: Non-Zoo PR
-        if: ${{ !startsWith(github.head_ref, 'zoo-v2/issue-') }}
-        run: echo "No Zoo v2 candidate in this PR."

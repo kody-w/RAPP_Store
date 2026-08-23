@@ -52,6 +52,43 @@ def _git(root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def _valid_audit(repository: str = "example/store") -> dict:
+    return {
+        "schema": protection.AUDIT_SCHEMA,
+        "repository": repository,
+        "verified_at": "2026-08-22T20:00:00Z",
+        "branch": "main",
+        "branch_protection": {
+            "strict": True,
+            "required_status_contexts": [
+                "Existing CI",
+                protection.STATUS_CONTEXT,
+            ],
+            "required_approving_review_count": 2,
+            "dismiss_stale_reviews": True,
+            "require_last_push_approval": True,
+            "enforce_admins": True,
+            "required_conversation_resolution": True,
+            "allow_force_pushes": False,
+            "allow_deletions": False,
+        },
+        "tag_ruleset": {
+            "id": 17,
+            "name": protection.TAG_RULESET_NAME,
+            "target": "tag",
+            "enforcement": "active",
+            "include": protection.TAG_PATTERN,
+            "required_rules": sorted(protection.TAG_RULE_TYPES),
+        },
+    }
+
+
+def _write_audit(root: Path, repository: str = "example/store") -> None:
+    path = root / protection.AUDIT_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(_valid_audit(repository), indent=2, sort_keys=True) + "\n")
+
+
 def _seed_remote(tmp_path: Path) -> tuple[Path, bytes, str]:
     remote = tmp_path / "remote.git"
     work = tmp_path / "work"
@@ -74,6 +111,7 @@ def _seed_remote(tmp_path: Path) -> tuple[Path, bytes, str]:
     generation_path = work / "api/v2/generations/bootstrap-20260822.json"
     generation_path.parent.mkdir(parents=True)
     generation_path.write_bytes(base_bytes)
+    _write_audit(work)
     _git(work, "add", ".")
     _git(work, "commit", "-m", "bootstrap generation")
     generation_commit = _git(work, "rev-parse", "HEAD")
@@ -340,99 +378,348 @@ def test_trusted_validator_ignores_candidate_script_mutations(tmp_path):
     assert "E_DISCOVERY_TARGET" in result.stderr
 
 
-def test_protection_payload_and_verification_are_exact():
-    calls = []
-    configured = protection.protection_payload()
-    response = {
-        **configured,
+def _branch_settings() -> dict:
+    return {
         "required_status_checks": {
-            "strict": True,
-            "contexts": [protection.STATUS_CONTEXT],
+            "strict": False,
+            "contexts": ["Existing CI"],
+            "checks": [{"context": "App CI", "app_id": 123}],
         },
-        **{
-            key: {"enabled": value}
-            for key, value in {
-                "enforce_admins": True,
-                "required_conversation_resolution": True,
-                "allow_force_pushes": False,
-                "allow_deletions": False,
-                "block_creations": False,
-                "lock_branch": False,
-                "allow_fork_syncing": True,
-            }.items()
+        "required_pull_request_reviews": {
+            "dismiss_stale_reviews": False,
+            "require_code_owner_reviews": True,
+            "required_approving_review_count": 3,
+            "require_last_push_approval": False,
+            "dismissal_restrictions": {
+                "users": [{"login": "maintainer"}],
+                "teams": [{"slug": "release"}],
+                "apps": [{"slug": "release-app"}],
+            },
         },
+        "restrictions": {
+            "users": [{"login": "publisher"}],
+            "teams": [{"slug": "store"}],
+            "apps": [{"slug": "store-app"}],
+        },
+        "enforce_admins": {"enabled": False},
+        "required_conversation_resolution": {"enabled": False},
+        "required_linear_history": {"enabled": True},
+        "allow_force_pushes": {"enabled": True},
+        "allow_deletions": {"enabled": True},
+        "block_creations": {"enabled": True},
+        "lock_branch": {"enabled": True},
+        "allow_fork_syncing": {"enabled": False},
     }
 
-    def api_call(method, endpoint, payload):
-        calls.append((method, endpoint, payload))
-        return response
 
-    protection.configure_and_verify("example/store", api_call)
-    assert calls == [
-        (
-            "PUT",
-            "repos/example/store/branches/main/protection",
-            configured,
-        ),
-        (
-            "GET",
-            "repos/example/store/branches/main/protection",
-            None,
-        ),
+def _branch_response(payload: dict) -> dict:
+    response = json.loads(json.dumps(payload))
+    for name in (
+        "enforce_admins",
+        "required_conversation_resolution",
+        "required_linear_history",
+        "allow_force_pushes",
+        "allow_deletions",
+        "block_creations",
+        "lock_branch",
+        "allow_fork_syncing",
+    ):
+        response[name] = {"enabled": payload[name]}
+    return response
+
+
+class _ProtectionApi:
+    def __init__(self, *, existing_ruleset=True):
+        self.branch = _branch_settings()
+        self.calls = []
+        self.ruleset = {
+            "id": 17,
+            "name": protection.TAG_RULESET_NAME,
+            "target": "tag",
+            "enforcement": "evaluate",
+            "bypass_actors": [{"actor_id": 1, "actor_type": "Team"}],
+            "conditions": {
+                "ref_name": {
+                    "include": ["refs/tags/release-*"],
+                    "exclude": [
+                        "refs/tags/release-test-*",
+                        protection.TAG_PATTERN,
+                    ],
+                }
+            },
+            "rules": [{"type": "creation"}],
+        } if existing_ruleset else None
+
+    def __call__(self, method, endpoint, payload):
+        self.calls.append((method, endpoint, json.loads(json.dumps(payload))))
+        if endpoint.endswith("/branches/main/protection"):
+            if method == "GET":
+                return self.branch
+            self.branch = _branch_response(payload)
+            return self.branch
+        if endpoint.endswith("/rulesets?includes_parents=false"):
+            return [] if self.ruleset is None else [{
+                "id": self.ruleset["id"],
+                "name": self.ruleset["name"],
+            }]
+        if endpoint.endswith("/rulesets") and method == "POST":
+            self.ruleset = {"id": 17, **payload}
+            return self.ruleset
+        if endpoint.endswith("/rulesets/17"):
+            if method == "GET":
+                return self.ruleset
+            self.ruleset = {"id": 17, **payload}
+            return self.ruleset
+        raise AssertionError((method, endpoint, payload))
+
+
+def test_protection_configuration_is_additive_and_idempotent():
+    api = _ProtectionApi()
+    first = protection.configure_and_verify("example/store", api)
+    first_branch_put = next(
+        payload
+        for method, endpoint, payload in api.calls
+        if method == "PUT" and endpoint.endswith("/branches/main/protection")
+    )
+    assert set(first_branch_put["required_status_checks"]["contexts"]) == {
+        "Existing CI",
+        protection.STATUS_CONTEXT,
+    }
+    assert first_branch_put["required_status_checks"]["checks"] == [
+        {"context": "App CI", "app_id": 123}
     ]
-    assert configured["required_status_checks"] == {
-        "strict": True,
-        "contexts": ["Zoo v2 current-main"],
+    reviews = first_branch_put["required_pull_request_reviews"]
+    assert reviews["required_approving_review_count"] == 3
+    assert reviews["require_code_owner_reviews"] is True
+    assert reviews["dismissal_restrictions"] == {
+        "users": ["maintainer"],
+        "teams": ["release"],
+        "apps": ["release-app"],
     }
-    assert configured["enforce_admins"] is True
-    assert configured["allow_force_pushes"] is False
-    assert configured["allow_deletions"] is False
+    assert first_branch_put["restrictions"] == {
+        "users": ["publisher"],
+        "teams": ["store"],
+        "apps": ["store-app"],
+    }
+    assert first_branch_put["required_linear_history"] is True
+    assert first_branch_put["block_creations"] is True
+    assert first_branch_put["lock_branch"] is True
+    assert first_branch_put["allow_force_pushes"] is False
+    assert first_branch_put["allow_deletions"] is False
+
+    ruleset_put = next(
+        payload
+        for method, endpoint, payload in api.calls
+        if method == "PUT" and endpoint.endswith("/rulesets/17")
+    )
+    assert ruleset_put["conditions"]["ref_name"] == {
+        "include": ["refs/tags/release-*", protection.TAG_PATTERN],
+        "exclude": ["refs/tags/release-test-*"],
+    }
+    assert {rule["type"] for rule in ruleset_put["rules"]} == {
+        "creation",
+        *protection.TAG_RULE_TYPES,
+    }
+    assert ruleset_put["bypass_actors"] == [{"actor_id": 1, "actor_type": "Team"}]
+    assert first["tag_ruleset"]["id"] == 17
+
+    api.calls.clear()
+    second = protection.configure_and_verify("example/store", api)
+    second_ruleset_put = next(
+        payload
+        for method, endpoint, payload in api.calls
+        if method == "PUT" and endpoint.endswith("/rulesets/17")
+    )
+    assert second_ruleset_put == ruleset_put
+    assert second["branch_protection"] == first["branch_protection"]
+    assert not any(method == "POST" for method, _, _ in api.calls)
+
+
+def test_missing_named_ruleset_is_created_with_required_payload():
+    api = _ProtectionApi(existing_ruleset=False)
+    protection.configure_and_verify("example/store", api)
+    payload = next(
+        payload for method, endpoint, payload in api.calls
+        if method == "POST" and endpoint.endswith("/rulesets")
+    )
+    assert payload["target"] == "tag"
+    assert payload["enforcement"] == "active"
+    assert payload["conditions"]["ref_name"]["include"] == [protection.TAG_PATTERN]
+    assert {rule["type"] for rule in payload["rules"]} == protection.TAG_RULE_TYPES
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        None,
+        {"required_status_checks": []},
+        {"required_status_checks": {"checks": [{}]}},
+        {"required_pull_request_reviews": []},
+        {
+            "required_pull_request_reviews": {
+                "required_approving_review_count": "one"
+            }
+        },
+        {"restrictions": []},
+        {"required_linear_history": {"enabled": "yes"}},
+    ],
+)
+def test_additive_payload_refuses_malformed_existing_settings(settings):
+    with pytest.raises(protection.ProtectionError, match="E_PROTECTION_CONFIG"):
+        protection.protection_payload(settings)
 
 
 @pytest.mark.parametrize(
     "mutation",
     [
         lambda value: value["required_status_checks"].update(strict=False),
-        lambda value: value["required_status_checks"].update(contexts=[]),
+        lambda value: value["required_status_checks"].update(contexts=["Other"]),
         lambda value: value.update(enforce_admins={"enabled": False}),
         lambda value: value.update(allow_force_pushes={"enabled": True}),
         lambda value: value.update(allow_deletions={"enabled": True}),
         lambda value: value["required_pull_request_reviews"].update(
-            require_code_owner_reviews=True
+            required_approving_review_count=0
         ),
         lambda value: value.update(required_pull_request_reviews=None),
-        lambda value: value.update(restrictions={"users": []}),
     ],
 )
-def test_protection_verification_fails_closed(mutation):
-    settings = {
-        "required_status_checks": {
-            "strict": True,
-            "contexts": ["Zoo v2 current-main"],
-        },
-        "required_pull_request_reviews": {
-            "dismiss_stale_reviews": True,
-            "require_code_owner_reviews": False,
-            "required_approving_review_count": 1,
-            "require_last_push_approval": True,
-        },
-        "restrictions": None,
-        **{
-            key: {"enabled": value}
-            for key, value in {
-                "enforce_admins": True,
-                "required_conversation_resolution": True,
-                "allow_force_pushes": False,
-                "allow_deletions": False,
-                "block_creations": False,
-                "lock_branch": False,
-                "allow_fork_syncing": True,
-            }.items()
-        },
-    }
+def test_protection_verification_fails_closed_but_accepts_supersets(mutation):
+    settings = _branch_response(protection.protection_payload(_branch_settings()))
+    protection.verify_settings(settings)
     mutation(settings)
     with pytest.raises(protection.ProtectionError, match="E_PROTECTION_VERIFY"):
         protection.verify_settings(settings)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda value: value.update(enforcement="evaluate"),
+        lambda value: value.update(target="branch"),
+        lambda value: value["conditions"]["ref_name"].update(include=[]),
+        lambda value: value["conditions"]["ref_name"].update(
+            exclude=[protection.TAG_PATTERN]
+        ),
+        lambda value: value.update(rules=[{"type": "deletion"}]),
+        lambda value: value.update(rules=None),
+    ],
+)
+def test_tag_ruleset_verification_fails_closed(mutation):
+    ruleset = {
+        "id": 17,
+        **protection._ruleset_payload(),
+        "rules": [
+            {"type": "creation"},
+            *[{"type": name} for name in sorted(protection.TAG_RULE_TYPES)],
+        ],
+    }
+    protection.verify_tag_ruleset(ruleset)
+    mutation(ruleset)
+    with pytest.raises(protection.ProtectionError, match="E_RULESET_VERIFY"):
+        protection.verify_tag_ruleset(ruleset)
+
+
+def test_protection_audit_refuses_absent_and_malformed_settings(tmp_path):
+    with pytest.raises(protection.ProtectionError, match="administrator must run"):
+        protection.verify_audit_file(tmp_path / "absent.json", "example/store")
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text("{")
+    with pytest.raises(protection.ProtectionError, match="cannot read"):
+        protection.verify_audit_file(malformed, "example/store")
+    incomplete = tmp_path / "incomplete.json"
+    incomplete.write_text(json.dumps({"schema": protection.AUDIT_SCHEMA}))
+    with pytest.raises(protection.ProtectionError, match="identity fields"):
+        protection.verify_audit_file(incomplete, "example/store")
+    valid = tmp_path / "valid.json"
+    valid.write_text(json.dumps(_valid_audit()))
+    assert protection.verify_audit_file(valid, "example/store")["tag_ruleset"]["id"] == 17
+
+
+@pytest.mark.parametrize(
+    ("paths", "branch", "head_repo", "expected"),
+    [
+        (["README.md"], "feature/docs", "example/store", "none"),
+        (
+            ["api/v2/discovery.json", "api/v2/generations/issue-42.json"],
+            "zoo-v2/issue-42",
+            "example/store",
+            "issue",
+        ),
+        (
+            ["scripts/configure_zoo_v2_protection.py"],
+            release.BOOTSTRAP_BRANCH,
+            "example/store",
+            "bootstrap",
+        ),
+    ],
+)
+def test_protected_diff_gate_classifies_authorized_changes(
+    paths, branch, head_repo, expected
+):
+    assert release.inspect_pr_change(
+        paths,
+        head_ref=branch,
+        head_repository=head_repo,
+        repository="example/store",
+    ) == expected
+
+
+@pytest.mark.parametrize(
+    ("paths", "branch", "head_repo"),
+    [
+        (
+            ["api/v2/discovery.json", "api/v2/generations/issue-42.json"],
+            "feature/bypass",
+            "example/store",
+        ),
+        (
+            ["api/v2/discovery.json", "api/v2/generations/issue-42.json"],
+            "zoo-v2/issue-42",
+            "fork/store",
+        ),
+        (
+            ["api/v2/discovery.json"],
+            "zoo-v2/issue-42",
+            "example/store",
+        ),
+        (
+            ["api/v2/discovery.json", "api/v2/generations/issue-42.json",
+             "scripts/zoo_v2_store.py"],
+            "zoo-v2/issue-42",
+            "example/store",
+        ),
+        (
+            ["api/v2/discovery.json"],
+            release.BOOTSTRAP_BRANCH,
+            "example/store",
+        ),
+    ],
+)
+def test_protected_diff_gate_cannot_bypass_branch_with_catalog_edits(
+    paths, branch, head_repo
+):
+    with pytest.raises(release.ReleaseError, match="E_PROTECTED_PR"):
+        release.inspect_pr_change(
+            paths,
+            head_ref=branch,
+            head_repository=head_repo,
+            repository="example/store",
+        )
+
+
+def test_release_refuses_without_admin_audit_before_git_mutation(tmp_path):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    (work / protection.AUDIT_PATH).unlink()
+    with pytest.raises(release.ReleaseError, match="E_PROTECTION_AUDIT"):
+        release.resume_release(
+            work,
+            "api/v2/generations/issue-42.json",
+            "example/store",
+            42,
+            create_pr=False,
+            base_generation_bytes=base_bytes,
+        )
+    assert "zoo-v2/issue-42" not in _git(work, "branch", "--list")
 
 
 def test_workflows_lock_permissions_queue_validation_and_audit():
@@ -443,11 +730,16 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     migration = (root / ".github/workflows/zoo-v2-bootstrap-protect.yml").read_text()
     main_advance = (root / ".github/workflows/zoo-v2-main-advance.yml").read_text()
     assert "zoo-v2-catalog-integration-queue" in catalog
-    protection_check = "configure_zoo_v2_protection.py verify"
+    protection_check = "configure_zoo_v2_protection.py verify-audit"
     assert protection_check in catalog
     assert catalog.index(protection_check) < catalog.index("zoo_v2_release.py resume")
     assert "zoo_v2_release.py resume" in catalog
     assert "pull-requests: write" in catalog
+    assert "pull_request_target:" in validation
+    assert "Inspect every changed path with trusted main" in validation
+    assert "/files?per_page=100" in validation
+    assert ".previous_filename // empty" in validation
+    assert "zoo_v2_release.py\" gate-pr" in validation
     assert "path: trusted-main" in validation
     assert "path: candidate" in validation
     assert '"$TRUSTED_ROOT/scripts/zoo_v2_release.py" validate-pr' in validation
@@ -457,8 +749,9 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "pull-requests: read" in validation
     assert "statuses: write" in validation
     assert "cancel-in-progress: true" in validation
-    assert "IS_ZOO:" in validation
-    assert "Not a Zoo v2 candidate" in validation
+    assert "steps.inspection.outcome == 'success'" in validation
+    assert "No protected Store paths changed" in validation
+    assert "validate-bootstrap-pr" in validation
     assert "Zoo v2 current-main" in validation
     assert "zoo_v2_release.py audit-refs" in audit
     assert "--network" in audit
@@ -469,6 +762,10 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
         "zoo_v2_release.py protect-bootstrap"
     )
     assert "contents: write" in migration
+    assert "GH_TOKEN: ${{ github.token }}" not in catalog.split(
+        "Require committed admin protection audit", 1
+    )[1].split("Ensure bootstrap", 1)[0]
+    assert "GH_TOKEN: ${{ github.token }}" not in migration
     assert "Revalidate each open Zoo v2 PR with trusted main tooling" in main_advance
     assert "statuses: write" in main_advance
     assert "Zoo v2 current-main" in main_advance

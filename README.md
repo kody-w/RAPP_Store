@@ -84,8 +84,13 @@ Every generation commit receives a deterministic annotated
 `zoo-v2-generation-*` permanent tag before discovery can point at it. Required
 current-main validation checks both the predecessor URL and exact digest, and
 the scheduled audit proves tag and raw reachability independent of the PR
-merge method. See the extension spec for rerun recovery and the bootstrap-tag
-migration command.
+merge method. An active repository ruleset prevents generation-tag updates and
+deletion. Every PR's changed paths are checked by trusted-main code; protected
+Store changes are limited to authorized same-repository release/bootstrap
+branches. Administrator branch/ruleset configuration is additive and
+out-of-band, with a committed audit required before release; ordinary issue
+processing does not use an Administration token. See the extension spec for
+the required pre-release configuration and bootstrap-tag migration.
 
 Create, update, and deprecate commands arrive as structured, inert GitHub
 Issue JSON. An actor allowlist and deterministic validator turn an eligible

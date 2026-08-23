@@ -10,15 +10,125 @@ import sys
 from pathlib import Path
 from typing import Callable
 
+import configure_zoo_v2_protection as protection
 import zoo_v2_store as store
 
 
 BRANCH_RE = re.compile(r"^zoo-v2/issue-([1-9]\d*)$")
+BOOTSTRAP_BRANCH = "zoo-v2/bootstrap-protection"
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+PROTECTED_EXACT_PATHS = frozenset({
+    ".github/zoo-v2-protection-audit.json",
+    "scripts/configure_zoo_v2_protection.py",
+    "scripts/zoo_v2_release.py",
+    "scripts/zoo_v2_store.py",
+    "specs/RAPP_ZOO_STORE_V2.md",
+})
 
 
 class ReleaseError(store.StoreError):
     """A stable release-state refusal."""
+
+
+def is_protected_path(path: str) -> bool:
+    return (
+        path in PROTECTED_EXACT_PATHS
+        or path.startswith("api/v2/")
+        or path.startswith("schemas/zoo-v2/")
+        or (
+            path.startswith(".github/workflows/zoo-v2-")
+            and path.endswith((".yml", ".yaml"))
+        )
+        or (
+            path.startswith(".github/ISSUE_TEMPLATE/zoo-v2-")
+            and path.endswith((".yml", ".yaml"))
+        )
+    )
+
+
+def protected_changed_files(changed_files: list[str]) -> list[str]:
+    if not isinstance(changed_files, list) or any(
+        not isinstance(path, str) or not path or path.startswith("/")
+        for path in changed_files
+    ):
+        raise ReleaseError("E_CHANGED_FILES: expected repository-relative paths")
+    return sorted(set(filter(is_protected_path, changed_files)))
+
+
+def inspect_pr_change(
+    changed_files: list[str],
+    *,
+    head_ref: str,
+    head_repository: str,
+    repository: str,
+) -> str:
+    """Classify every PR and fail protected changes outside authorized lanes."""
+    _validate_repository(repository)
+    protected = protected_changed_files(changed_files)
+    if not protected:
+        return "none"
+    if head_repository != repository:
+        raise ReleaseError(
+            "E_PROTECTED_PR: protected Store paths cannot be changed from a fork"
+        )
+    if BRANCH_RE.fullmatch(head_ref):
+        issue_number = head_ref.removeprefix("zoo-v2/issue-")
+        allowed = {
+            "api/v2/discovery.json",
+            f"api/v2/generations/issue-{issue_number}.json",
+        }
+        unexpected = sorted(set(protected) - allowed)
+        if unexpected:
+            raise ReleaseError(
+                "E_PROTECTED_PR: Zoo issue branches may change only their discovery "
+                "and generation files: " + ", ".join(unexpected)
+            )
+        if set(protected) != allowed:
+            raise ReleaseError(
+                "E_PROTECTED_PR: Zoo issue branch must change discovery and its exact "
+                "issue generation"
+            )
+        return "issue"
+    if head_ref == BOOTSTRAP_BRANCH:
+        if any(path.startswith("api/v2/") for path in protected):
+            raise ReleaseError(
+                "E_PROTECTED_PR: bootstrap branch cannot publish Store generations"
+            )
+        return "bootstrap"
+    raise ReleaseError(
+        "E_PROTECTED_PR: protected Store paths require an authorized same-repository "
+        f"zoo-v2/issue-* or {BOOTSTRAP_BRANCH} branch"
+    )
+
+
+def _read_changed_files(path: Path) -> list[str]:
+    try:
+        return [line for line in path.read_text().splitlines() if line]
+    except OSError as exc:
+        raise ReleaseError(f"E_CHANGED_FILES: cannot read {path}: {exc}") from exc
+
+
+def validate_bootstrap_pr(
+    root: Path,
+    changed_files: list[str],
+    repository: str,
+) -> None:
+    protected = protected_changed_files(changed_files)
+    if any(path.startswith("api/v2/") for path in protected):
+        raise ReleaseError("E_PROTECTED_PR: bootstrap branch cannot publish Store data")
+    audit_path = protection.AUDIT_PATH.as_posix()
+    if audit_path in protected:
+        try:
+            protection.verify_audit_file(root / audit_path, repository)
+        except protection.ProtectionError as exc:
+            raise ReleaseError(str(exc)) from exc
+
+
+def require_protection_audit(root: Path, repository: str) -> dict:
+    try:
+        return protection.verify_audit_file(root / protection.AUDIT_PATH, repository)
+    except protection.ProtectionError as exc:
+        raise ReleaseError(str(exc)) from exc
 
 
 def _validate_repository(repository: str) -> None:
@@ -337,6 +447,7 @@ def resume_release(
     """Resume a release without rewriting any existing branch, tag, or PR state."""
     root = root.resolve()
     _validate_repository(repository)
+    require_protection_audit(root, repository)
     path = Path(generation_path)
     expected_bytes = (root / path).read_bytes()
     generation = json.loads(expected_bytes)
@@ -492,6 +603,7 @@ def validate_pr(root: Path, repository: str, remote: str = "origin") -> None:
 
 def protect_generation(root: Path, repository: str, generation_path: str, remote: str) -> dict:
     _validate_repository(repository)
+    require_protection_audit(root, repository)
     _git(root, "fetch", "--prune", remote, "main")
     generation = json.loads((root / generation_path).read_text())
     commit = _generation_commit(root, f"refs/remotes/{remote}/main", generation_path)
@@ -624,6 +736,18 @@ def main(argv: list[str] | None = None) -> int:
     validate.add_argument("--repository", required=True)
     validate.add_argument("--remote", default="origin")
 
+    gate = sub.add_parser("gate-pr")
+    gate.add_argument("--root", default=".")
+    gate.add_argument("--changed-files", type=Path, required=True)
+    gate.add_argument("--head-ref", required=True)
+    gate.add_argument("--head-repository", required=True)
+    gate.add_argument("--repository", required=True)
+
+    bootstrap = sub.add_parser("validate-bootstrap-pr")
+    bootstrap.add_argument("--root", default=".")
+    bootstrap.add_argument("--changed-files", type=Path, required=True)
+    bootstrap.add_argument("--repository", required=True)
+
     protect = sub.add_parser("protect-bootstrap")
     protect.add_argument("--root", default=".")
     protect.add_argument("--repository", required=True)
@@ -654,6 +778,21 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "validate-pr":
             validate_pr(root, args.repository, args.remote)
             print("Zoo v2 PR is based on current main and permanently protected.")
+        elif args.command == "gate-pr":
+            mode = inspect_pr_change(
+                _read_changed_files(args.changed_files),
+                head_ref=args.head_ref,
+                head_repository=args.head_repository,
+                repository=args.repository,
+            )
+            print(mode)
+        elif args.command == "validate-bootstrap-pr":
+            validate_bootstrap_pr(
+                root,
+                _read_changed_files(args.changed_files),
+                args.repository,
+            )
+            print("Bootstrap protected diff passed trusted-main validation.")
         elif args.command == "protect-bootstrap":
             result = protect_generation(
                 root,

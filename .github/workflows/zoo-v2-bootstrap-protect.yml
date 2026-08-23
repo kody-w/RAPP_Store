@@ -24,11 +24,9 @@ jobs:
           git config user.name "rapp-store-bot"
           git config user.email "rapp-store-bot@users.noreply.github.com"
 
-      - name: Refuse migration without strict main protection
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Require committed admin protection audit
         run: |
-          python3 scripts/configure_zoo_v2_protection.py verify \
+          python3 scripts/configure_zoo_v2_protection.py verify-audit \
             --repository "$GITHUB_REPOSITORY"
 
       - name: Create or verify the bootstrap permanent ref
