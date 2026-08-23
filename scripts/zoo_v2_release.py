@@ -26,6 +26,7 @@ MAX_CHANGED_PATH_BYTES = 1_048_576
 MAX_ISSUE_BRANCHES = 250
 MAX_PRS_PER_BRANCH = 100
 MAX_ELIGIBLE_ISSUE_PAGES = 5
+MAX_STATUS_PAGES = 5
 GITHUB_PAGE_SIZE = 100
 RELEASE_LOCK_REF = "refs/heads/zoo-v2/release-lock"
 RELEASE_LOCK_SCHEMA = "rapp-zoo-release-lock/1.0"
@@ -35,7 +36,7 @@ ELIGIBLE_LABEL = "zoo-v2-eligible"
 SUPERSEDED_LABEL = "zoo-v2-superseded"
 PR_MARKER_SCHEMA = "rapp-zoo-pr/1.0"
 COMPLETION_MARKER_SCHEMA = "rapp-zoo-completion/1.0"
-SUPERSEDED_MARKER_SCHEMA = "rapp-zoo-superseded/1.0"
+SUPERSEDED_MARKER_SCHEMA = "rapp-zoo-superseded/1.1"
 AUDIT_MARKER_RE = re.compile(
     r"<!-- (?P<kind>zoo-v2-(?:pr|completed|superseded)) "
     r"(?P<payload>\{[^\r\n]*\}) -->"
@@ -230,10 +231,14 @@ def validate_bootstrap_pr(
     if audit_path in protected:
         try:
             audit = json.loads((root / audit_path).read_text())
+            validator_app = protection.audit_app_identity(audit)
             protection.verify_audit(
                 audit,
                 repository,
-                audit.get("validator_app_id") if isinstance(audit, dict) else None,
+                validator_app["id"],
+                validator_app["slug"],
+                validator_app["login"],
+                validator_app.get("user_id"),
             )
         except protection.ProtectionError as exc:
             raise ReleaseError(str(exc)) from exc
@@ -243,10 +248,14 @@ def require_protection_audit(root: Path, repository: str) -> dict:
     try:
         path = root / protection.AUDIT_PATH
         audit = json.loads(path.read_text())
+        validator_app = protection.audit_app_identity(audit)
         protection.verify_audit(
             audit,
             repository,
-            audit.get("validator_app_id") if isinstance(audit, dict) else None,
+            validator_app["id"],
+            validator_app["slug"],
+            validator_app["login"],
+            validator_app.get("user_id"),
         )
         return audit
     except FileNotFoundError as exc:
@@ -854,26 +863,44 @@ def _audit_marker(kind: str, payload: dict) -> str:
     )
 
 
-def _trusted_comment(comment: dict, repository: str) -> bool:
+def _trusted_actor(actor: object, validator_app: dict) -> bool:
+    if not isinstance(actor, dict):
+        return False
+    if (
+        actor.get("type") != "Bot"
+        or actor.get("login") != validator_app["login"]
+    ):
+        return False
+    return actor.get("id") == validator_app["user_id"]
+
+
+def _trusted_comment(comment: dict, validator_app: dict) -> bool:
     user = comment.get("user")
-    login = user.get("login", "").lower() if isinstance(user, dict) else ""
-    owner = repository.split("/", 1)[0].lower()
-    return login in {owner, "github-actions[bot]"}
+    app = comment.get("performed_via_github_app")
+    return (
+        _trusted_actor(user, validator_app)
+        and isinstance(app, dict)
+        and app.get("id") == validator_app["id"]
+        and app.get("slug") == validator_app["slug"]
+    )
 
 
 def _marker_payloads(
+    root: Path,
     comments: list[dict],
     kind: str,
     schema: str,
     repository: str,
 ) -> list[dict]:
+    audit = require_protection_audit(root, repository)
+    validator_app = protection.audit_app_identity(audit)
     payloads = []
     expected_kind = f"zoo-v2-{kind}"
     for comment in comments:
         for match in AUDIT_MARKER_RE.finditer(comment["body"]):
             if match.group("kind") != expected_kind:
                 continue
-            if not _trusted_comment(comment, repository):
+            if not _trusted_comment(comment, validator_app):
                 continue
             try:
                 payload = json.loads(match.group("payload"))
@@ -887,6 +914,97 @@ def _marker_payloads(
                 )
             payloads.append(payload)
     return payloads
+
+
+def _stale_status_description(attempt: str, base_sha: str) -> str:
+    match = re.fullmatch(r"issue-[1-9][0-9]*-([0-9a-f]{64})", attempt)
+    if match is None or not COMMIT_SHA_RE.fullmatch(base_sha):
+        raise ReleaseError("E_SUPERSEDE_STATUS: invalid attempt/base binding")
+    return f"Stale attempt {match.group(1)} at main {base_sha}"
+
+
+def _failed_stale_status(
+    root: Path,
+    repository: str,
+    candidate_head: str,
+    attempt: str,
+    base_sha: str,
+    *,
+    status_id: int | None = None,
+) -> dict:
+    if not COMMIT_SHA_RE.fullmatch(candidate_head):
+        raise ReleaseError("E_SUPERSEDE_STATUS: invalid candidate head")
+    audit = require_protection_audit(root, repository)
+    validator_app = protection.audit_app_identity(audit)
+    pages = _gh_json(
+        root,
+        "api",
+        "--paginate",
+        "--slurp",
+        f"repos/{repository}/commits/{candidate_head}/statuses?per_page=100",
+    )
+    if not isinstance(pages, list) or len(pages) > MAX_STATUS_PAGES:
+        raise ReleaseError("E_SUPERSEDE_STATUS: incomplete commit status pagination")
+    expected_description = _stale_status_description(attempt, base_sha)
+    matches = []
+    for page in pages:
+        if not isinstance(page, list) or len(page) > GITHUB_PAGE_SIZE:
+            raise ReleaseError("E_SUPERSEDE_STATUS: malformed commit status page")
+        for item in page:
+            if not isinstance(item, dict):
+                raise ReleaseError("E_SUPERSEDE_STATUS: malformed commit status")
+            if (
+                item.get("state") == "failure"
+                and item.get("context") == protection.STATUS_CONTEXT
+                and item.get("description") == expected_description
+                and _trusted_actor(item.get("creator"), validator_app)
+                and isinstance(item.get("id"), int)
+                and not isinstance(item.get("id"), bool)
+                and item["id"] > 0
+                and (status_id is None or item["id"] == status_id)
+            ):
+                matches.append(item)
+    if not matches:
+        raise ReleaseError(
+            "E_SUPERSEDE_STATUS: exact App-authored failed status is absent"
+        )
+    if status_id is not None and len(matches) != 1:
+        raise ReleaseError(
+            "E_SUPERSEDE_STATUS: failed status identity is not unique"
+        )
+    return max(matches, key=lambda item: item["id"])
+
+
+def _require_main_commit(
+    root: Path,
+    sha: str,
+    *,
+    remote: str = "origin",
+) -> None:
+    if not COMMIT_SHA_RE.fullmatch(sha):
+        raise ReleaseError("E_SUPERSEDED_MARKER: invalidating base is malformed")
+    resolved = _run(
+        ["git", "rev-parse", "--verify", f"{sha}^{{commit}}"],
+        cwd=root,
+        check=False,
+    )
+    if resolved.returncode or resolved.stdout.strip() != sha:
+        raise ReleaseError("E_SUPERSEDED_MARKER: invalidating base is not a commit")
+    reachable = _run(
+        [
+            "git",
+            "merge-base",
+            "--is-ancestor",
+            sha,
+            f"refs/remotes/{remote}/main",
+        ],
+        cwd=root,
+        check=False,
+    )
+    if reachable.returncode:
+        raise ReleaseError(
+            "E_SUPERSEDED_MARKER: invalidating base is not reachable from origin/main"
+        )
 
 
 def _exact_pr(root: Path, repository: str, pr_number: int) -> dict:
@@ -1131,7 +1249,13 @@ def _ensure_audit_comment(
     text: str,
 ) -> None:
     comments = _issue_comments(root, repository, issue_number)
-    if not any(marker in comment["body"] for comment in comments):
+    validator_app = protection.audit_app_identity(
+        require_protection_audit(root, repository)
+    )
+    if not any(
+        marker in comment["body"] and _trusted_comment(comment, validator_app)
+        for comment in comments
+    ):
         _gh(
             root,
             "issue",
@@ -1153,6 +1277,7 @@ def finalize_merged_pr(
 ) -> dict:
     """Persist a merged command independently of its retained head branch."""
     _validate_repository(repository)
+    require_protection_audit(root, repository)
     _git(root, "fetch", "--prune", remote, "main")
     _git(root, "fetch", "--tags", remote)
     pr = _exact_pr(root, repository, pr_number)
@@ -1228,6 +1353,7 @@ def _superseded_payload(
     pr: dict,
     base_sha: str,
     generation_commit: str,
+    status_id: int,
 ) -> dict:
     branch = pr.get("headRefName")
     match = BRANCH_RE.fullmatch(branch) if isinstance(branch, str) else None
@@ -1236,6 +1362,10 @@ def _superseded_payload(
         or int(match.group(1)) != issue_number
         or not COMMIT_SHA_RE.fullmatch(base_sha)
         or not COMMIT_SHA_RE.fullmatch(generation_commit)
+        or not COMMIT_SHA_RE.fullmatch(pr.get("headRefOid", ""))
+        or not isinstance(status_id, int)
+        or isinstance(status_id, bool)
+        or status_id < 1
     ):
         raise ReleaseError("E_SUPERSEDED_MARKER: invalid attempt provenance")
     attempt = branch.removeprefix("zoo-v2/")
@@ -1244,7 +1374,9 @@ def _superseded_payload(
         "issue": issue_number,
         "pr": pr["number"],
         "attempt": attempt,
+        "candidate_head": pr["headRefOid"],
         "invalidating_base": base_sha,
+        "invalidating_status_id": status_id,
         "generation": f"api/v2/generations/{attempt}.json",
         "generation_commit": generation_commit,
         "tag": store.generation_tag_name(attempt),
@@ -1258,10 +1390,12 @@ def _validate_superseded_payload(
     payload: dict,
     *,
     allow_open: bool = False,
+    remote: str = "origin",
 ) -> dict:
     required = {
-        "schema", "issue", "pr", "attempt", "invalidating_base",
-        "generation", "generation_commit", "tag",
+        "schema", "issue", "pr", "attempt", "candidate_head",
+        "invalidating_base", "invalidating_status_id", "generation",
+        "generation_commit", "tag",
     }
     if set(payload) != required or payload.get("issue") != issue_number:
         raise ReleaseError("E_SUPERSEDED_MARKER: marker fields differ")
@@ -1271,6 +1405,7 @@ def _validate_superseded_payload(
         pr,
         payload.get("invalidating_base"),
         payload.get("generation_commit"),
+        payload.get("invalidating_status_id"),
     )
     allowed_states = {"CLOSED", "OPEN"} if allow_open else {"CLOSED"}
     if (
@@ -1279,6 +1414,21 @@ def _validate_superseded_payload(
         or payload != expected
     ):
         raise ReleaseError("E_SUPERSEDED_MARKER: marker/closed PR differ")
+    _git(root, "fetch", "--prune", remote, "main")
+    _git(root, "fetch", "--tags", remote)
+    _require_main_commit(
+        root,
+        payload["invalidating_base"],
+        remote=remote,
+    )
+    _failed_stale_status(
+        root,
+        repository,
+        payload["candidate_head"],
+        payload["attempt"],
+        payload["invalidating_base"],
+        status_id=payload["invalidating_status_id"],
+    )
     generation_bytes = _show(
         root, payload["generation_commit"], payload["generation"]
     )
@@ -1299,6 +1449,31 @@ def _validate_superseded_payload(
     if base_discovery is None:
         raise ReleaseError("E_SUPERSEDED_MARKER: invalidating base is unavailable")
     current_url = store.validate_discovery(json.loads(base_discovery))
+    current_match = store.validate_generation_raw_url(
+        current_url, "invalidating-base discovery"
+    )
+    if (
+        current_match.group("owner") + "/" + current_match.group("repo")
+        != repository
+    ):
+        raise ReleaseError(
+            "E_SUPERSEDED_MARKER: invalidating discovery repository differs"
+        )
+    current_bytes = _show(
+        root,
+        current_match.group("commit"),
+        current_match.group("path"),
+    )
+    if current_bytes is None:
+        raise ReleaseError(
+            "E_SUPERSEDED_MARKER: invalidating discovery generation is unavailable"
+        )
+    current_generation = json.loads(current_bytes)
+    store.validate_generation(current_generation, network=False)
+    if store.canonical_json(current_generation) != current_bytes:
+        raise ReleaseError(
+            "E_SUPERSEDED_MARKER: invalidating discovery generation is not canonical"
+        )
     if generation.get("previous_generation_url") == current_url:
         raise ReleaseError("E_SUPERSEDED_MARKER: attempt is not stale at recorded base")
     return pr
@@ -1310,11 +1485,18 @@ def supersede_pr(
     pr_number: int,
     base_sha: str,
     head_sha: str,
+    status_id: int,
+    *,
+    remote: str = "origin",
 ) -> dict:
     """Audit and close exactly one stale, unmerged attempt without deleting evidence."""
     _validate_repository(repository)
+    require_protection_audit(root, repository)
     if not COMMIT_SHA_RE.fullmatch(base_sha) or not COMMIT_SHA_RE.fullmatch(head_sha):
         raise ReleaseError("E_SUPERSEDE: base/head must be full commit SHAs")
+    _git(root, "fetch", "--prune", remote, "main")
+    _git(root, "fetch", "--tags", remote)
+    _require_main_commit(root, base_sha, remote=remote)
     pr = _exact_pr(root, repository, pr_number)
     issue_number = _issue_number_from_branch(pr.get("headRefName"))
     if (
@@ -1326,6 +1508,14 @@ def supersede_pr(
     ):
         raise ReleaseError("E_SUPERSEDE: exact open unmerged Zoo v2 PR is required")
     attempt = pr["headRefName"].removeprefix("zoo-v2/")
+    failed_status = _failed_stale_status(
+        root,
+        repository,
+        head_sha,
+        attempt,
+        base_sha,
+        status_id=status_id,
+    )
     generation_path = f"api/v2/generations/{attempt}.json"
     generation_bytes = _show(root, head_sha, generation_path)
     if generation_bytes is None:
@@ -1382,7 +1572,11 @@ def supersede_pr(
     ):
         raise ReleaseError("E_SUPERSEDE_RACE: PR changed before retirement")
     payload = _superseded_payload(
-        issue_number, current, base_sha, generation_commit
+        issue_number,
+        current,
+        base_sha,
+        generation_commit,
+        failed_status["id"],
     )
     marker = _audit_marker("superseded", payload)
     _gh(
@@ -1426,6 +1620,7 @@ def reconcile_eligible_issues(
 ) -> dict:
     """Reconcile durable issue/PR markers and select the oldest pending command."""
     _validate_repository(repository)
+    require_protection_audit(root, repository)
     issues = _eligible_issue_pages(root, repository)
     branches = _remote_issue_branches(root, remote)
     prs = list_catalog_prs(root, repository, branches)
@@ -1445,7 +1640,7 @@ def reconcile_eligible_issues(
         comments = _issue_comments(root, repository, number)
         issue_prs = list(by_issue.get(number, []))
         pr_markers = _marker_payloads(
-            comments, "pr", PR_MARKER_SCHEMA, repository
+            root, comments, "pr", PR_MARKER_SCHEMA, repository
         )
         for payload in pr_markers:
             if set(payload) != {"schema", "issue", "pr", "attempt"}:
@@ -1463,6 +1658,7 @@ def reconcile_eligible_issues(
                 issue_prs.append(pr)
 
         superseded_markers = _marker_payloads(
+            root,
             comments,
             "superseded",
             SUPERSEDED_MARKER_SCHEMA,
@@ -1518,7 +1714,7 @@ def reconcile_eligible_issues(
                 f"E_RECONCILE_INCOMPLETE: issue #{number} has multiple open PRs"
             )
         completion_markers = _marker_payloads(
-            comments, "completed", COMPLETION_MARKER_SCHEMA, repository
+            root, comments, "completed", COMPLETION_MARKER_SCHEMA, repository
         )
         completed_prs = [
             _validate_completion_payload(
@@ -1879,7 +2075,13 @@ def _ensure_pr(root: Path, repository: str, issue_number: int, branch: str) -> d
         "attempt": attempt,
     })
     comments = _issue_comments(root, repository, issue_number)
-    if not any(marker in item["body"] for item in comments):
+    validator_app = protection.audit_app_identity(
+        require_protection_audit(root, repository)
+    )
+    if not any(
+        marker in item["body"] and _trusted_comment(item, validator_app)
+        for item in comments
+    ):
         _gh(
             root,
             "issue",
@@ -2490,6 +2692,7 @@ def main(argv: list[str] | None = None) -> int:
     supersede.add_argument("--pr-number", type=int, required=True)
     supersede.add_argument("--base-sha", required=True)
     supersede.add_argument("--head-sha", required=True)
+    supersede.add_argument("--status-id", type=int, required=True)
 
     validate = sub.add_parser("validate-pr")
     validate.add_argument("--root", default=".")
@@ -2591,6 +2794,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.pr_number,
                 args.base_sha,
                 args.head_sha,
+                args.status_id,
             )
             print(json.dumps(result, sort_keys=True))
         elif args.command == "validate-pr":

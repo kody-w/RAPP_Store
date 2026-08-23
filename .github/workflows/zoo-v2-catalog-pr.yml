@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
 
 concurrency:
   # Contention coalescing only. The atomic remote lock and reconciliation are authoritative.
@@ -22,6 +20,18 @@ jobs:
     environment: zoo-v2-validator
     runs-on: ubuntu-latest
     steps:
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -36,26 +46,36 @@ jobs:
           git config user.name "rapp-store-bot"
           git config user.email "rapp-store-bot@users.noreply.github.com"
 
+      - name: Require exact committed validator App configuration
+        env:
+          VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$VALIDATOR_APP_ID"
+          test -n "$VALIDATOR_APP_SLUG"
+          test -n "$VALIDATOR_APP_LOGIN"
+          test -n "$VALIDATOR_APP_USER_ID"
+          test -n '${{ steps.validator-token.outputs.token }}'
+          python3 scripts/configure_zoo_v2_protection.py verify-audit \
+            --repository "$GITHUB_REPOSITORY" \
+            --validator-app-id "$VALIDATOR_APP_ID" \
+            --validator-app-slug "$VALIDATOR_APP_SLUG" \
+            --validator-app-login "$VALIDATOR_APP_LOGIN" \
+            --validator-app-user-id "$VALIDATOR_APP_USER_ID"
+
       - name: Reconcile complete eligible issue queue
         id: reconcile
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.validator-token.outputs.token }}
         run: |
           set -euo pipefail
           python3 scripts/zoo_v2_release.py reconcile \
             --repository "$GITHUB_REPOSITORY" \
             --event-output "$GITHUB_WORKSPACE/.zoo-v2-selected-issue.json" \
             --github-output "$GITHUB_OUTPUT"
-
-      - name: Require committed admin protection audit
-        if: steps.reconcile.outputs.selected == 'true'
-        env:
-          VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
-        run: |
-          test -n "$VALIDATOR_APP_ID"
-          python3 scripts/configure_zoo_v2_protection.py verify-audit \
-            --repository "$GITHUB_REPOSITORY" \
-            --validator-app-id "$VALIDATOR_APP_ID"
 
       - name: Ensure bootstrap has a permanent ref
         if: steps.reconcile.outputs.selected == 'true'
@@ -93,7 +113,7 @@ jobs:
       - name: Resume serialized generation release and PR
         if: steps.reconcile.outputs.selected == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.validator-token.outputs.token }}
           ISSUE_NUMBER: ${{ steps.reconcile.outputs.issue_number }}
           GENERATION_PATH: ${{ steps.generation.outputs.path }}
           ALLOWED_ACTORS: ${{ github.repository_owner }},${{ vars.RAPP_ZOO_V2_ACTORS }}

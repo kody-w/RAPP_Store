@@ -25,6 +25,9 @@ jobs:
           private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: read
+          permission-statuses: write
 
       - name: Check out trusted current main
         uses: actions/checkout@v4
@@ -46,6 +49,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Require exact validator App configuration
+        id: app-config
+        env:
+          VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$VALIDATOR_APP_ID"
+          test -n "$VALIDATOR_APP_SLUG"
+          test -n "$VALIDATOR_APP_LOGIN"
+          test -n "$VALIDATOR_APP_USER_ID"
+          python3 "$GITHUB_WORKSPACE/trusted-main/scripts/configure_zoo_v2_protection.py" \
+            verify-audit \
+            --repository "$GITHUB_REPOSITORY" \
+            --validator-app-id "$VALIDATOR_APP_ID" \
+            --validator-app-slug "$VALIDATOR_APP_SLUG" \
+            --validator-app-login "$VALIDATOR_APP_LOGIN" \
+            --validator-app-user-id "$VALIDATOR_APP_USER_ID"
 
       - name: Inspect complete local diff with trusted main
         id: inspection
@@ -146,7 +170,8 @@ jobs:
           test "$current_head" = "$HEAD_SHA" || exit 0
           state=failure
           description='Protected Store diff is not authorized'
-          if test "$INSPECTION" = success && test "$RESULT" = success; then
+          if test '${{ steps.app-config.outcome }}' = success &&
+            test "$INSPECTION" = success && test "$RESULT" = success; then
             state=success
             if test "$MODE" = none; then
               description='No protected Store paths changed'

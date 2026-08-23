@@ -96,8 +96,11 @@ Store changes are limited to authorized same-repository release/bootstrap
 branches. The complete local three-dot Git diff is used instead of the
 3,000-file-limited PR-files API. The required status is bound to a dedicated
 validator GitHub App by exact context plus App ID; its protected environment
-holds the App ID/private key and the default Actions token cannot publish the
-trusted context. The generation-tag ruleset is dedicated and has no bypass
+holds the App ID, slug, bot login/database ID, and private key. The App is
+narrowly limited to commit-status write, issue write, pull-request write/read,
+and contents read. Only its installation token may write Zoo lifecycle
+markers, labels, issue closure, or stale-PR retirement; default Actions tokens
+and `github-actions[bot]` comments are untrusted. The generation-tag ruleset is dedicated and has no bypass
 actors. Administrator branch/ruleset configuration is out-of-band, with a
 committed audit required before release. See the extension spec for App
 permissions, environment protection, configuration, and bootstrap order.

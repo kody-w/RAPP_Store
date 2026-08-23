@@ -16,9 +16,17 @@ STATUS_CONTEXT = "Zoo v2 current-main"
 TAG_RULESET_NAME = "Zoo v2 generation tags"
 TAG_PATTERN = "refs/tags/zoo-v2-generation-*"
 TAG_RULE_TYPES = frozenset({"update", "deletion", "non_fast_forward"})
-AUDIT_SCHEMA = "rapp-zoo-v2-protection-audit/1.1"
+AUDIT_SCHEMA = "rapp-zoo-v2-protection-audit/1.2"
 AUDIT_PATH = Path(".github/zoo-v2-protection-audit.json")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+APP_SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$")
+APP_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?\[bot\]$")
+VALIDATOR_APP_PERMISSIONS = {
+    "commit_statuses": "write",
+    "contents": "read",
+    "issues": "write",
+    "pull_requests": "write",
+}
 ApiCall = Callable[[str, str, dict | None], object]
 
 
@@ -102,6 +110,61 @@ def _validate_app_id(validator_app_id: object) -> int:
             "E_VALIDATOR_APP: --validator-app-id must be a positive integer"
         )
     return validator_app_id
+
+
+def validate_app_identity(
+    validator_app_id: object,
+    validator_app_slug: object,
+    validator_app_login: object,
+    validator_app_user_id: object = None,
+) -> dict:
+    app_id = _validate_app_id(validator_app_id)
+    if (
+        not isinstance(validator_app_slug, str)
+        or not APP_SLUG_RE.fullmatch(validator_app_slug)
+    ):
+        raise ProtectionError(
+            "E_VALIDATOR_APP: --validator-app-slug must be a canonical GitHub App slug"
+        )
+    if (
+        not isinstance(validator_app_login, str)
+        or not APP_LOGIN_RE.fullmatch(validator_app_login)
+        or validator_app_login != f"{validator_app_slug}[bot]"
+    ):
+        raise ProtectionError(
+            "E_VALIDATOR_APP: --validator-app-login must exactly match <slug>[bot]"
+        )
+    if (
+        not isinstance(validator_app_user_id, int)
+        or isinstance(validator_app_user_id, bool)
+        or validator_app_user_id < 1
+    ):
+        raise ProtectionError(
+            "E_VALIDATOR_APP: --validator-app-user-id must be a positive integer"
+        )
+    identity = {
+        "id": app_id,
+        "slug": validator_app_slug,
+        "login": validator_app_login,
+        "permissions": dict(VALIDATOR_APP_PERMISSIONS),
+    }
+    identity["user_id"] = validator_app_user_id
+    return identity
+
+
+def audit_app_identity(audit: object) -> dict:
+    value = audit.get("validator_app") if isinstance(audit, dict) else None
+    if not isinstance(value, dict):
+        raise ProtectionError("E_PROTECTION_AUDIT: validator App identity is absent")
+    required = {"id", "slug", "login", "user_id", "permissions"}
+    if set(value) != required:
+        raise ProtectionError("E_PROTECTION_AUDIT: validator App identity is malformed")
+    return validate_app_identity(
+        value.get("id"),
+        value.get("slug"),
+        value.get("login"),
+        value.get("user_id"),
+    )
 
 
 def protection_payload(existing: object, validator_app_id: int) -> dict:
@@ -422,15 +485,16 @@ def _audit_document(
     repository: str,
     settings: dict,
     ruleset: dict,
-    validator_app_id: int,
+    validator_app: dict,
 ) -> dict:
     reviews = settings["required_pull_request_reviews"]
+    validator_app_id = validator_app["id"]
     return {
         "schema": AUDIT_SCHEMA,
         "repository": repository,
         "verified_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "branch": "main",
-        "validator_app_id": validator_app_id,
+        "validator_app": validator_app,
         "branch_protection": {
             "strict": True,
             "required_status_contexts": sorted(
@@ -459,16 +523,29 @@ def _audit_document(
     }
 
 
-def verify_audit(audit: object, repository: str, validator_app_id: int) -> None:
-    validator_app_id = _validate_app_id(validator_app_id)
+def verify_audit(
+    audit: object,
+    repository: str,
+    validator_app_id: int,
+    validator_app_slug: str,
+    validator_app_login: str,
+    validator_app_user_id: int | None = None,
+) -> None:
+    validator_app = validate_app_identity(
+        validator_app_id,
+        validator_app_slug,
+        validator_app_login,
+        validator_app_user_id,
+    )
     if not isinstance(audit, dict):
         raise ProtectionError("E_PROTECTION_AUDIT: expected an audit object")
+    audit_app_identity(audit)
     verified_at = audit.get("verified_at")
     if (
         audit.get("schema") != AUDIT_SCHEMA
         or audit.get("repository") != repository
         or audit.get("branch") != "main"
-        or audit.get("validator_app_id") != validator_app_id
+        or audit.get("validator_app") != validator_app
         or not isinstance(verified_at, str)
     ):
         raise ProtectionError("E_PROTECTION_AUDIT: identity fields are absent or malformed")
@@ -531,6 +608,9 @@ def verify_audit_file(
     path: Path,
     repository: str,
     validator_app_id: int,
+    validator_app_slug: str,
+    validator_app_login: str,
+    validator_app_user_id: int | None = None,
 ) -> dict:
     try:
         audit = json.loads(path.read_text())
@@ -541,7 +621,14 @@ def verify_audit_file(
         ) from exc
     except (OSError, json.JSONDecodeError) as exc:
         raise ProtectionError(f"E_PROTECTION_AUDIT: cannot read {path}: {exc}") from exc
-    verify_audit(audit, repository, validator_app_id)
+    verify_audit(
+        audit,
+        repository,
+        validator_app_id,
+        validator_app_slug,
+        validator_app_login,
+        validator_app_user_id,
+    )
     return audit
 
 
@@ -553,30 +640,48 @@ def _write_audit(path: Path, audit: dict) -> None:
 def configure_and_verify(
     repository: str,
     validator_app_id: int,
+    validator_app_slug: str,
+    validator_app_login: str,
+    validator_app_user_id: int | None = None,
     api_call: ApiCall = _gh_api,
 ) -> dict:
     _validate_repository(repository)
+    validator_app = validate_app_identity(
+        validator_app_id,
+        validator_app_slug,
+        validator_app_login,
+        validator_app_user_id,
+    )
     endpoint = f"repos/{repository}/branches/main/protection"
     existing = api_call("GET", endpoint, None)
     api_call("PUT", endpoint, protection_payload(existing, validator_app_id))
     settings = api_call("GET", endpoint, None)
     verify_settings(settings, validator_app_id)
     ruleset = _configure_ruleset(repository, api_call)
-    return _audit_document(repository, settings, ruleset, validator_app_id)
+    return _audit_document(repository, settings, ruleset, validator_app)
 
 
 def verify(
     repository: str,
     validator_app_id: int,
+    validator_app_slug: str,
+    validator_app_login: str,
+    validator_app_user_id: int | None = None,
     api_call: ApiCall = _gh_api,
 ) -> dict:
     _validate_repository(repository)
+    validator_app = validate_app_identity(
+        validator_app_id,
+        validator_app_slug,
+        validator_app_login,
+        validator_app_user_id,
+    )
     endpoint = f"repos/{repository}/branches/main/protection"
     settings = api_call("GET", endpoint, None)
     verify_settings(settings, validator_app_id)
     ruleset = _named_ruleset(repository, api_call)
     verify_tag_ruleset(ruleset)
-    return _audit_document(repository, settings, ruleset, validator_app_id)
+    return _audit_document(repository, settings, ruleset, validator_app)
 
 
 def _validate_repository(repository: str) -> None:
@@ -592,19 +697,37 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--repository", required=True)
     parser.add_argument("--validator-app-id", required=True, type=int)
+    parser.add_argument("--validator-app-slug", required=True)
+    parser.add_argument("--validator-app-login", required=True)
+    parser.add_argument("--validator-app-user-id", required=True, type=int)
     parser.add_argument("--audit-output", type=Path)
     parser.add_argument("--audit", type=Path, default=AUDIT_PATH)
     args = parser.parse_args(argv)
     try:
         if args.command == "configure-verify":
-            audit = configure_and_verify(args.repository, args.validator_app_id)
+            audit = configure_and_verify(
+                args.repository,
+                args.validator_app_id,
+                args.validator_app_slug,
+                args.validator_app_login,
+                args.validator_app_user_id,
+            )
         elif args.command == "verify":
-            audit = verify(args.repository, args.validator_app_id)
+            audit = verify(
+                args.repository,
+                args.validator_app_id,
+                args.validator_app_slug,
+                args.validator_app_login,
+                args.validator_app_user_id,
+            )
         else:
             audit = verify_audit_file(
                 args.audit,
                 args.repository,
                 args.validator_app_id,
+                args.validator_app_slug,
+                args.validator_app_login,
+                args.validator_app_user_id,
             )
         if args.audit_output:
             _write_audit(args.audit_output, audit)

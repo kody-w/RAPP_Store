@@ -151,7 +151,12 @@ exists. A rerun for the same attempt is allowed only when its generation bytes,
 predecessor URL/digest, branch, tag target and annotation, discovery pointer,
 and PR state all match. It resumes after the last durable stage. If ``main` advanced, trusted main-advance automation verifies and closes the stale
 unmerged PR, adds `zoo-v2-superseded`, and records an exact structured marker
-containing its PR, attempt, invalidating base, generation commit/path, and tag.
+containing its PR, candidate head, attempt, invalidating base, exact failed
+status ID, generation commit/path, and tag. The invalidating base must be an
+actual commit reachable from freshly fetched `origin/main`; its discovery must
+invalidate the candidate predecessor. The marker is accepted only when the
+candidate head has that exact dedicated-App-authored failure status binding
+the complete base SHA and attempt digest.
 The immutable branch and tag remain evidence. Scheduled reconciliation permits
 a retry only after validating that marker, exact closed-unmerged PR, stale
 predecessor, generation bytes, and permanent tag through GitHub/Git. It then
@@ -174,8 +179,12 @@ the triggering event. Thus coalesced/dropped notifications cannot lose a
 command: scheduled runs keep selecting the next item after the current PR
 merges. Incomplete pages, malformed fields, premature processed labels,
 multiple open PRs, and unaudited closed-unmerged PRs fail closed. Labels and
-comments are add-only audit records. PR-open markers link exact PR numbers and
-attempts but never mark an issue processed.
+comments are add-only audit records. Marker comments are trusted only when
+their author is type `Bot`, exact bot login/database ID, and exact
+`performed_via_github_app` ID/slug from the committed protection audit.
+Repository owners and shared `github-actions[bot]` are never trusted marker
+authors. PR-open markers link exact PR numbers and attempts but never mark an
+issue processed.
 
 Stale-lock recovery is never automatic. A repository administrator must invoke
 `zoo_v2_release.py recover-lock` with the exact observed owner SHA, their
@@ -268,10 +277,13 @@ protection must use `required_status_checks.checks` to require the exact
 `{context: "Zoo v2 current-main", app_id: <validator App ID>}` pair with
 strict/up-to-date semantics. A generic context-only status, the GitHub Actions
 App, or any other App cannot satisfy the barrier. The default `GITHUB_TOKEN`
-has no `statuses: write` permission in either status publisher. Both workflows
+has no `statuses: write` permission in either status publisher. Validation,
+completion, queue reconciliation, and main-advance retirement workflows
 mint an installation token for the dedicated App from the protected
-`zoo-v2-validator` environment and use only that token to read the current PR
-head and publish the trusted context. Missing App secrets fails closed.
+`zoo-v2-validator` environment. Only that token may publish the trusted
+context, processed/superseded comments and labels, issue closure, or stale-PR
+closure. Missing token or identity configuration fails closed before lifecycle
+reconciliation.
 
 Protection also requires one approving PR review, stale-review dismissal,
 last-push approval, and admin enforcement. Force pushes and branch deletion
@@ -282,9 +294,13 @@ commit, annotated permanent tag, and fork boundary. On every `main` push,
 for every open retained Zoo v2 branch as defense in depth, using exact
 per-branch PR queries rather than a truncated repository-wide list. A stale
 candidate receives the App-authored failing status; trusted workflow
-automation then re-fetches the exact still-open PR, proves its predecessor is
-stale and its branch/tag evidence exact, records the superseded marker and
-label, and closes it. A merge race aborts retirement. Merge
+automation then fetches `main`, requires the marker's invalidating base to be
+an ancestor of `origin/main`, matches its full SHA and attempt to the exact
+App-authored failed status on the exact candidate head, re-fetches the exact
+still-open PR, proves discovery at that base invalidates its predecessor and
+its branch/tag evidence is exact, records the superseded marker and label, and
+closes it. An arbitrary candidate/local commit can never serve as an
+invalidating base. A merge race aborts retirement. Merge
 safety does not depend on
 that asynchronous overwrite: GitHub's strict required-status barrier refuses
 a head that is not up to date with the exact current base. Main-advance runs
@@ -314,10 +330,16 @@ python3 scripts/zoo_v2_store.py validate-tree --root .
 python3 scripts/configure_zoo_v2_protection.py configure-verify \
   --repository kody-w/RAPP_Store \
   --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID" \
+  --validator-app-slug "$ZOO_V2_VALIDATOR_APP_SLUG" \
+  --validator-app-login "$ZOO_V2_VALIDATOR_APP_LOGIN" \
+  --validator-app-user-id "$ZOO_V2_VALIDATOR_APP_USER_ID" \
   --audit-output .github/zoo-v2-protection-audit.json
 python3 scripts/configure_zoo_v2_protection.py verify-audit \
   --repository kody-w/RAPP_Store \
-  --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID"
+  --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID" \
+  --validator-app-slug "$ZOO_V2_VALIDATOR_APP_SLUG" \
+  --validator-app-login "$ZOO_V2_VALIDATOR_APP_LOGIN" \
+  --validator-app-user-id "$ZOO_V2_VALIDATOR_APP_USER_ID"
 python3 scripts/zoo_v2_release.py validate-pr --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py audit-refs \
   --repository kody-w/RAPP_Store --network
@@ -332,14 +354,20 @@ protection script. The one permitted bootstrap sequence is:
 
 1. Create a dedicated GitHub App (not a reusable Actions or CI App), install it
    on this repository, and grant only these repository permissions:
-   **Commit statuses: Read and write**, **Contents: Read-only**, and **Pull
-   requests: Read-only**. Record its numeric App ID and private key.
+   **Commit statuses: Read and write**, **Issues: Read and write**, **Pull
+   requests: Read and write**, and **Contents: Read-only**. Record its numeric
+   App ID, canonical slug, bot login (`<slug>[bot]`), bot user database ID, and
+   private key. No Administration, Actions, checks, deployments, members,
+   metadata-write, or contents-write permission is required.
 2. Create the protected GitHub environment **`zoo-v2-validator`**. Require
    appropriate environment reviewers and restrict deployment branches
    according to repository policy. Add environment secrets
-   `ZOO_V2_VALIDATOR_APP_ID` and `ZOO_V2_VALIDATOR_PRIVATE_KEY`; do not add
-   them as ordinary repository secrets. The App ID passed to the configuration
-   tool must be the same numeric ID. Missing/mismatched values are a hard
+   `ZOO_V2_VALIDATOR_APP_ID`, `ZOO_V2_VALIDATOR_APP_SLUG`,
+   `ZOO_V2_VALIDATOR_APP_LOGIN`, `ZOO_V2_VALIDATOR_APP_USER_ID`, and
+   `ZOO_V2_VALIDATOR_PRIVATE_KEY`; do not add them as ordinary repository
+   secrets. Obtain the bot database ID with
+   `gh api "users/${ZOO_V2_VALIDATOR_APP_LOGIN}" --jq .id`. Every value passed
+   to the configuration tool must match. Missing/mismatched values are a hard
    failure.
 3. Merge the PR that adds the trusted validation workflow and protection
    script to `main`; no Store v2 candidate may be released in this interval.
@@ -350,9 +378,17 @@ protection script. The one permitted bootstrap sequence is:
 
    ```bash
    export ZOO_V2_VALIDATOR_APP_ID=<numeric-app-id>
+   export ZOO_V2_VALIDATOR_APP_SLUG=<canonical-app-slug>
+   export ZOO_V2_VALIDATOR_APP_LOGIN="${ZOO_V2_VALIDATOR_APP_SLUG}[bot]"
+   export ZOO_V2_VALIDATOR_APP_USER_ID="$(
+     gh api "users/${ZOO_V2_VALIDATOR_APP_LOGIN}" --jq .id
+   )"
    python3 scripts/configure_zoo_v2_protection.py configure-verify \
      --repository kody-w/RAPP_Store \
      --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID" \
+     --validator-app-slug "$ZOO_V2_VALIDATOR_APP_SLUG" \
+     --validator-app-login "$ZOO_V2_VALIDATOR_APP_LOGIN" \
+     --validator-app-user-id "$ZOO_V2_VALIDATOR_APP_USER_ID" \
      --audit-output .github/zoo-v2-protection-audit.json
    ```
 
@@ -369,9 +405,10 @@ protection script. The one permitted bootstrap sequence is:
 5. Review and commit the generated canonical audit on the protected
    `zoo-v2/bootstrap-protection` branch. The audit is the durable evidence that
    an administrator completed the out-of-band platform configuration. It
-   records the exact validator App ID/check binding and an empty tag-ruleset
-   bypass list. The ordinary issue workflow reads this file and compares it to
-   the protected environment App ID; it does not call GitHub Administration
+   records the exact validator App ID, slug, bot login/database ID, narrowly
+   required permissions, check binding, and empty tag-ruleset bypass list. The
+   ordinary workflows read this file and compare all identity values to the
+   protected environment configuration; they do not call GitHub Administration
    APIs.
 
 6. Only after that audit merges, run the idempotent workflow **Zoo v2 bootstrap
@@ -382,7 +419,10 @@ protection script. The one permitted bootstrap sequence is:
 git fetch --prune origin main
 python3 scripts/configure_zoo_v2_protection.py verify-audit \
   --repository kody-w/RAPP_Store \
-  --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID"
+  --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID" \
+  --validator-app-slug "$ZOO_V2_VALIDATOR_APP_SLUG" \
+  --validator-app-login "$ZOO_V2_VALIDATOR_APP_LOGIN" \
+  --validator-app-user-id "$ZOO_V2_VALIDATOR_APP_USER_ID"
 python3 scripts/zoo_v2_release.py protect-bootstrap \
   --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py audit-refs \

@@ -15,6 +15,9 @@ import zoo_v2_release as release
 import zoo_v2_store as store
 
 VALIDATOR_APP_ID = 4242
+VALIDATOR_APP_SLUG = "zoo-v2-validator"
+VALIDATOR_APP_LOGIN = f"{VALIDATOR_APP_SLUG}[bot]"
+VALIDATOR_APP_USER_ID = 8675309
 SAMPLE_ATTEMPT_ID = f"issue-42-{'d' * 64}"
 SAMPLE_ATTEMPT_PATH = f"api/v2/generations/{SAMPLE_ATTEMPT_ID}.json"
 SAMPLE_ATTEMPT_BRANCH = f"zoo-v2/{SAMPLE_ATTEMPT_ID}"
@@ -65,7 +68,13 @@ def _valid_audit(repository: str = "example/store") -> dict:
         "repository": repository,
         "verified_at": "2026-08-22T20:00:00Z",
         "branch": "main",
-        "validator_app_id": VALIDATOR_APP_ID,
+        "validator_app": {
+            "id": VALIDATOR_APP_ID,
+            "slug": VALIDATOR_APP_SLUG,
+            "login": VALIDATOR_APP_LOGIN,
+            "user_id": VALIDATOR_APP_USER_ID,
+            "permissions": dict(protection.VALIDATOR_APP_PERMISSIONS),
+        },
         "branch_protection": {
             "strict": True,
             "required_status_contexts": ["Existing CI"],
@@ -99,6 +108,40 @@ def _write_audit(root: Path, repository: str = "example/store") -> None:
     path = root / protection.AUDIT_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(_valid_audit(repository), indent=2, sort_keys=True) + "\n")
+
+
+@pytest.fixture(autouse=True)
+def _provide_protection_audit(tmp_path):
+    _write_audit(tmp_path)
+
+
+def _trusted_app_comment(body: str) -> dict:
+    return {
+        "body": body,
+        "user": {
+            "id": VALIDATOR_APP_USER_ID,
+            "login": VALIDATOR_APP_LOGIN,
+            "type": "Bot",
+        },
+        "performed_via_github_app": {
+            "id": VALIDATOR_APP_ID,
+            "slug": VALIDATOR_APP_SLUG,
+        },
+    }
+
+
+def _failed_status(status_id: int, attempt: str, base_sha: str) -> dict:
+    return {
+        "id": status_id,
+        "state": "failure",
+        "context": protection.STATUS_CONTEXT,
+        "description": release._stale_status_description(attempt, base_sha),
+        "creator": {
+            "id": VALIDATOR_APP_USER_ID,
+            "login": VALIDATOR_APP_LOGIN,
+            "type": "Bot",
+        },
+    }
 
 
 def _issue_path(work: Path, issue_number: int = 42) -> Path:
@@ -1050,6 +1093,118 @@ def test_processed_and_tombstoned_markers_fail_closed_or_skip(monkeypatch, tmp_p
     assert result["states"] == [{"number": 2, "state": "tombstoned"}]
 
 
+def test_lifecycle_reconciliation_fails_closed_without_app_config(tmp_path):
+    (tmp_path / protection.AUDIT_PATH).unlink()
+    with pytest.raises(release.ReleaseError, match="E_PROTECTION_AUDIT"):
+        release.reconcile_eligible_issues(tmp_path, "example/store")
+
+
+def test_marker_auth_rejects_process_rapplication_default_token_and_spoofs(
+    tmp_path,
+):
+    process_workflow = (
+        Path(__file__).resolve().parent.parent
+        / ".github/workflows/process-rapplication.yml"
+    ).read_text()
+    assert "actions/github-script" in process_workflow
+    assert "issues: write" in process_workflow
+    payload = {
+        "schema": release.PR_MARKER_SCHEMA,
+        "issue": 42,
+        "pr": 501,
+        "attempt": SAMPLE_ATTEMPT_ID,
+    }
+    body = release._audit_marker("pr", payload)
+    forged = [
+        {
+            "body": body,
+            "user": {"id": 41898282, "login": "github-actions[bot]", "type": "Bot"},
+            "performed_via_github_app": {
+                "id": 15368,
+                "slug": "github-actions",
+            },
+        },
+        {
+            "body": body,
+            "user": {"id": 1, "login": "example", "type": "User"},
+            "performed_via_github_app": None,
+        },
+        {
+            "body": body,
+            "user": {
+                "id": VALIDATOR_APP_USER_ID + 1,
+                "login": VALIDATOR_APP_LOGIN,
+                "type": "Bot",
+            },
+            "performed_via_github_app": {
+                "id": VALIDATOR_APP_ID,
+                "slug": VALIDATOR_APP_SLUG,
+            },
+        },
+        {
+            "body": body,
+            "user": {
+                "id": VALIDATOR_APP_USER_ID,
+                "login": VALIDATOR_APP_LOGIN,
+                "type": "Bot",
+            },
+            "performed_via_github_app": {
+                "id": VALIDATOR_APP_ID + 1,
+                "slug": VALIDATOR_APP_SLUG,
+            },
+        },
+    ]
+    assert release._marker_payloads(
+        tmp_path,
+        forged,
+        "pr",
+        release.PR_MARKER_SCHEMA,
+        "example/store",
+    ) == []
+    assert release._marker_payloads(
+        tmp_path,
+        [_trusted_app_comment(body)],
+        "pr",
+        release.PR_MARKER_SCHEMA,
+        "example/store",
+    ) == [payload]
+
+
+def test_forged_default_token_marker_cannot_suppress_app_audit_comment(
+    tmp_path, monkeypatch
+):
+    marker = release._audit_marker("completed", {
+        "schema": release.COMPLETION_MARKER_SCHEMA,
+        "issue": 42,
+    })
+    forged = {
+        "body": marker,
+        "user": {"id": 41898282, "login": "github-actions[bot]", "type": "Bot"},
+        "performed_via_github_app": {
+            "id": 15368,
+            "slug": "github-actions",
+        },
+    }
+    monkeypatch.setattr(
+        release, "_issue_comments", lambda *_args: [forged]
+    )
+    calls = []
+    monkeypatch.setattr(
+        release,
+        "_gh",
+        lambda _root, *args: calls.append(args) or "",
+    )
+    release._ensure_audit_comment(
+        tmp_path,
+        "example/store",
+        42,
+        marker,
+        "Trusted completion.",
+    )
+    assert len(calls) == 1
+    assert calls[0][:2] == ("issue", "comment")
+
+
 def test_merge_completion_survives_deleted_branch_and_ignores_pr_history(
     tmp_path, monkeypatch
 ):
@@ -1099,10 +1254,7 @@ def test_merge_completion_survives_deleted_branch_and_ignores_pr_history(
         "pr": 501,
         "attempt": Path(generation_path).stem,
     })
-    pr_comment = {
-        "body": pr_marker,
-        "user": {"login": "github-actions[bot]"},
-    }
+    pr_comment = _trusted_app_comment(pr_marker)
     pending = _matching_release_issue(work)
     pending["_label_names"] = [release.ELIGIBLE_LABEL]
     monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [pending])
@@ -1127,11 +1279,7 @@ def test_merge_completion_survives_deleted_branch_and_ignores_pr_history(
     processed["_label_names"] = sorted(
         label["name"] for label in processed["labels"]
     )
-    trusted_comment = {
-        "body": marker_body,
-        "user": {"login": "github-actions[bot]"},
-        "author_association": "NONE",
-    }
+    trusted_comment = _trusted_app_comment(marker_body)
     monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [processed])
     monkeypatch.setattr(release, "_remote_issue_branches", lambda *_args: set())
     monkeypatch.setattr(release, "list_catalog_prs", lambda *_args: [])
@@ -1171,6 +1319,8 @@ def test_superseded_attempt_is_audited_retryable_and_uses_unique_predecessor(
     pr_state = {"state": "open", "merged_at": None}
 
     def exact_api(_root, *args):
+        if "/statuses?per_page=100" in args[-1]:
+            return [[_failed_status(9001, Path(stale_path).stem, base_sha)]]
         assert args[-1] == "repos/example/store/pulls/601"
         return _raw_pr(
             601,
@@ -1189,10 +1339,12 @@ def test_superseded_attempt_is_audited_retryable_and_uses_unique_predecessor(
         lambda _root, *args: gh_calls.append(args) or "",
     )
     superseded = release.supersede_pr(
-        work, "example/store", 601, base_sha, head_sha
+        work, "example/store", 601, base_sha, head_sha, 9001
     )
     assert superseded["attempt"] == Path(stale_path).stem
+    assert superseded["candidate_head"] == head_sha
     assert superseded["invalidating_base"] == base_sha
+    assert superseded["invalidating_status_id"] == 9001
     assert superseded["tag"] == released["tag"]
     assert _git(work, "ls-remote", "--heads", "origin", f"refs/heads/{branch}")
     assert _git(work, "ls-remote", "--tags", "origin", f"refs/tags/{released['tag']}")
@@ -1209,11 +1361,7 @@ def test_superseded_attempt_is_audited_retryable_and_uses_unique_predecessor(
     pending = _matching_release_issue(work)
     pending["labels"].append({"name": release.SUPERSEDED_LABEL})
     pending["_label_names"] = sorted(label["name"] for label in pending["labels"])
-    trusted_comment = {
-        "body": marker_body,
-        "user": {"login": "github-actions[bot]"},
-        "author_association": "NONE",
-    }
+    trusted_comment = _trusted_app_comment(marker_body)
     monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [pending])
     monkeypatch.setattr(
         release, "_remote_issue_branches", lambda *_args: {branch}
@@ -1285,7 +1433,13 @@ def test_supersede_merge_race_refuses_to_close_or_mark(tmp_path, monkeypatch):
             merged_at="2026-08-22T22:00:00Z",
         ),
     ]
-    monkeypatch.setattr(release, "_gh_json", lambda *_args: responses.pop(0))
+
+    def race_api(_root, *args):
+        if "/statuses?per_page=100" in args[-1]:
+            return [[_failed_status(9002, Path(stale_path).stem, base_sha)]]
+        return responses.pop(0)
+
+    monkeypatch.setattr(release, "_gh_json", race_api)
     gh_calls = []
     monkeypatch.setattr(release, "_issue_comments", lambda *_args: [])
     monkeypatch.setattr(
@@ -1294,7 +1448,92 @@ def test_supersede_merge_race_refuses_to_close_or_mark(tmp_path, monkeypatch):
         lambda _root, *args: gh_calls.append(args) or "",
     )
     with pytest.raises(release.ReleaseError, match="E_SUPERSEDE_RACE"):
-        release.supersede_pr(work, "example/store", 701, base_sha, head_sha)
+        release.supersede_pr(
+            work, "example/store", 701, base_sha, head_sha, 9002
+        )
+    assert gh_calls == []
+
+
+def test_supersede_rejects_arbitrary_candidate_sha_as_main_base(tmp_path):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    stale_path = _issue_relative(work)
+    release.resume_release(
+        work,
+        stale_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=base_bytes,
+    )
+    candidate_head = _git(work, "rev-parse", "HEAD")
+    with pytest.raises(release.ReleaseError, match="not reachable from origin/main"):
+        release.supersede_pr(
+            work,
+            "example/store",
+            711,
+            candidate_head,
+            candidate_head,
+            1,
+        )
+
+
+@pytest.mark.parametrize("forgery", ["actions", "wrong-base", "wrong-attempt"])
+def test_supersede_requires_exact_app_failed_status_binding(
+    tmp_path, monkeypatch, forgery
+):
+    work, base_bytes, _ = _seed_remote(tmp_path)
+    stale_path = _issue_relative(work)
+    released = release.resume_release(
+        work,
+        stale_path,
+        "example/store",
+        42,
+        create_pr=False,
+        base_generation_bytes=base_bytes,
+    )
+    branch = released["branch"]
+    attempt = Path(stale_path).stem
+    head_sha = _git(work, "rev-parse", "HEAD")
+    _advance_main(work.parent / "remote.git", tmp_path / f"status-{forgery}")
+    _git(work, "fetch", "--prune", "--tags", "origin", "main")
+    base_sha = _git(work, "rev-parse", "origin/main")
+    status = _failed_status(9100, attempt, base_sha)
+    if forgery == "actions":
+        status["creator"] = {
+            "id": 41898282,
+            "login": "github-actions[bot]",
+            "type": "Bot",
+        }
+    elif forgery == "wrong-base":
+        status["description"] = release._stale_status_description(
+            attempt, "a" * 40
+        )
+    else:
+        status["description"] = release._stale_status_description(
+            f"issue-42-{'e' * 64}", base_sha
+        )
+
+    def github_api(_root, *args):
+        if "/statuses?per_page=100" in args[-1]:
+            return [[status]]
+        return _raw_pr(712, branch, head_sha)
+
+    monkeypatch.setattr(release, "_gh_json", github_api)
+    gh_calls = []
+    monkeypatch.setattr(
+        release,
+        "_gh",
+        lambda _root, *args: gh_calls.append(args) or "",
+    )
+    with pytest.raises(release.ReleaseError, match="E_SUPERSEDE_STATUS"):
+        release.supersede_pr(
+            work,
+            "example/store",
+            712,
+            base_sha,
+            head_sha,
+            9100,
+        )
     assert gh_calls == []
 
 
@@ -1335,10 +1574,9 @@ def test_multiple_trusted_supersessions_retry_without_command_loss(
             "generation_commit": "b" * 40,
             "tag": store.generation_tag_name(branch.removeprefix("zoo-v2/")),
         }
-        comments.append({
-            "body": release._audit_marker("superseded", payload),
-            "user": {"login": "github-actions[bot]"},
-        })
+        comments.append(_trusted_app_comment(
+            release._audit_marker("superseded", payload)
+        ))
     monkeypatch.setattr(release, "_eligible_issue_pages", lambda *_args: [issue])
     monkeypatch.setattr(
         release, "_remote_issue_branches", lambda *_args: set(branches)
@@ -1662,7 +1900,14 @@ class _ProtectionApi:
 
 def test_protection_configuration_is_additive_and_idempotent():
     api = _ProtectionApi()
-    first = protection.configure_and_verify("example/store", VALIDATOR_APP_ID, api)
+    first = protection.configure_and_verify(
+        "example/store",
+        VALIDATOR_APP_ID,
+        VALIDATOR_APP_SLUG,
+        VALIDATOR_APP_LOGIN,
+        VALIDATOR_APP_USER_ID,
+        api,
+    )
     first_branch_put = next(
         payload
         for method, endpoint, payload in api.calls
@@ -1707,10 +1952,29 @@ def test_protection_configuration_is_additive_and_idempotent():
     assert ruleset_put["bypass_actors"] == []
     assert first["tag_ruleset"]["id"] == 17
     assert first["tag_ruleset"]["bypass_actors"] == []
+    assert first["validator_app"] == {
+        "id": VALIDATOR_APP_ID,
+        "slug": VALIDATOR_APP_SLUG,
+        "login": VALIDATOR_APP_LOGIN,
+        "user_id": VALIDATOR_APP_USER_ID,
+        "permissions": {
+            "commit_statuses": "write",
+            "contents": "read",
+            "issues": "write",
+            "pull_requests": "write",
+        },
+    }
     assert not any(endpoint.endswith("/rulesets/99") for _, endpoint, _ in api.calls)
 
     api.calls.clear()
-    second = protection.configure_and_verify("example/store", VALIDATOR_APP_ID, api)
+    second = protection.configure_and_verify(
+        "example/store",
+        VALIDATOR_APP_ID,
+        VALIDATOR_APP_SLUG,
+        VALIDATOR_APP_LOGIN,
+        VALIDATOR_APP_USER_ID,
+        api,
+    )
     second_ruleset_put = next(
         payload
         for method, endpoint, payload in api.calls
@@ -1723,7 +1987,14 @@ def test_protection_configuration_is_additive_and_idempotent():
 
 def test_missing_named_ruleset_is_created_with_required_payload():
     api = _ProtectionApi(existing_ruleset=False)
-    protection.configure_and_verify("example/store", VALIDATOR_APP_ID, api)
+    protection.configure_and_verify(
+        "example/store",
+        VALIDATOR_APP_ID,
+        VALIDATOR_APP_SLUG,
+        VALIDATOR_APP_LOGIN,
+        VALIDATOR_APP_USER_ID,
+        api,
+    )
     payload = next(
         payload for method, endpoint, payload in api.calls
         if method == "POST" and endpoint.endswith("/rulesets")
@@ -1823,6 +2094,27 @@ def test_protection_configuration_requires_numeric_validator_app_id(app_id):
 
 
 @pytest.mark.parametrize(
+    ("slug", "login", "user_id"),
+    [
+        ("GitHub-Actions", "GitHub-Actions[bot]", VALIDATOR_APP_USER_ID),
+        (VALIDATOR_APP_SLUG, "github-actions[bot]", VALIDATOR_APP_USER_ID),
+        (VALIDATOR_APP_SLUG, VALIDATOR_APP_LOGIN, None),
+        (VALIDATOR_APP_SLUG, VALIDATOR_APP_LOGIN, 0),
+    ],
+)
+def test_validator_app_identity_requires_exact_slug_login_and_database_id(
+    slug, login, user_id
+):
+    with pytest.raises(protection.ProtectionError, match="E_VALIDATOR_APP"):
+        protection.validate_app_identity(
+            VALIDATOR_APP_ID,
+            slug,
+            login,
+            user_id,
+        )
+
+
+@pytest.mark.parametrize(
     "mutation",
     [
         lambda value: value.update(enforcement="evaluate"),
@@ -1857,29 +2149,72 @@ def test_tag_ruleset_verification_fails_closed(mutation):
 def test_protection_audit_refuses_absent_and_malformed_settings(tmp_path):
     with pytest.raises(protection.ProtectionError, match="administrator must run"):
         protection.verify_audit_file(
-            tmp_path / "absent.json", "example/store", VALIDATOR_APP_ID
+            tmp_path / "absent.json",
+            "example/store",
+            VALIDATOR_APP_ID,
+            VALIDATOR_APP_SLUG,
+            VALIDATOR_APP_LOGIN,
+            VALIDATOR_APP_USER_ID,
         )
     malformed = tmp_path / "malformed.json"
     malformed.write_text("{")
     with pytest.raises(protection.ProtectionError, match="cannot read"):
-        protection.verify_audit_file(malformed, "example/store", VALIDATOR_APP_ID)
+        protection.verify_audit_file(
+            malformed,
+            "example/store",
+            VALIDATOR_APP_ID,
+            VALIDATOR_APP_SLUG,
+            VALIDATOR_APP_LOGIN,
+            VALIDATOR_APP_USER_ID,
+        )
     incomplete = tmp_path / "incomplete.json"
     incomplete.write_text(json.dumps({"schema": protection.AUDIT_SCHEMA}))
-    with pytest.raises(protection.ProtectionError, match="identity fields"):
-        protection.verify_audit_file(incomplete, "example/store", VALIDATOR_APP_ID)
+    with pytest.raises(protection.ProtectionError, match="validator App identity"):
+        protection.verify_audit_file(
+            incomplete,
+            "example/store",
+            VALIDATOR_APP_ID,
+            VALIDATOR_APP_SLUG,
+            VALIDATOR_APP_LOGIN,
+            VALIDATOR_APP_USER_ID,
+        )
     valid = tmp_path / "valid.json"
     valid.write_text(json.dumps(_valid_audit()))
     assert protection.verify_audit_file(
-        valid, "example/store", VALIDATOR_APP_ID
+        valid,
+        "example/store",
+        VALIDATOR_APP_ID,
+        VALIDATOR_APP_SLUG,
+        VALIDATOR_APP_LOGIN,
+        VALIDATOR_APP_USER_ID,
     )["tag_ruleset"]["id"] == 17
 
 
 def test_protection_audit_requires_exact_app_and_empty_ruleset_bypass():
     wrong_app = _valid_audit()
-    wrong_app["validator_app_id"] = 15368
+    wrong_app["validator_app"]["id"] = 15368
     wrong_app["branch_protection"]["required_status_checks"][0]["app_id"] = 15368
     with pytest.raises(protection.ProtectionError, match="identity fields"):
-        protection.verify_audit(wrong_app, "example/store", VALIDATOR_APP_ID)
+        protection.verify_audit(
+            wrong_app,
+            "example/store",
+            VALIDATOR_APP_ID,
+            VALIDATOR_APP_SLUG,
+            VALIDATOR_APP_LOGIN,
+            VALIDATOR_APP_USER_ID,
+        )
+
+    wrong_permissions = _valid_audit()
+    wrong_permissions["validator_app"]["permissions"]["contents"] = "write"
+    with pytest.raises(protection.ProtectionError, match="identity fields"):
+        protection.verify_audit(
+            wrong_permissions,
+            "example/store",
+            VALIDATOR_APP_ID,
+            VALIDATOR_APP_SLUG,
+            VALIDATOR_APP_LOGIN,
+            VALIDATOR_APP_USER_ID,
+        )
 
     bypass = _valid_audit()
     bypass["tag_ruleset"]["bypass_actors"] = [{
@@ -1888,7 +2223,14 @@ def test_protection_audit_requires_exact_app_and_empty_ruleset_bypass():
         "bypass_mode": "pull_request",
     }]
     with pytest.raises(protection.ProtectionError, match="ruleset minima"):
-        protection.verify_audit(bypass, "example/store", VALIDATOR_APP_ID)
+        protection.verify_audit(
+            bypass,
+            "example/store",
+            VALIDATOR_APP_ID,
+            VALIDATOR_APP_SLUG,
+            VALIDATOR_APP_LOGIN,
+            VALIDATOR_APP_USER_ID,
+        )
 
 
 @pytest.mark.parametrize(
@@ -2093,10 +2435,13 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert '--root "$CANDIDATE_ROOT"' in validation
     assert "contents: read" in validation
     assert "pull-requests: read" in validation
-    assert "statuses: write" not in validation
+    assert "\n  statuses: write" not in validation
     assert "actions/create-github-app-token@v2" in validation
     assert "secrets.ZOO_V2_VALIDATOR_APP_ID" in validation
     assert "secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY" in validation
+    assert "secrets.ZOO_V2_VALIDATOR_APP_SLUG" in validation
+    assert "secrets.ZOO_V2_VALIDATOR_APP_LOGIN" in validation
+    assert "secrets.ZOO_V2_VALIDATOR_APP_USER_ID" in validation
     assert "GH_TOKEN: ${{ github.token }}" not in validation
     assert "environment: zoo-v2-validator" in validation
     assert "cancel-in-progress: true" in validation
@@ -2109,6 +2454,10 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "types: [closed]" in completion
     assert "github.event.pull_request.merged == true" in completion
     assert "issues: write" in completion
+    assert "actions/create-github-app-token@v2" in completion
+    assert "GH_TOKEN: ${{ steps.validator-token.outputs.token }}" in completion
+    assert "GH_TOKEN: ${{ github.token }}" not in completion
+    assert "environment: zoo-v2-validator" in completion
     assert "fetch-depth: 0" in completion
     assert "zoo_v2_release.py audit-refs" in audit
     assert "--network" in audit
@@ -2119,19 +2468,28 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
         "zoo_v2_release.py protect-bootstrap"
     )
     assert "contents: write" in migration
-    assert "GH_TOKEN: ${{ github.token }}" not in catalog.split(
-        "Require committed admin protection audit", 1
-    )[1].split("Ensure bootstrap", 1)[0]
+    assert "GH_TOKEN: ${{ github.token }}" not in catalog
+    assert "actions/create-github-app-token@v2" in catalog
+    assert "\n  issues: write" not in catalog.split("concurrency:", 1)[0]
+    assert "\n  pull-requests: write" not in catalog.split("concurrency:", 1)[0]
+    assert catalog.index("verify-audit") < catalog.index(
+        "zoo_v2_release.py reconcile"
+    )
     assert "GH_TOKEN: ${{ github.token }}" not in migration
     assert "Revalidate each open Zoo v2 PR with trusted main tooling" in main_advance
     assert "list-prs" in main_advance
     assert "gh pr list" not in main_advance
     assert "--limit 100" not in main_advance
-    assert "statuses: write" not in main_advance
+    assert "\n  statuses: write" not in main_advance
     assert "actions/create-github-app-token@v2" in main_advance
     assert "GH_TOKEN: ${{ github.token }}" not in main_advance
+    assert "\n  issues: write" not in main_advance.split("concurrency:", 1)[0]
+    assert "\n  pull-requests: write" not in main_advance.split("concurrency:", 1)[0]
     assert "VALIDATOR_TOKEN: ${{ steps.validator-token.outputs.token }}" in main_advance
-    assert "RETIRE_TOKEN: ${{ github.token }}" in main_advance
+    assert "RETIRE_TOKEN" not in main_advance
+    assert 'GH_TOKEN="$VALIDATOR_TOKEN" python3 "$tools" supersede-pr' in main_advance
+    assert "Stale attempt ${attempt##*-} at main $BASE_SHA" in main_advance
+    assert '--status-id "$status_id"' in main_advance
     assert "supersede-pr" in main_advance
     assert "issues: write" in main_advance
     assert "pull-requests: write" in main_advance
