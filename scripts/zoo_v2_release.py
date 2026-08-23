@@ -17,6 +17,9 @@ import zoo_v2_store as store
 BRANCH_RE = re.compile(r"^zoo-v2/issue-([1-9]\d*)$")
 BOOTSTRAP_BRANCH = "zoo-v2/bootstrap-protection"
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+MAX_CHANGED_FILES = 10_000
+MAX_CHANGED_PATH_BYTES = 1_048_576
 PROTECTED_EXACT_PATHS = frozenset({
     ".github/zoo-v2-protection-audit.json",
     "scripts/configure_zoo_v2_protection.py",
@@ -103,9 +106,92 @@ def inspect_pr_change(
 
 def _read_changed_files(path: Path) -> list[str]:
     try:
-        return [line for line in path.read_text().splitlines() if line]
+        raw = path.read_bytes()
     except OSError as exc:
         raise ReleaseError(f"E_CHANGED_FILES: cannot read {path}: {exc}") from exc
+    if len(raw) > MAX_CHANGED_PATH_BYTES:
+        raise ReleaseError("E_CHANGED_FILES: changed-path list is oversized")
+    if b"\0" in raw or b"\r" in raw:
+        raise ReleaseError("E_CHANGED_FILES: NUL/CR in changed-path list")
+    try:
+        values = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise ReleaseError("E_CHANGED_FILES: paths must be valid UTF-8") from exc
+    if any(not value or "\n" in value for value in values):
+        raise ReleaseError("E_CHANGED_FILES: empty/newline path is forbidden")
+    if len(values) > MAX_CHANGED_FILES:
+        raise ReleaseError(
+            f"E_CHANGED_FILES: more than {MAX_CHANGED_FILES} changed files"
+        )
+    return values
+
+
+def complete_changed_files(root: Path, base_sha: str, head_sha: str) -> list[str]:
+    """List the complete three-dot PR diff from an inert, full-history checkout."""
+    if not COMMIT_SHA_RE.fullmatch(base_sha) or not COMMIT_SHA_RE.fullmatch(head_sha):
+        raise ReleaseError("E_CHANGED_FILES: base/head must be full lowercase commit SHAs")
+    shallow = _git(root, "rev-parse", "--is-shallow-repository")
+    if shallow != "false":
+        raise ReleaseError("E_CHANGED_FILES: shallow checkout is forbidden")
+    for label, sha in (("base", base_sha), ("head", head_sha)):
+        resolved = _run(
+            ["git", "rev-parse", "--verify", f"{sha}^{{commit}}"],
+            cwd=root,
+            check=False,
+        )
+        if resolved.returncode or resolved.stdout.strip() != sha:
+            raise ReleaseError(f"E_CHANGED_FILES: missing or invalid {label} commit")
+    merge_base = _run(
+        ["git", "merge-base", base_sha, head_sha],
+        cwd=root,
+        check=False,
+    )
+    if (
+        merge_base.returncode
+        or not COMMIT_SHA_RE.fullmatch(merge_base.stdout.strip())
+    ):
+        raise ReleaseError("E_CHANGED_FILES: no complete merge base")
+
+    result = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--name-only",
+            "--no-renames",
+            "--no-ext-diff",
+            "--no-textconv",
+            "-z",
+            f"{base_sha}...{head_sha}",
+            "--",
+        ],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode:
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        raise ReleaseError(f"E_CHANGED_FILES: git diff failed: {detail}")
+    raw = result.stdout
+    if len(raw) > MAX_CHANGED_PATH_BYTES:
+        raise ReleaseError("E_CHANGED_FILES: changed-path list is oversized")
+    if raw and not raw.endswith(b"\0"):
+        raise ReleaseError("E_CHANGED_FILES: malformed NUL-delimited git output")
+    encoded_paths = raw[:-1].split(b"\0") if raw else []
+    if len(encoded_paths) > MAX_CHANGED_FILES:
+        raise ReleaseError(
+            f"E_CHANGED_FILES: more than {MAX_CHANGED_FILES} changed files"
+        )
+    paths = []
+    for encoded in encoded_paths:
+        try:
+            path = encoded.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ReleaseError("E_CHANGED_FILES: paths must be valid UTF-8") from exc
+        if not path or "\n" in path or "\r" in path or "\0" in path:
+            raise ReleaseError("E_CHANGED_FILES: NUL/newline path is forbidden")
+        paths.append(path)
+    return paths
 
 
 def validate_bootstrap_pr(
@@ -119,15 +205,32 @@ def validate_bootstrap_pr(
     audit_path = protection.AUDIT_PATH.as_posix()
     if audit_path in protected:
         try:
-            protection.verify_audit_file(root / audit_path, repository)
+            audit = json.loads((root / audit_path).read_text())
+            protection.verify_audit(
+                audit,
+                repository,
+                audit.get("validator_app_id") if isinstance(audit, dict) else None,
+            )
         except protection.ProtectionError as exc:
             raise ReleaseError(str(exc)) from exc
 
 
 def require_protection_audit(root: Path, repository: str) -> dict:
     try:
-        return protection.verify_audit_file(root / protection.AUDIT_PATH, repository)
-    except protection.ProtectionError as exc:
+        path = root / protection.AUDIT_PATH
+        audit = json.loads(path.read_text())
+        protection.verify_audit(
+            audit,
+            repository,
+            audit.get("validator_app_id") if isinstance(audit, dict) else None,
+        )
+        return audit
+    except FileNotFoundError as exc:
+        raise ReleaseError(
+            f"E_PROTECTION_AUDIT: missing {root / protection.AUDIT_PATH}; "
+            "an administrator must run configure-verify and commit its audit before release"
+        ) from exc
+    except (OSError, json.JSONDecodeError, protection.ProtectionError) as exc:
         raise ReleaseError(str(exc)) from exc
 
 
@@ -738,14 +841,16 @@ def main(argv: list[str] | None = None) -> int:
 
     gate = sub.add_parser("gate-pr")
     gate.add_argument("--root", default=".")
-    gate.add_argument("--changed-files", type=Path, required=True)
+    gate.add_argument("--base-sha", required=True)
+    gate.add_argument("--head-sha", required=True)
     gate.add_argument("--head-ref", required=True)
     gate.add_argument("--head-repository", required=True)
     gate.add_argument("--repository", required=True)
 
     bootstrap = sub.add_parser("validate-bootstrap-pr")
     bootstrap.add_argument("--root", default=".")
-    bootstrap.add_argument("--changed-files", type=Path, required=True)
+    bootstrap.add_argument("--base-sha", required=True)
+    bootstrap.add_argument("--head-sha", required=True)
     bootstrap.add_argument("--repository", required=True)
 
     protect = sub.add_parser("protect-bootstrap")
@@ -780,7 +885,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Zoo v2 PR is based on current main and permanently protected.")
         elif args.command == "gate-pr":
             mode = inspect_pr_change(
-                _read_changed_files(args.changed_files),
+                complete_changed_files(root, args.base_sha, args.head_sha),
                 head_ref=args.head_ref,
                 head_repository=args.head_repository,
                 repository=args.repository,
@@ -789,7 +894,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "validate-bootstrap-pr":
             validate_bootstrap_pr(
                 root,
-                _read_changed_files(args.changed_files),
+                complete_changed_files(root, args.base_sha, args.head_sha),
                 args.repository,
             )
             print("Bootstrap protected diff passed trusted-main validation.")

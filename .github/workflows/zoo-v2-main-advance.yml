@@ -7,7 +7,6 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  statuses: write
 
 concurrency:
   group: zoo-v2-main-advance
@@ -15,8 +14,18 @@ concurrency:
 
 jobs:
   revalidate-open-candidates:
+    environment: zoo-v2-validator
     runs-on: ubuntu-latest
     steps:
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -28,37 +37,47 @@ jobs:
 
       - name: Revalidate each open Zoo v2 PR with trusted main tooling
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.validator-token.outputs.token }}
           BASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          test -n "$GH_TOKEN"
           tools="$GITHUB_WORKSPACE/scripts/zoo_v2_release.py"
           latest_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
             --jq .object.sha)"
           test "$latest_main" = "$BASE_SHA" || exit 0
           gh pr list --state open --limit 100 \
-            --json headRefName,headRefOid,headRepositoryOwner \
+            --json number,headRefName,headRefOid,headRepository \
             --jq '.[] | select(.headRefName | startswith("zoo-v2/issue-")) |
-                  [.headRefName, .headRefOid, .headRepositoryOwner.login] | @tsv' |
-          while IFS=$'\t' read -r branch sha owner; do
+                  [.number, .headRefName, .headRefOid,
+                   .headRepository.nameWithOwner] | @tsv' |
+          while IFS=$'\t' read -r number branch sha head_repo; do
             test -n "$sha" || continue
             state=failure
-            if test "$owner" = "$GITHUB_REPOSITORY_OWNER"; then
-              git fetch origin "$sha"
+            if test "$head_repo" = "$GITHUB_REPOSITORY"; then
+              git fetch --no-tags origin "$sha"
               check_dir=".zoo-v2-check-${sha}"
               git worktree add --detach "$check_dir" "$sha"
-              if python3 "$tools" validate-pr \
-                --root "$check_dir" \
-                --repository "$GITHUB_REPOSITORY"; then
-                state=success
+              if mode="$(python3 "$tools" gate-pr \
+                  --root "$check_dir" \
+                  --base-sha "$BASE_SHA" \
+                  --head-sha "$sha" \
+                  --head-ref "$branch" \
+                  --head-repository "$head_repo" \
+                  --repository "$GITHUB_REPOSITORY")" &&
+                test "$mode" = issue &&
+                python3 "$tools" validate-pr \
+                  --root "$check_dir" \
+                  --repository "$GITHUB_REPOSITORY"; then
+                  state=success
               fi
               git worktree remove --force "$check_dir"
             fi
             latest_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
               --jq .object.sha)"
             test "$latest_main" = "$BASE_SHA" || exit 0
-            current_head="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" \
-              --jq .object.sha)"
+            current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${number}" \
+              --jq .head.sha)"
             test "$current_head" = "$sha" || continue
             gh api --method POST \
               "repos/${GITHUB_REPOSITORY}/statuses/${sha}" \

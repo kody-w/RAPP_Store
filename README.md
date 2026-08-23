@@ -87,10 +87,14 @@ the scheduled audit proves tag and raw reachability independent of the PR
 merge method. An active repository ruleset prevents generation-tag updates and
 deletion. Every PR's changed paths are checked by trusted-main code; protected
 Store changes are limited to authorized same-repository release/bootstrap
-branches. Administrator branch/ruleset configuration is additive and
-out-of-band, with a committed audit required before release; ordinary issue
-processing does not use an Administration token. See the extension spec for
-the required pre-release configuration and bootstrap-tag migration.
+branches. The complete local three-dot Git diff is used instead of the
+3,000-file-limited PR-files API. The required status is bound to a dedicated
+validator GitHub App by exact context plus App ID; its protected environment
+holds the App ID/private key and the default Actions token cannot publish the
+trusted context. The generation-tag ruleset is dedicated and has no bypass
+actors. Administrator branch/ruleset configuration is out-of-band, with a
+committed audit required before release. See the extension spec for App
+permissions, environment protection, configuration, and bootstrap order.
 
 Create, update, and deprecate commands arrive as structured, inert GitHub
 Issue JSON. An actor allowlist and deterministic validator turn an eligible

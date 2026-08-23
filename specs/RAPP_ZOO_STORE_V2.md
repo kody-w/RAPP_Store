@@ -71,10 +71,12 @@ the generation path, canonical content SHA-256, source issue (or bootstrap),
 and predecessor URL. Discovery still uses the tag's peeled, full 40-character
 commit SHA, never the tag name. This preserves GitHub Raw reachability even
 when the catalog PR is squash-merged, rebased, or normally merged.
-An active repository ruleset named **Zoo v2 generation tags** includes
-`refs/tags/zoo-v2-generation-*` and forbids update, non-fast-forward update,
-and deletion. The annotated tag check proves provenance; the ruleset prevents
-the proven ref from subsequently being rewritten or removed.
+An active, dedicated repository ruleset named **Zoo v2 generation tags**
+includes only `refs/tags/zoo-v2-generation-*`, has no excludes or bypass
+actors/modes, and forbids update, non-fast-forward update, and deletion. The
+annotated tag check proves provenance; the ruleset prevents the proven ref
+from subsequently being rewritten or removed. Other named rulesets remain
+untouched.
 
 ## 3. Prototype requirements
 
@@ -144,24 +146,40 @@ changes to `main`, never closes the control issue, and never enables
 auto-merge. The PR merge remains the human consent event.
 
 `.github/workflows/zoo-v2-pr-validation.yml` publishes the
-`Zoo v2 current-main` status for every PR. It first obtains the complete PR
-file list through the GitHub API and classifies it with code from current
-`main`. Protected paths are `api/v2/**`, the Zoo v2 schemas and issue forms,
-the Zoo v2 workflows, the Store/release/protection scripts, this specification,
-and the committed protection audit. A protected diff is refused unless it is
-from the same repository on an exact `zoo-v2/issue-<number>` branch or the
-one-time `zoo-v2/bootstrap-protection` branch. Issue branches may change only
-their matching generation plus discovery; the bootstrap branch cannot change
-`api/v2/**`. A fork can pass only when it changes no protected path. Thus
-"not a Zoo branch" is never a bypass for a protected diff.
+`Zoo v2 current-main` status for every PR. It checks out current `main` as the
+trusted tooling/base tree and the exact candidate head as inert data. After
+verifying both full 40-character SHAs and fetching the trusted base into the
+candidate object database, trusted code computes
+`git diff --name-only --no-renames -z <base>...<head>`. It refuses shallow
+history, a missing merge base, malformed/non-UTF-8/NUL/newline paths, more than
+10,000 paths, or more than 1 MiB of path data. This avoids the GitHub PR-files
+API's 3,000-file ceiling. Every returned path is classified, so a protected
+path late in a large diff still gates.
+
+Protected paths are `api/v2/**`, the Zoo v2 schemas and issue forms, the Zoo
+v2 workflows, the Store/release/protection scripts, this specification, and
+the committed protection audit. A protected diff is refused unless it is from
+the same repository on an exact `zoo-v2/issue-<number>` branch or the one-time
+`zoo-v2/bootstrap-protection` branch. Issue branches may change only their
+matching generation plus discovery; the bootstrap branch cannot change
+`api/v2/**`. A fork can pass only when it changes no protected path. Thus "not
+a Zoo branch" is never a bypass for a protected diff.
 
 Both validator modules execute from an
 independent checkout of current `main`; the head checkout is passed only as
 the `--root` data tree and cannot shadow trusted imports. Repository branch
-protection must require that exact status with strict/up-to-date semantics,
-one approving PR review, stale-review dismissal, last-push approval, and admin
-enforcement. Force pushes and branch deletion must be disabled. The check
-verifies the candidate's one-operation
+protection must use `required_status_checks.checks` to require the exact
+`{context: "Zoo v2 current-main", app_id: <validator App ID>}` pair with
+strict/up-to-date semantics. A generic context-only status, the GitHub Actions
+App, or any other App cannot satisfy the barrier. The default `GITHUB_TOKEN`
+has no `statuses: write` permission in either status publisher. Both workflows
+mint an installation token for the dedicated App from the protected
+`zoo-v2-validator` environment and use only that token to read the current PR
+head and publish the trusted context. Missing App secrets fails closed.
+
+Protection also requires one approving PR review, stale-review dismissal,
+last-push approval, and admin enforcement. Force pushes and branch deletion
+must be disabled. The check verifies the candidate's one-operation
 create/update/deprecate delta, predecessor URL and digest, pinned generation
 commit, annotated permanent tag, and fork boundary. On every `main` push,
 `.github/workflows/zoo-v2-main-advance.yml` reruns the same trusted validator
@@ -193,9 +211,11 @@ python3 -m pytest tests -q
 python3 scripts/zoo_v2_store.py validate-tree --root .
 python3 scripts/configure_zoo_v2_protection.py configure-verify \
   --repository kody-w/RAPP_Store \
+  --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID" \
   --audit-output .github/zoo-v2-protection-audit.json
 python3 scripts/configure_zoo_v2_protection.py verify-audit \
-  --repository kody-w/RAPP_Store
+  --repository kody-w/RAPP_Store \
+  --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID"
 python3 scripts/zoo_v2_release.py validate-pr --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py audit-refs \
   --repository kody-w/RAPP_Store --network
@@ -208,37 +228,59 @@ Add `--network` to re-fetch and hash every live artifact and license evidence.
 The bootstrap generation predates both the permanent-ref rule and this
 protection script. The one permitted bootstrap sequence is:
 
-1. Merge the PR that first adds the trusted validation workflow and protection
+1. Create a dedicated GitHub App (not a reusable Actions or CI App), install it
+   on this repository, and grant only these repository permissions:
+   **Commit statuses: Read and write**, **Contents: Read-only**, and **Pull
+   requests: Read-only**. Record its numeric App ID and private key.
+2. Create the protected GitHub environment **`zoo-v2-validator`**. Require
+   appropriate environment reviewers and restrict deployment branches
+   according to repository policy. Add environment secrets
+   `ZOO_V2_VALIDATOR_APP_ID` and `ZOO_V2_VALIDATOR_PRIVATE_KEY`; do not add
+   them as ordinary repository secrets. The App ID passed to the configuration
+   tool must be the same numeric ID. Missing/mismatched values are a hard
+   failure.
+3. Merge the PR that adds the trusted validation workflow and protection
    script to `main`; no Store v2 candidate may be released in this interval.
-2. From an administrator-authenticated `gh` session, configure and verify the
+   Confirm the workflow can mint the App installation token and that the
+   resulting commit status is authored by that App.
+4. From an administrator-authenticated `gh` session, configure and verify the
    merge barrier and immutable-generation-tag ruleset:
 
    ```bash
+   export ZOO_V2_VALIDATOR_APP_ID=<numeric-app-id>
    python3 scripts/configure_zoo_v2_protection.py configure-verify \
      --repository kody-w/RAPP_Store \
+     --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID" \
      --audit-output .github/zoo-v2-protection-audit.json
    ```
 
    The tool first reads branch protection, preserves every existing status
-   context/check, review count and setting, restrictions, linear-history flag,
-   lock, creation block, and other safeguard accepted by the branch API, then
-   adds the Zoo minima. It likewise reuses the named tag ruleset, preserves its
-   other includes, excludes, bypass actors, and rules, and adds only missing
-   requirements. Verification accepts stricter supersets.
+   check (except unbound/wrong-App copies of the trusted context), review count
+   and setting, restrictions, linear-history flag, lock, creation block, and
+   other safeguard accepted by the branch API, then adds the exact App-bound
+   Zoo check. It rewrites only the named generation-tag ruleset to its
+   dedicated exact pattern/rules and empty bypass list; unrelated rulesets are
+   preserved. Verification accepts branch-protection supersets but rejects any
+   generic/wrong-App trusted status and any named-ruleset extra scope, rule, or
+   bypass.
 
-3. Review and commit the generated canonical audit on the protected
+5. Review and commit the generated canonical audit on the protected
    `zoo-v2/bootstrap-protection` branch. The audit is the durable evidence that
-   an administrator completed the out-of-band platform configuration. The
-   ordinary issue workflow reads this file; it does not call GitHub
-   Administration APIs and does not need an administrator or GitHub App token.
+   an administrator completed the out-of-band platform configuration. It
+   records the exact validator App ID/check binding and an empty tag-ruleset
+   bypass list. The ordinary issue workflow reads this file and compares it to
+   the protected environment App ID; it does not call GitHub Administration
+   APIs.
 
-4. Run the idempotent workflow **Zoo v2 bootstrap permanent-ref migration**,
+6. Only after that audit merges, run the idempotent workflow **Zoo v2 bootstrap
+   permanent-ref migration**,
    or run the following locally.
 
 ```bash
 git fetch --prune origin main
 python3 scripts/configure_zoo_v2_protection.py verify-audit \
-  --repository kody-w/RAPP_Store
+  --repository kody-w/RAPP_Store \
+  --validator-app-id "$ZOO_V2_VALIDATOR_APP_ID"
 python3 scripts/zoo_v2_release.py protect-bootstrap \
   --repository kody-w/RAPP_Store
 python3 scripts/zoo_v2_release.py audit-refs \

@@ -13,6 +13,8 @@ import configure_zoo_v2_protection as protection
 import zoo_v2_release as release
 import zoo_v2_store as store
 
+VALIDATOR_APP_ID = 4242
+
 
 def _prototype(version: str) -> dict:
     digest = "a" * 64
@@ -58,11 +60,15 @@ def _valid_audit(repository: str = "example/store") -> dict:
         "repository": repository,
         "verified_at": "2026-08-22T20:00:00Z",
         "branch": "main",
+        "validator_app_id": VALIDATOR_APP_ID,
         "branch_protection": {
             "strict": True,
-            "required_status_contexts": [
-                "Existing CI",
-                protection.STATUS_CONTEXT,
+            "required_status_contexts": ["Existing CI"],
+            "required_status_checks": [
+                {
+                    "context": protection.STATUS_CONTEXT,
+                    "app_id": VALIDATOR_APP_ID,
+                }
             ],
             "required_approving_review_count": 2,
             "dismiss_stale_reviews": True,
@@ -79,6 +85,7 @@ def _valid_audit(repository: str = "example/store") -> dict:
             "enforcement": "active",
             "include": protection.TAG_PATTERN,
             "required_rules": sorted(protection.TAG_RULE_TYPES),
+            "bypass_actors": [],
         },
     }
 
@@ -458,10 +465,13 @@ class _ProtectionApi:
             self.branch = _branch_response(payload)
             return self.branch
         if endpoint.endswith("/rulesets?includes_parents=false"):
-            return [] if self.ruleset is None else [{
-                "id": self.ruleset["id"],
-                "name": self.ruleset["name"],
-            }]
+            summaries = [{"id": 99, "name": "Existing release rules"}]
+            if self.ruleset is not None:
+                summaries.append({
+                    "id": self.ruleset["id"],
+                    "name": self.ruleset["name"],
+                })
+            return summaries
         if endpoint.endswith("/rulesets") and method == "POST":
             self.ruleset = {"id": 17, **payload}
             return self.ruleset
@@ -475,7 +485,7 @@ class _ProtectionApi:
 
 def test_protection_configuration_is_additive_and_idempotent():
     api = _ProtectionApi()
-    first = protection.configure_and_verify("example/store", api)
+    first = protection.configure_and_verify("example/store", VALIDATOR_APP_ID, api)
     first_branch_put = next(
         payload
         for method, endpoint, payload in api.calls
@@ -483,10 +493,10 @@ def test_protection_configuration_is_additive_and_idempotent():
     )
     assert set(first_branch_put["required_status_checks"]["contexts"]) == {
         "Existing CI",
-        protection.STATUS_CONTEXT,
     }
     assert first_branch_put["required_status_checks"]["checks"] == [
-        {"context": "App CI", "app_id": 123}
+        {"context": "App CI", "app_id": 123},
+        {"context": protection.STATUS_CONTEXT, "app_id": VALIDATOR_APP_ID},
     ]
     reviews = first_branch_put["required_pull_request_reviews"]
     assert reviews["required_approving_review_count"] == 3
@@ -513,18 +523,17 @@ def test_protection_configuration_is_additive_and_idempotent():
         if method == "PUT" and endpoint.endswith("/rulesets/17")
     )
     assert ruleset_put["conditions"]["ref_name"] == {
-        "include": ["refs/tags/release-*", protection.TAG_PATTERN],
-        "exclude": ["refs/tags/release-test-*"],
+        "include": [protection.TAG_PATTERN],
+        "exclude": [],
     }
-    assert {rule["type"] for rule in ruleset_put["rules"]} == {
-        "creation",
-        *protection.TAG_RULE_TYPES,
-    }
-    assert ruleset_put["bypass_actors"] == [{"actor_id": 1, "actor_type": "Team"}]
+    assert {rule["type"] for rule in ruleset_put["rules"]} == protection.TAG_RULE_TYPES
+    assert ruleset_put["bypass_actors"] == []
     assert first["tag_ruleset"]["id"] == 17
+    assert first["tag_ruleset"]["bypass_actors"] == []
+    assert not any(endpoint.endswith("/rulesets/99") for _, endpoint, _ in api.calls)
 
     api.calls.clear()
-    second = protection.configure_and_verify("example/store", api)
+    second = protection.configure_and_verify("example/store", VALIDATOR_APP_ID, api)
     second_ruleset_put = next(
         payload
         for method, endpoint, payload in api.calls
@@ -537,7 +546,7 @@ def test_protection_configuration_is_additive_and_idempotent():
 
 def test_missing_named_ruleset_is_created_with_required_payload():
     api = _ProtectionApi(existing_ruleset=False)
-    protection.configure_and_verify("example/store", api)
+    protection.configure_and_verify("example/store", VALIDATOR_APP_ID, api)
     payload = next(
         payload for method, endpoint, payload in api.calls
         if method == "POST" and endpoint.endswith("/rulesets")
@@ -546,6 +555,7 @@ def test_missing_named_ruleset_is_created_with_required_payload():
     assert payload["enforcement"] == "active"
     assert payload["conditions"]["ref_name"]["include"] == [protection.TAG_PATTERN]
     assert {rule["type"] for rule in payload["rules"]} == protection.TAG_RULE_TYPES
+    assert payload["bypass_actors"] == []
 
 
 @pytest.mark.parametrize(
@@ -566,14 +576,14 @@ def test_missing_named_ruleset_is_created_with_required_payload():
 )
 def test_additive_payload_refuses_malformed_existing_settings(settings):
     with pytest.raises(protection.ProtectionError, match="E_PROTECTION_CONFIG"):
-        protection.protection_payload(settings)
+        protection.protection_payload(settings, VALIDATOR_APP_ID)
 
 
 @pytest.mark.parametrize(
     "mutation",
     [
         lambda value: value["required_status_checks"].update(strict=False),
-        lambda value: value["required_status_checks"].update(contexts=["Other"]),
+        lambda value: value["required_status_checks"].update(checks=[]),
         lambda value: value.update(enforce_admins={"enabled": False}),
         lambda value: value.update(allow_force_pushes={"enabled": True}),
         lambda value: value.update(allow_deletions={"enabled": True}),
@@ -584,11 +594,55 @@ def test_additive_payload_refuses_malformed_existing_settings(settings):
     ],
 )
 def test_protection_verification_fails_closed_but_accepts_supersets(mutation):
-    settings = _branch_response(protection.protection_payload(_branch_settings()))
-    protection.verify_settings(settings)
+    settings = _branch_response(
+        protection.protection_payload(_branch_settings(), VALIDATOR_APP_ID)
+    )
+    protection.verify_settings(settings, VALIDATOR_APP_ID)
     mutation(settings)
     with pytest.raises(protection.ProtectionError, match="E_PROTECTION_VERIFY"):
-        protection.verify_settings(settings)
+        protection.verify_settings(settings, VALIDATOR_APP_ID)
+
+
+def test_status_binding_rejects_generic_and_github_actions_app():
+    generic = _branch_response(
+        protection.protection_payload(_branch_settings(), VALIDATOR_APP_ID)
+    )
+    generic["required_status_checks"]["checks"] = []
+    generic["required_status_checks"]["contexts"].append(protection.STATUS_CONTEXT)
+    with pytest.raises(protection.ProtectionError, match="validator GitHub App"):
+        protection.verify_settings(generic, VALIDATOR_APP_ID)
+
+    actions = _branch_response(
+        protection.protection_payload(_branch_settings(), VALIDATOR_APP_ID)
+    )
+    trusted = next(
+        check for check in actions["required_status_checks"]["checks"]
+        if check["context"] == protection.STATUS_CONTEXT
+    )
+    trusted["app_id"] = 15368
+    with pytest.raises(protection.ProtectionError, match="validator GitHub App"):
+        protection.verify_settings(actions, VALIDATOR_APP_ID)
+
+
+def test_configuration_replaces_unbound_status_with_exact_app_check():
+    existing = _branch_settings()
+    existing["required_status_checks"]["contexts"].append(protection.STATUS_CONTEXT)
+    existing["required_status_checks"]["checks"].append({
+        "context": protection.STATUS_CONTEXT,
+        "app_id": 15368,
+    })
+    payload = protection.protection_payload(existing, VALIDATOR_APP_ID)
+    assert protection.STATUS_CONTEXT not in payload["required_status_checks"]["contexts"]
+    assert [
+        check for check in payload["required_status_checks"]["checks"]
+        if check["context"] == protection.STATUS_CONTEXT
+    ] == [{"context": protection.STATUS_CONTEXT, "app_id": VALIDATOR_APP_ID}]
+
+
+@pytest.mark.parametrize("app_id", [None, 0, -1, False, "4242"])
+def test_protection_configuration_requires_numeric_validator_app_id(app_id):
+    with pytest.raises(protection.ProtectionError, match="E_VALIDATOR_APP"):
+        protection.protection_payload(_branch_settings(), app_id)
 
 
 @pytest.mark.parametrize(
@@ -597,21 +651,25 @@ def test_protection_verification_fails_closed_but_accepts_supersets(mutation):
         lambda value: value.update(enforcement="evaluate"),
         lambda value: value.update(target="branch"),
         lambda value: value["conditions"]["ref_name"].update(include=[]),
-        lambda value: value["conditions"]["ref_name"].update(
-            exclude=[protection.TAG_PATTERN]
-        ),
+        lambda value: value["conditions"]["ref_name"].update(exclude=["~ALL"]),
+        lambda value: value["conditions"].update(repository_name={
+            "include": ["example/store"],
+            "exclude": [],
+        }),
         lambda value: value.update(rules=[{"type": "deletion"}]),
         lambda value: value.update(rules=None),
+        lambda value: value.update(bypass_actors=[{
+            "actor_id": 1,
+            "actor_type": "Team",
+            "bypass_mode": "always",
+        }]),
+        lambda value: value.update(bypass_actors=None),
     ],
 )
 def test_tag_ruleset_verification_fails_closed(mutation):
     ruleset = {
         "id": 17,
         **protection._ruleset_payload(),
-        "rules": [
-            {"type": "creation"},
-            *[{"type": name} for name in sorted(protection.TAG_RULE_TYPES)],
-        ],
     }
     protection.verify_tag_ruleset(ruleset)
     mutation(ruleset)
@@ -621,18 +679,39 @@ def test_tag_ruleset_verification_fails_closed(mutation):
 
 def test_protection_audit_refuses_absent_and_malformed_settings(tmp_path):
     with pytest.raises(protection.ProtectionError, match="administrator must run"):
-        protection.verify_audit_file(tmp_path / "absent.json", "example/store")
+        protection.verify_audit_file(
+            tmp_path / "absent.json", "example/store", VALIDATOR_APP_ID
+        )
     malformed = tmp_path / "malformed.json"
     malformed.write_text("{")
     with pytest.raises(protection.ProtectionError, match="cannot read"):
-        protection.verify_audit_file(malformed, "example/store")
+        protection.verify_audit_file(malformed, "example/store", VALIDATOR_APP_ID)
     incomplete = tmp_path / "incomplete.json"
     incomplete.write_text(json.dumps({"schema": protection.AUDIT_SCHEMA}))
     with pytest.raises(protection.ProtectionError, match="identity fields"):
-        protection.verify_audit_file(incomplete, "example/store")
+        protection.verify_audit_file(incomplete, "example/store", VALIDATOR_APP_ID)
     valid = tmp_path / "valid.json"
     valid.write_text(json.dumps(_valid_audit()))
-    assert protection.verify_audit_file(valid, "example/store")["tag_ruleset"]["id"] == 17
+    assert protection.verify_audit_file(
+        valid, "example/store", VALIDATOR_APP_ID
+    )["tag_ruleset"]["id"] == 17
+
+
+def test_protection_audit_requires_exact_app_and_empty_ruleset_bypass():
+    wrong_app = _valid_audit()
+    wrong_app["validator_app_id"] = 15368
+    wrong_app["branch_protection"]["required_status_checks"][0]["app_id"] = 15368
+    with pytest.raises(protection.ProtectionError, match="identity fields"):
+        protection.verify_audit(wrong_app, "example/store", VALIDATOR_APP_ID)
+
+    bypass = _valid_audit()
+    bypass["tag_ruleset"]["bypass_actors"] = [{
+        "actor_id": 1,
+        "actor_type": "Team",
+        "bypass_mode": "pull_request",
+    }]
+    with pytest.raises(protection.ProtectionError, match="ruleset minima"):
+        protection.verify_audit(bypass, "example/store", VALIDATOR_APP_ID)
 
 
 @pytest.mark.parametrize(
@@ -707,6 +786,75 @@ def test_protected_diff_gate_cannot_bypass_branch_with_catalog_edits(
         )
 
 
+def _seed_diff_repository(root: Path) -> tuple[str, str]:
+    root.mkdir()
+    _git(root, "init")
+    _git(root, "config", "user.name", "Diff Test")
+    _git(root, "config", "user.email", "diff@example.invalid")
+    _git(root, "commit", "--allow-empty", "-m", "base")
+    base = _git(root, "rev-parse", "HEAD")
+    return base, base
+
+
+def test_complete_local_diff_finds_protected_path_after_3000_files(tmp_path):
+    work = tmp_path / "complete-diff"
+    base, _ = _seed_diff_repository(work)
+    ordinary = work / "0000-ordinary"
+    ordinary.mkdir()
+    for index in range(3001):
+        (ordinary / f"{index:04d}.txt").write_text("inert\n")
+    protected = work / "api/v2/generations/late.json"
+    protected.parent.mkdir(parents=True)
+    protected.write_text("{}\n")
+    _git(work, "add", ".")
+    _git(work, "commit", "-m", "large candidate")
+    head = _git(work, "rev-parse", "HEAD")
+
+    changed = release.complete_changed_files(work, base, head)
+    assert len(changed) == 3002
+    assert changed.index("api/v2/generations/late.json") > 3000
+    with pytest.raises(release.ReleaseError, match="E_PROTECTED_PR"):
+        release.inspect_pr_change(
+            changed,
+            head_ref="feature/large",
+            head_repository="example/store",
+            repository="example/store",
+        )
+
+
+def test_complete_local_diff_rejects_newline_path_and_shallow_checkout(
+    tmp_path, monkeypatch
+):
+    work = tmp_path / "hostile-diff"
+    base, _ = _seed_diff_repository(work)
+    (work / "bad\npath.txt").write_text("inert\n")
+    _git(work, "add", ".")
+    _git(work, "commit", "-m", "hostile path")
+    head = _git(work, "rev-parse", "HEAD")
+    with pytest.raises(release.ReleaseError, match="NUL/newline"):
+        release.complete_changed_files(work, base, head)
+
+    monkeypatch.setattr(release, "_git", lambda *_args, **_kwargs: "true")
+    with pytest.raises(release.ReleaseError, match="shallow checkout"):
+        release.complete_changed_files(work, base, head)
+
+
+def test_changed_path_list_rejects_nul_oversize_and_count(tmp_path, monkeypatch):
+    path = tmp_path / "changed.txt"
+    path.write_bytes(b"README.md\0api/v2/discovery.json\n")
+    with pytest.raises(release.ReleaseError, match="NUL"):
+        release._read_changed_files(path)
+
+    path.write_bytes(b"a\nb\nc\nd\n")
+    monkeypatch.setattr(release, "MAX_CHANGED_FILES", 3)
+    with pytest.raises(release.ReleaseError, match="more than 3"):
+        release._read_changed_files(path)
+
+    monkeypatch.setattr(release, "MAX_CHANGED_PATH_BYTES", 3)
+    with pytest.raises(release.ReleaseError, match="oversized"):
+        release._read_changed_files(path)
+
+
 def test_release_refuses_without_admin_audit_before_git_mutation(tmp_path):
     work, base_bytes, _ = _seed_remote(tmp_path)
     (work / protection.AUDIT_PATH).unlink()
@@ -736,18 +884,25 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "zoo_v2_release.py resume" in catalog
     assert "pull-requests: write" in catalog
     assert "pull_request_target:" in validation
-    assert "Inspect every changed path with trusted main" in validation
-    assert "/files?per_page=100" in validation
-    assert ".previous_filename // empty" in validation
+    assert "Inspect complete local diff with trusted main" in validation
+    assert "/files?per_page=100" not in validation
+    assert "git diff" not in validation
     assert "zoo_v2_release.py\" gate-pr" in validation
     assert "path: trusted-main" in validation
     assert "path: candidate" in validation
+    assert "--base-sha \"$base_sha\"" in validation
+    assert "--head-sha \"$HEAD_SHA\"" in validation
     assert '"$TRUSTED_ROOT/scripts/zoo_v2_release.py" validate-pr' in validation
     assert 'PYTHONPATH="$TRUSTED_ROOT/scripts"' in validation
     assert '--root "$CANDIDATE_ROOT"' in validation
     assert "contents: read" in validation
     assert "pull-requests: read" in validation
-    assert "statuses: write" in validation
+    assert "statuses: write" not in validation
+    assert "actions/create-github-app-token@v2" in validation
+    assert "secrets.ZOO_V2_VALIDATOR_APP_ID" in validation
+    assert "secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY" in validation
+    assert "GH_TOKEN: ${{ github.token }}" not in validation
+    assert "environment: zoo-v2-validator" in validation
     assert "cancel-in-progress: true" in validation
     assert "steps.inspection.outcome == 'success'" in validation
     assert "No protected Store paths changed" in validation
@@ -767,7 +922,11 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     )[1].split("Ensure bootstrap", 1)[0]
     assert "GH_TOKEN: ${{ github.token }}" not in migration
     assert "Revalidate each open Zoo v2 PR with trusted main tooling" in main_advance
-    assert "statuses: write" in main_advance
+    assert "statuses: write" not in main_advance
+    assert "actions/create-github-app-token@v2" in main_advance
+    assert "GH_TOKEN: ${{ github.token }}" not in main_advance
+    assert "zoo_v2_release.py\" gate-pr" not in main_advance
+    assert '"$tools" gate-pr' in main_advance
     assert "Zoo v2 current-main" in main_advance
     assert "cancel-in-progress: true" in main_advance
     assert "BASE_SHA: ${{ github.sha }}" in main_advance

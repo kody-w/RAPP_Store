@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import fnmatch
 import json
 import re
 import subprocess
@@ -17,7 +16,7 @@ STATUS_CONTEXT = "Zoo v2 current-main"
 TAG_RULESET_NAME = "Zoo v2 generation tags"
 TAG_PATTERN = "refs/tags/zoo-v2-generation-*"
 TAG_RULE_TYPES = frozenset({"update", "deletion", "non_fast_forward"})
-AUDIT_SCHEMA = "rapp-zoo-v2-protection-audit/1.0"
+AUDIT_SCHEMA = "rapp-zoo-v2-protection-audit/1.1"
 AUDIT_PATH = Path(".github/zoo-v2-protection-audit.json")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 ApiCall = Callable[[str, str, dict | None], object]
@@ -93,8 +92,21 @@ def _actor_restrictions(value: object) -> dict | None:
     }
 
 
-def protection_payload(existing: object) -> dict:
+def _validate_app_id(validator_app_id: object) -> int:
+    if (
+        not isinstance(validator_app_id, int)
+        or isinstance(validator_app_id, bool)
+        or validator_app_id < 1
+    ):
+        raise ProtectionError(
+            "E_VALIDATOR_APP: --validator-app-id must be a positive integer"
+        )
+    return validator_app_id
+
+
+def protection_payload(existing: object, validator_app_id: int) -> dict:
     """Build a full PUT payload that preserves existing safeguards and adds minima."""
+    validator_app_id = _validate_app_id(validator_app_id)
     if not isinstance(existing, dict):
         raise ProtectionError("E_PROTECTION_CONFIG: expected existing protection object")
 
@@ -102,10 +114,14 @@ def protection_payload(existing: object) -> dict:
     if current_checks is not None and not isinstance(current_checks, dict):
         raise ProtectionError("E_PROTECTION_CONFIG: malformed required status checks")
     current_checks = current_checks or {}
-    contexts = _string_list(
-        current_checks.get("contexts"),
-        "E_PROTECTION_CONFIG: malformed status contexts",
-    )
+    contexts = [
+        context
+        for context in _string_list(
+            current_checks.get("contexts"),
+            "E_PROTECTION_CONFIG: malformed status contexts",
+        )
+        if context != STATUS_CONTEXT
+    ]
     checks = []
     raw_checks = current_checks.get("checks", [])
     if raw_checks is not None and not isinstance(raw_checks, list):
@@ -116,10 +132,9 @@ def protection_payload(existing: object) -> dict:
         item = {"context": check["context"]}
         if isinstance(check.get("app_id"), int):
             item["app_id"] = check["app_id"]
-        if item not in checks:
+        if item["context"] != STATUS_CONTEXT and item not in checks:
             checks.append(item)
-    if STATUS_CONTEXT not in contexts:
-        contexts.append(STATUS_CONTEXT)
+    checks.append({"context": STATUS_CONTEXT, "app_id": validator_app_id})
 
     current_reviews = existing.get("required_pull_request_reviews")
     if current_reviews is not None and not isinstance(current_reviews, dict):
@@ -166,17 +181,15 @@ def protection_payload(existing: object) -> dict:
     return payload
 
 
-def _status_contexts(settings: dict) -> set[str]:
-    checks = settings.get("required_status_checks")
-    if not isinstance(checks, dict):
-        return set()
-    contexts = set(_names(checks.get("contexts"), "context"))
-    contexts.update(_names(checks.get("checks"), "context"))
-    return contexts
+def _status_checks(settings: dict) -> list[dict]:
+    required = settings.get("required_status_checks")
+    values = required.get("checks") if isinstance(required, dict) else None
+    return values if isinstance(values, list) else []
 
 
-def verify_settings(settings: object) -> None:
+def verify_settings(settings: object, validator_app_id: int) -> None:
     """Verify required minima while accepting stricter/superset protection."""
+    validator_app_id = _validate_app_id(validator_app_id)
     if not isinstance(settings, dict):
         raise ProtectionError("E_PROTECTION_VERIFY: expected a protection object")
 
@@ -207,10 +220,15 @@ def verify_settings(settings: object) -> None:
     if (
         not isinstance(checks, dict)
         or checks.get("strict") is not True
-        or STATUS_CONTEXT not in _status_contexts(settings)
+        or STATUS_CONTEXT in set(_names(checks.get("contexts"), "context"))
+        or {
+            "context": STATUS_CONTEXT,
+            "app_id": validator_app_id,
+        } not in _status_checks(settings)
     ):
         raise ProtectionError(
-            "E_PROTECTION_VERIFY: strict Zoo v2 status context is missing"
+            "E_PROTECTION_VERIFY: strict Zoo v2 status is not bound to the "
+            "configured validator GitHub App"
         )
 
     reviews = settings.get("required_pull_request_reviews")
@@ -244,64 +262,23 @@ def _ruleset_payload(existing: object | None = None) -> dict:
     if existing is not None and not isinstance(existing, dict):
         raise ProtectionError("E_RULESET_CONFIG: expected a ruleset object")
     existing = existing or {}
-    target = existing.get("target", "tag")
-    if target != "tag":
+    if existing.get("target", "tag") != "tag":
         raise ProtectionError(
-            f"E_RULESET_CONFIG: named ruleset target is {target!r}, expected 'tag'"
+            "E_RULESET_CONFIG: named ruleset target must be 'tag'"
         )
-    conditions = existing.get("conditions", {})
-    if not isinstance(conditions, dict):
-        raise ProtectionError("E_RULESET_CONFIG: malformed ruleset conditions")
-    conditions = json.loads(json.dumps(conditions))
-    ref_name = conditions.get("ref_name", {})
-    if not isinstance(ref_name, dict):
-        raise ProtectionError("E_RULESET_CONFIG: malformed ref-name condition")
-    includes = _string_list(
-        ref_name.get("include"),
-        "E_RULESET_CONFIG: malformed ref-name includes",
-    )
-    excludes = [
-        value
-        for value in _string_list(
-            ref_name.get("exclude"),
-            "E_RULESET_CONFIG: malformed ref-name excludes",
-        )
-        if value != TAG_PATTERN
-    ]
-    if TAG_PATTERN not in includes:
-        includes.append(TAG_PATTERN)
-    conditions["ref_name"] = {"include": includes, "exclude": excludes}
-
-    rules = existing.get("rules", [])
-    if not isinstance(rules, list):
-        raise ProtectionError("E_RULESET_CONFIG: malformed rules")
-    if any(
-        not isinstance(rule, dict) or not isinstance(rule.get("type"), str)
-        for rule in rules
-    ):
-        raise ProtectionError("E_RULESET_CONFIG: malformed rule record")
-    rules = json.loads(json.dumps(rules))
-    present = {
-        rule.get("type")
-        for rule in rules
-        if isinstance(rule, dict) and isinstance(rule.get("type"), str)
-    }
-    for rule_type in sorted(TAG_RULE_TYPES - present):
-        rules.append({"type": rule_type})
-
-    payload = {
+    return {
         "name": TAG_RULESET_NAME,
         "target": "tag",
         "enforcement": "active",
-        "conditions": conditions,
-        "rules": rules,
+        "bypass_actors": [],
+        "conditions": {
+            "ref_name": {
+                "include": [TAG_PATTERN],
+                "exclude": [],
+            }
+        },
+        "rules": [{"type": rule_type} for rule_type in sorted(TAG_RULE_TYPES)],
     }
-    bypass_actors = existing.get("bypass_actors")
-    if bypass_actors is not None:
-        if not isinstance(bypass_actors, list):
-            raise ProtectionError("E_RULESET_CONFIG: malformed bypass actors")
-        payload["bypass_actors"] = json.loads(json.dumps(bypass_actors))
-    return payload
 
 
 def verify_tag_ruleset(ruleset: object) -> None:
@@ -315,24 +292,29 @@ def verify_tag_ruleset(ruleset: object) -> None:
         raise ProtectionError("E_RULESET_VERIFY: tag ruleset is not active")
     conditions = ruleset.get("conditions")
     ref_name = conditions.get("ref_name") if isinstance(conditions, dict) else None
+    if (
+        not isinstance(conditions, dict)
+        or set(conditions) != {"ref_name"}
+        or not isinstance(ref_name, dict)
+        or set(ref_name) != {"include", "exclude"}
+    ):
+        raise ProtectionError(
+            "E_RULESET_VERIFY: generation ruleset has non-dedicated conditions"
+        )
     includes = _string_list(
-        ref_name.get("include") if isinstance(ref_name, dict) else None,
+        ref_name.get("include"),
         "E_RULESET_VERIFY: malformed ref-name includes",
     )
     excludes = _string_list(
-        ref_name.get("exclude") if isinstance(ref_name, dict) else None,
+        ref_name.get("exclude"),
         "E_RULESET_VERIFY: malformed ref-name excludes",
     )
-    probe = "refs/tags/zoo-v2-generation-verification-probe"
-    conflicting_excludes = [
-        value
-        for value in excludes
-        if value == "~ALL" or fnmatch.fnmatchcase(probe, value)
-    ]
-    if TAG_PATTERN not in includes or conflicting_excludes:
+    if includes != [TAG_PATTERN] or excludes:
         raise ProtectionError(
-            "E_RULESET_VERIFY: generation tag pattern is not unconditionally included"
+            "E_RULESET_VERIFY: generation ruleset is not dedicated to the exact tag pattern"
         )
+    if ruleset.get("bypass_actors") != []:
+        raise ProtectionError("E_RULESET_VERIFY: bypass actors or modes are forbidden")
     rules = ruleset.get("rules")
     if not isinstance(rules, list) or any(
         not isinstance(rule, dict) or not isinstance(rule.get("type"), str)
@@ -344,10 +326,9 @@ def verify_tag_ruleset(ruleset: object) -> None:
         for rule in rules
         if isinstance(rule, dict) and isinstance(rule.get("type"), str)
     }
-    missing = sorted(TAG_RULE_TYPES - present)
-    if missing:
+    if present != TAG_RULE_TYPES or len(rules) != len(TAG_RULE_TYPES):
         raise ProtectionError(
-            "E_RULESET_VERIFY: missing required tag rule(s): " + ", ".join(missing)
+            "E_RULESET_VERIFY: generation ruleset must contain only required tag rules"
         )
 
 
@@ -437,16 +418,27 @@ def _configure_ruleset(repository: str, api_call: ApiCall) -> dict:
     return verified
 
 
-def _audit_document(repository: str, settings: dict, ruleset: dict) -> dict:
+def _audit_document(
+    repository: str,
+    settings: dict,
+    ruleset: dict,
+    validator_app_id: int,
+) -> dict:
     reviews = settings["required_pull_request_reviews"]
     return {
         "schema": AUDIT_SCHEMA,
         "repository": repository,
         "verified_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "branch": "main",
+        "validator_app_id": validator_app_id,
         "branch_protection": {
             "strict": True,
-            "required_status_contexts": sorted(_status_contexts(settings)),
+            "required_status_contexts": sorted(
+                set(_names(settings["required_status_checks"].get("contexts"), "context"))
+            ),
+            "required_status_checks": [
+                {"context": STATUS_CONTEXT, "app_id": validator_app_id}
+            ],
             "required_approving_review_count": reviews["required_approving_review_count"],
             "dismiss_stale_reviews": True,
             "require_last_push_approval": True,
@@ -462,11 +454,13 @@ def _audit_document(repository: str, settings: dict, ruleset: dict) -> dict:
             "enforcement": "active",
             "include": TAG_PATTERN,
             "required_rules": sorted(TAG_RULE_TYPES),
+            "bypass_actors": [],
         },
     }
 
 
-def verify_audit(audit: object, repository: str) -> None:
+def verify_audit(audit: object, repository: str, validator_app_id: int) -> None:
+    validator_app_id = _validate_app_id(validator_app_id)
     if not isinstance(audit, dict):
         raise ProtectionError("E_PROTECTION_AUDIT: expected an audit object")
     verified_at = audit.get("verified_at")
@@ -474,6 +468,7 @@ def verify_audit(audit: object, repository: str) -> None:
         audit.get("schema") != AUDIT_SCHEMA
         or audit.get("repository") != repository
         or audit.get("branch") != "main"
+        or audit.get("validator_app_id") != validator_app_id
         or not isinstance(verified_at, str)
     ):
         raise ProtectionError("E_PROTECTION_AUDIT: identity fields are absent or malformed")
@@ -491,6 +486,7 @@ def verify_audit(audit: object, repository: str) -> None:
     if not isinstance(branch, dict):
         raise ProtectionError("E_PROTECTION_AUDIT: branch verification is absent")
     contexts = branch.get("required_status_contexts")
+    status_checks = branch.get("required_status_checks")
     count = branch.get("required_approving_review_count")
     required_branch = {
         "strict": True,
@@ -503,7 +499,10 @@ def verify_audit(audit: object, repository: str) -> None:
     }
     if (
         not isinstance(contexts, list)
-        or STATUS_CONTEXT not in contexts
+        or STATUS_CONTEXT in contexts
+        or status_checks != [
+            {"context": STATUS_CONTEXT, "app_id": validator_app_id}
+        ]
         or not isinstance(count, int)
         or isinstance(count, bool)
         or count < 1
@@ -520,14 +519,19 @@ def verify_audit(audit: object, repository: str) -> None:
         or ruleset.get("target") != "tag"
         or ruleset.get("enforcement") != "active"
         or ruleset.get("include") != TAG_PATTERN
+        or ruleset.get("bypass_actors") != []
         or not isinstance(required_rules, list)
         or any(not isinstance(rule, str) for rule in required_rules)
-        or not TAG_RULE_TYPES.issubset(set(required_rules))
+        or set(required_rules) != TAG_RULE_TYPES
     ):
         raise ProtectionError("E_PROTECTION_AUDIT: tag ruleset minima are not verified")
 
 
-def verify_audit_file(path: Path, repository: str) -> dict:
+def verify_audit_file(
+    path: Path,
+    repository: str,
+    validator_app_id: int,
+) -> dict:
     try:
         audit = json.loads(path.read_text())
     except FileNotFoundError as exc:
@@ -537,7 +541,7 @@ def verify_audit_file(path: Path, repository: str) -> dict:
         ) from exc
     except (OSError, json.JSONDecodeError) as exc:
         raise ProtectionError(f"E_PROTECTION_AUDIT: cannot read {path}: {exc}") from exc
-    verify_audit(audit, repository)
+    verify_audit(audit, repository, validator_app_id)
     return audit
 
 
@@ -546,25 +550,33 @@ def _write_audit(path: Path, audit: dict) -> None:
     path.write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n")
 
 
-def configure_and_verify(repository: str, api_call: ApiCall = _gh_api) -> dict:
+def configure_and_verify(
+    repository: str,
+    validator_app_id: int,
+    api_call: ApiCall = _gh_api,
+) -> dict:
     _validate_repository(repository)
     endpoint = f"repos/{repository}/branches/main/protection"
     existing = api_call("GET", endpoint, None)
-    api_call("PUT", endpoint, protection_payload(existing))
+    api_call("PUT", endpoint, protection_payload(existing, validator_app_id))
     settings = api_call("GET", endpoint, None)
-    verify_settings(settings)
+    verify_settings(settings, validator_app_id)
     ruleset = _configure_ruleset(repository, api_call)
-    return _audit_document(repository, settings, ruleset)
+    return _audit_document(repository, settings, ruleset, validator_app_id)
 
 
-def verify(repository: str, api_call: ApiCall = _gh_api) -> dict:
+def verify(
+    repository: str,
+    validator_app_id: int,
+    api_call: ApiCall = _gh_api,
+) -> dict:
     _validate_repository(repository)
     endpoint = f"repos/{repository}/branches/main/protection"
     settings = api_call("GET", endpoint, None)
-    verify_settings(settings)
+    verify_settings(settings, validator_app_id)
     ruleset = _named_ruleset(repository, api_call)
     verify_tag_ruleset(ruleset)
-    return _audit_document(repository, settings, ruleset)
+    return _audit_document(repository, settings, ruleset, validator_app_id)
 
 
 def _validate_repository(repository: str) -> None:
@@ -579,16 +591,21 @@ def main(argv: list[str] | None = None) -> int:
         choices=("verify", "configure-verify", "verify-audit"),
     )
     parser.add_argument("--repository", required=True)
+    parser.add_argument("--validator-app-id", required=True, type=int)
     parser.add_argument("--audit-output", type=Path)
     parser.add_argument("--audit", type=Path, default=AUDIT_PATH)
     args = parser.parse_args(argv)
     try:
         if args.command == "configure-verify":
-            audit = configure_and_verify(args.repository)
+            audit = configure_and_verify(args.repository, args.validator_app_id)
         elif args.command == "verify":
-            audit = verify(args.repository)
+            audit = verify(args.repository, args.validator_app_id)
         else:
-            audit = verify_audit_file(args.audit, args.repository)
+            audit = verify_audit_file(
+                args.audit,
+                args.repository,
+                args.validator_app_id,
+            )
         if args.audit_output:
             _write_audit(args.audit_output, audit)
     except ProtectionError as exc:
