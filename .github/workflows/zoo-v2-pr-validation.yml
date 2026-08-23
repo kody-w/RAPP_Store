@@ -1,0 +1,61 @@
+name: Zoo v2 current-main validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  current-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        if: startsWith(github.head_ref, 'zoo-v2/issue-')
+        with:
+          python-version: '3.11'
+
+      - name: Fetch current main on every PR update
+        if: startsWith(github.head_ref, 'zoo-v2/issue-')
+        run: git fetch --force --prune origin main
+
+      - name: Reject forked Store release branches
+        if: |
+          startsWith(github.head_ref, 'zoo-v2/issue-') &&
+          github.event.pull_request.head.repo.full_name != github.repository
+        run: exit 1
+
+      - name: Reject stale predecessor and unprotected generation
+        id: validation
+        continue-on-error: true
+        if: startsWith(github.head_ref, 'zoo-v2/issue-')
+        run: |
+          python3 scripts/zoo_v2_release.py validate-pr \
+            --repository "$GITHUB_REPOSITORY"
+
+      - name: Publish required current-main status
+        if: startsWith(github.head_ref, 'zoo-v2/issue-') && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RESULT: ${{ steps.validation.outcome }}
+        run: |
+          state=failure
+          test "$RESULT" = success && state=success
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state="$state" \
+            -f context='Zoo v2 current-main' \
+            -f description='Exact current-main predecessor and permanent-ref validation'
+          test "$state" = success
+
+      - name: Non-Zoo PR
+        if: ${{ !startsWith(github.head_ref, 'zoo-v2/issue-') }}
+        run: echo "No Zoo v2 candidate in this PR."

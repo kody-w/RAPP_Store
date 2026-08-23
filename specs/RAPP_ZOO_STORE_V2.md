@@ -58,8 +58,19 @@ Each file under `api/v2/generations/` is an immutable
 `rapp-zoo-store-generation/2.0` document. A generation contains sorted live
 prototypes and append-only tombstones. Its `previous_generation_url` is
 another full commit-pinned raw URL (or `null` for the initial generation).
+Every non-bootstrap generation also records `previous_generation_sha256`, the
+SHA-256 of the exact canonical bytes selected by current `main` discovery.
+The URL and digest are both checked again against freshly fetched
+`origin/main` on every PR update and whenever `main` advances.
 Consumers fetch discovery with `cache: no-store`; the selected generation and
 all artifacts may be cached forever because their URLs are immutable.
+
+Each generation commit is protected before discovery is published by a unique
+annotated tag named `zoo-v2-generation-<generation-id>`. The annotation records
+the generation path, canonical content SHA-256, source issue (or bootstrap),
+and predecessor URL. Discovery still uses the tag's peeled, full 40-character
+commit SHA, never the tag name. This preserves GitHub Raw reachability even
+when the catalog PR is squash-merged, rebased, or normally merged.
 
 ## 3. Prototype requirements
 
@@ -97,10 +108,18 @@ the issue author is in the deterministic actor allowlist: the repository
 owner plus the comma-separated `RAPP_ZOO_V2_ACTORS` repository variable.
 Changing labels does not bypass actor validation.
 
+The release lane is serialized. GitHub Actions concurrency serializes active
+runs, and the release script also rejects a new issue while any different
+`zoo-v2/issue-*` PR or unfinished remote issue branch exists. A rerun for the
+same issue is allowed only when its generation bytes, predecessor URL/digest,
+branch, tag target and annotation, discovery pointer, and PR state all match.
+It resumes after the last durable stage; it never force-rewrites a mismatched
+branch or tag. PR creation and the issue backlink comment are find-or-create.
+
 Issue JSON is never passed to a shell, template evaluator, Python importer,
 `eval`, or `exec`. Unknown fields and unknown operations are rejected.
 
-## 5. Two-step catalog PR
+## 5. Serialized, restartable catalog PR
 
 `.github/workflows/zoo-v2-catalog-pr.yml` creates a reviewable branch:
 
@@ -108,14 +127,32 @@ Issue JSON is never passed to a shell, template evaluator, Python importer,
    license evidence, operation, allowlist, and tombstone history.
 2. Write and test one new immutable generation.
 3. Commit and push that generation; capture the resulting full commit SHA.
-4. Rewrite only `api/v2/discovery.json` to name the new generation at that
+4. Create and push its unique annotated permanent tag. A collision is accepted
+   only when its peeled commit and complete provenance annotation are exact.
+5. Rewrite only `api/v2/discovery.json` to name the new generation at that
    exact commit.
-5. Validate the local tree, commit the pointer separately, and open a PR.
+6. Validate the local tree, commit and push the pointer separately, and
+   find or create the PR and issue comment.
 
 This ordering avoids a self-referential Git hash. The generation commit exists
 before its SHA is placed in discovery. The workflow never pushes catalog
 changes to `main`, never closes the control issue, and never enables
 auto-merge. The PR merge remains the human consent event.
+
+`.github/workflows/zoo-v2-pr-validation.yml` publishes the
+`Zoo v2 current-main` status from trusted validator code. Repository rules
+must require that exact status. It verifies the candidate's one-operation
+create/update/deprecate delta, predecessor URL and digest, pinned generation
+commit, annotated permanent tag, and fork boundary. On every `main` push,
+`.github/workflows/zoo-v2-main-advance.yml` reruns the same trusted validator
+for every open Zoo v2 PR and overwrites that status, so a sibling generated
+from the former discovery cannot retain a stale green check.
+
+`.github/workflows/zoo-v2-audit.yml` runs after v2 changes reach `main`, daily,
+and on demand. It proves that every generation and predecessor URL resolves to
+the exact commit protected by its deterministic annotated tag and optionally
+re-fetches the raw bytes. It does not rely on branch-retention or merge-method
+settings.
 
 ## 6. Schemas and validator
 
@@ -123,6 +160,7 @@ auto-merge. The PR merge remains the human consent event.
 - `schemas/zoo-v2/generation.schema.json`
 - `schemas/zoo-v2/command.schema.json`
 - `scripts/zoo_v2_store.py`
+- `scripts/zoo_v2_release.py`
 
 The Python validator is stdlib-only and is the executable source of truth.
 Run:
@@ -130,9 +168,31 @@ Run:
 ```bash
 python3 -m pytest tests -q
 python3 scripts/zoo_v2_store.py validate-tree --root .
+python3 scripts/zoo_v2_release.py validate-pr --repository kody-w/RAPP_Store
+python3 scripts/zoo_v2_release.py audit-refs \
+  --repository kody-w/RAPP_Store --network
 ```
 
 Add `--network` to re-fetch and hash every live artifact and license evidence.
+
+### Bootstrap one-time migration
+
+The bootstrap generation predates the permanent-ref rule. Before the first
+Store v2 issue release, run the idempotent migration workflow **Zoo v2
+bootstrap permanent-ref migration**, or locally:
+
+```bash
+git fetch --prune origin main
+python3 scripts/zoo_v2_release.py protect-bootstrap \
+  --repository kody-w/RAPP_Store
+python3 scripts/zoo_v2_release.py audit-refs \
+  --repository kody-w/RAPP_Store --network
+```
+
+This creates `zoo-v2-generation-bootstrap-20260822` at the original generation
+commit. It refuses an existing lightweight tag, wrong target, altered
+annotation, or changed bootstrap bytes. The issue workflow repeats this check
+idempotently before every release.
 
 ## 7. Sample-data boundary
 

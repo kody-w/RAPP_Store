@@ -1,0 +1,32 @@
+name: Zoo v2 permanent-ref audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/v2/**'
+  schedule:
+    - cron: '31 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify permanent refs and raw reachability
+        run: |
+          python3 scripts/zoo_v2_release.py audit-refs \
+            --repository "$GITHUB_REPOSITORY" \
+            --network

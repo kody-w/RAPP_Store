@@ -79,6 +79,14 @@ immutable generation document at a full 40-character commit-pinned GitHub Raw
 URL. Prototype artifacts and MIT license evidence are also commit-pinned and
 SHA-256 verified.
 
+Store v2 writes are serialized through one restartable issue branch at a time.
+Every generation commit receives a deterministic annotated
+`zoo-v2-generation-*` permanent tag before discovery can point at it. Required
+current-main validation checks both the predecessor URL and exact digest, and
+the scheduled audit proves tag and raw reachability independent of the PR
+merge method. See the extension spec for rerun recovery and the bootstrap-tag
+migration command.
+
 Create, update, and deprecate commands arrive as structured, inert GitHub
 Issue JSON. An actor allowlist and deterministic validator turn an eligible
 issue into a tested two-commit catalog PR; nothing auto-merges. Live records

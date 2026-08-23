@@ -1,0 +1,54 @@
+name: Zoo v2 invalidate stale PRs after main advances
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  revalidate-open-candidates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Revalidate each open Zoo v2 PR with trusted main tooling
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tools="$GITHUB_WORKSPACE/scripts/zoo_v2_release.py"
+          gh pr list --state open --limit 100 \
+            --json headRefName,headRefOid,headRepositoryOwner \
+            --jq '.[] | select(.headRefName | startswith("zoo-v2/issue-")) |
+                  [.headRefName, .headRefOid, .headRepositoryOwner.login] | @tsv' |
+          while IFS=$'\t' read -r branch sha owner; do
+            test -n "$sha" || continue
+            state=failure
+            if test "$owner" = "$GITHUB_REPOSITORY_OWNER"; then
+              git fetch origin "$sha"
+              check_dir=".zoo-v2-check-${sha}"
+              git worktree add --detach "$check_dir" "$sha"
+              if python3 "$tools" validate-pr \
+                --root "$check_dir" \
+                --repository "$GITHUB_REPOSITORY"; then
+                state=success
+              fi
+              git worktree remove --force "$check_dir"
+            fi
+            gh api --method POST \
+              "repos/${GITHUB_REPOSITORY}/statuses/${sha}" \
+              -f state="$state" \
+              -f context='Zoo v2 current-main' \
+              -f description='Revalidated because origin/main advanced'
+          done

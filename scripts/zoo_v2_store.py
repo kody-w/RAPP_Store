@@ -35,6 +35,7 @@ RAPPID_RE = re.compile(r"^rappid:@[a-z0-9](?:[a-z0-9-]{0,38})/[a-z][a-z0-9-]{2,6
 UTC_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 JSON_BLOCK_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
 TITLE_RE = re.compile(r"^\[ZOO V2 (CREATE|UPDATE|DEPRECATE)\]\s+([a-z][a-z0-9-]{2,63})\s*$")
+GENERATION_ID_RE = re.compile(r"^(?:issue-[1-9]\d*|bootstrap-\d{8})$")
 
 Fetch = Callable[[str], bytes]
 
@@ -300,6 +301,58 @@ def validate_tombstone(tombstone: object) -> dict:
     return deepcopy(tombstone)
 
 
+def validate_successor_semantics(current: dict, previous: dict) -> None:
+    previous_live = {item["id"]: item for item in previous.get("prototypes", [])}
+    current_live = {item["id"]: item for item in current.get("prototypes", [])}
+    added = set(current_live) - set(previous_live)
+    removed = set(previous_live) - set(current_live)
+    updated = {
+        prototype_id
+        for prototype_id in set(previous_live) & set(current_live)
+        if previous_live[prototype_id] != current_live[prototype_id]
+    }
+    if len(added) + len(removed) + len(updated) != 1:
+        raise StoreError(
+            "E_CRUD_DELTA: an issue generation must perform exactly one create, "
+            "update, or deprecate"
+        )
+
+    previous_tombstones = previous.get("tombstones", [])
+    appended = current["tombstones"][len(previous_tombstones):]
+    if added:
+        if appended:
+            raise StoreError("E_CRUD_DELTA: create cannot append a tombstone")
+        if added & {item["id"] for item in previous_tombstones}:
+            raise StoreError("E_ALREADY_EXISTS: a tombstoned id cannot be recreated")
+    elif updated:
+        if appended:
+            raise StoreError("E_CRUD_DELTA: update cannot append a tombstone")
+        prototype_id = next(iter(updated))
+        old = previous_live[prototype_id]
+        replacement = current_live[prototype_id]
+        if _semver_tuple(replacement["version"]) <= _semver_tuple(old["version"]):
+            raise StoreError("E_VERSION_NOT_BUMPED: update version must increase")
+        old_blockers = old["external_blockers"]
+        if replacement["external_blockers"][:len(old_blockers)] != old_blockers:
+            raise StoreError(
+                "E_EXTERNAL_BLOCKERS: updates may append blockers but cannot remove "
+                "or rewrite them"
+            )
+    else:
+        prototype_id = next(iter(removed))
+        if len(appended) != 1 or appended[0]["id"] != prototype_id:
+            raise StoreError(
+                "E_DESTRUCTIVE_DELETE: deprecate must append exactly one matching tombstone"
+            )
+        if (
+            appended[0]["source_issue"] != current["source_issue"]
+            or appended[0]["deprecated_at"] != current["created_at"]
+        ):
+            raise StoreError(
+                "E_TOMBSTONE_PROVENANCE: tombstone issue and timestamp must match generation"
+            )
+
+
 def validate_generation(
     generation: object,
     fetcher: Fetch = fetch_bytes,
@@ -315,13 +368,13 @@ def validate_generation(
             "schema", "generation_id", "created_at", "source_issue",
             "previous_generation_url", "prototypes", "tombstones",
         },
-        set(),
+        {"previous_generation_sha256"},
         "generation",
     )
     if generation["schema"] != GENERATION_SCHEMA:
         raise StoreError(f"E_GENERATION: schema must be {GENERATION_SCHEMA}")
-    if not isinstance(generation["generation_id"], str) or not re.fullmatch(
-        r"(?:issue-[1-9]\d*|bootstrap-\d{8})", generation["generation_id"]
+    if not isinstance(generation["generation_id"], str) or not GENERATION_ID_RE.fullmatch(
+        generation["generation_id"]
     ):
         raise StoreError(
             "E_GENERATION: generation_id must be issue-<positive integer> "
@@ -338,11 +391,21 @@ def validate_generation(
         raise StoreError("E_GENERATION: source_issue must be null or a positive integer")
     if generation["generation_id"].startswith("issue-") and source_issue is None:
         raise StoreError("E_GENERATION: issue generations require source_issue")
+    if generation["generation_id"].startswith("issue-") and source_issue != int(
+        generation["generation_id"].removeprefix("issue-")
+    ):
+        raise StoreError("E_GENERATION: generation_id must match source_issue")
     if generation["generation_id"].startswith("bootstrap-") and source_issue is not None:
         raise StoreError("E_GENERATION: bootstrap generations must use source_issue null")
     previous_url = generation["previous_generation_url"]
+    previous_sha256 = generation.get("previous_generation_sha256")
     if previous_url is not None:
         validate_pinned_raw_url(previous_url, "generation.previous_generation_url")
+        validate_hash(previous_sha256, "generation.previous_generation_sha256")
+    elif previous_sha256 is not None:
+        raise StoreError(
+            "E_PREVIOUS_DIGEST: bootstrap previous_generation_sha256 must be null"
+        )
 
     if not isinstance(generation["prototypes"], list):
         raise StoreError("E_GENERATION: prototypes must be an array")
@@ -364,6 +427,12 @@ def validate_generation(
         raise StoreError("E_TOMBSTONE: a tombstoned id cannot remain live")
 
     if previous is not None:
+        expected_previous_sha256 = sha256_bytes(canonical_json(previous))
+        if previous_sha256 != expected_previous_sha256:
+            raise StoreError(
+                "E_STALE_PREDECESSOR: previous_generation_sha256 does not match "
+                "the exact predecessor bytes"
+            )
         previous_tombstones = previous.get("tombstones", [])
         if tombstones[:len(previous_tombstones)] != previous_tombstones:
             raise StoreError("E_TOMBSTONE_APPEND_ONLY: prior tombstones changed or disappeared")
@@ -387,21 +456,28 @@ def validate_generation(
                 raise StoreError(
                     "E_TOMBSTONE_PROVENANCE: tombstone must preserve the last version and artifact hash"
                 )
+        validate_successor_semantics(generation, previous)
     return deepcopy(generation)
 
 
-def load_current_generation(discovery_path: Path, fetcher: Fetch = fetch_bytes) -> tuple[dict, str]:
+def load_current_generation(
+    discovery_path: Path,
+    fetcher: Fetch = fetch_bytes,
+) -> tuple[dict, str, bytes]:
     try:
         discovery = json.loads(discovery_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise StoreError(f"E_DISCOVERY: cannot read {discovery_path}: {exc}") from exc
     generation_url = validate_discovery(discovery)
     try:
-        generation = json.loads(fetcher(generation_url))
+        generation_bytes = fetcher(generation_url)
+        generation = json.loads(generation_bytes)
     except json.JSONDecodeError as exc:
         raise StoreError(f"E_GENERATION: current generation is invalid JSON: {exc}") from exc
     validate_generation(generation, fetcher, network=True)
-    return generation, generation_url
+    if canonical_json(generation) != generation_bytes:
+        raise StoreError("E_NON_CANONICAL_JSON: current generation bytes are not canonical")
+    return generation, generation_url, generation_bytes
 
 
 def _semver_tuple(value: str) -> tuple[int, int, int]:
@@ -468,6 +544,7 @@ def apply_command(
         "created_at": timestamp,
         "source_issue": issue_number,
         "previous_generation_url": current_url,
+        "previous_generation_sha256": sha256_bytes(canonical_json(current)),
         "prototypes": sorted(prototypes.values(), key=lambda item: item["id"]),
         "tombstones": tombstones,
     }
@@ -504,7 +581,7 @@ def process_event(
         parse_issue_command(issue.get("body") or ""),
         issue.get("title") or "",
     )
-    current, current_url = load_current_generation(discovery_path, fetcher)
+    current, current_url, _ = load_current_generation(discovery_path, fetcher)
     generation = apply_command(
         current,
         current_url,
@@ -516,10 +593,86 @@ def process_event(
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / f"issue-{number}.json"
+    expected = canonical_json(generation)
     if output.exists():
-        raise StoreError(f"E_IMMUTABLE_GENERATION: {output} already exists")
-    output.write_bytes(canonical_json(generation))
+        if output.read_bytes() != expected:
+            raise StoreError(
+                f"E_IMMUTABLE_GENERATION: {output} exists with different issue-derived bytes"
+            )
+        return output
+    output.write_bytes(expected)
     return output
+
+
+def generation_tag_name(generation_id: str) -> str:
+    if not GENERATION_ID_RE.fullmatch(generation_id):
+        raise StoreError("E_GENERATION: invalid generation id for permanent ref")
+    return f"zoo-v2-generation-{generation_id}"
+
+
+def generation_tag_message(generation: dict, generation_path: str) -> str:
+    validate_generation(generation, network=False)
+    path = Path(generation_path)
+    if path.is_absolute() or ".." in path.parts or path.suffix != ".json":
+        raise StoreError("E_GENERATION_PATH: unsafe generation path")
+    return "\n".join([
+        "RAPP Zoo Store v2 permanent generation",
+        f"generation-id: {generation['generation_id']}",
+        f"generation-path: {path.as_posix()}",
+        f"content-sha256: {sha256_bytes(canonical_json(generation))}",
+        f"source-issue: {generation['source_issue'] if generation['source_issue'] is not None else 'bootstrap'}",
+        f"previous-generation-url: {generation['previous_generation_url'] or 'null'}",
+        "",
+    ])
+
+
+def validate_candidate(
+    base_discovery_path: Path,
+    candidate_discovery_path: Path,
+    candidate_generation_path: Path,
+    fetcher: Fetch = fetch_bytes,
+    *,
+    network: bool = True,
+) -> None:
+    """Validate one candidate as an exact successor of current main discovery."""
+    base_discovery = json.loads(base_discovery_path.read_text())
+    base_url = validate_discovery(base_discovery)
+    base_bytes = fetcher(base_url)
+    try:
+        base = json.loads(base_bytes)
+    except json.JSONDecodeError as exc:
+        raise StoreError(f"E_GENERATION: base generation is invalid JSON: {exc}") from exc
+    validate_generation(base, fetcher, network=network)
+    if canonical_json(base) != base_bytes:
+        raise StoreError("E_NON_CANONICAL_JSON: base generation bytes are not canonical")
+
+    candidate_discovery = json.loads(candidate_discovery_path.read_text())
+    candidate_url = validate_discovery(candidate_discovery)
+    if candidate_url.rsplit("/", 1)[-1] != candidate_generation_path.name:
+        raise StoreError("E_DISCOVERY_TARGET: candidate discovery names another generation")
+    candidate_bytes = candidate_generation_path.read_bytes()
+    candidate = json.loads(candidate_bytes)
+    if candidate.get("generation_id") != candidate_generation_path.stem:
+        raise StoreError("E_GENERATION: candidate filename must match generation_id")
+    if canonical_json(candidate) != candidate_bytes:
+        raise StoreError("E_NON_CANONICAL_JSON: candidate generation is not canonical")
+    if candidate["previous_generation_url"] != base_url:
+        raise StoreError(
+            "E_STALE_PREDECESSOR: candidate previous_generation_url is not "
+            "current main discovery"
+        )
+    expected_digest = sha256_bytes(base_bytes)
+    if candidate["previous_generation_sha256"] != expected_digest:
+        raise StoreError(
+            "E_STALE_PREDECESSOR: candidate previous_generation_sha256 is not "
+            "the current main generation digest"
+        )
+    validate_generation(
+        candidate,
+        fetcher,
+        network=network,
+        previous=base,
+    )
 
 
 def pin_discovery(repository: str, commit: str, generation_path: str, output: Path) -> None:
@@ -552,6 +705,8 @@ def validate_tree(root: Path, fetcher: Fetch = fetch_bytes, *, network: bool = F
     by_name = {}
     for path in sorted((root / "api" / "v2" / "generations").glob("*.json")):
         generation = json.loads(path.read_text())
+        if generation.get("generation_id") != path.stem:
+            raise StoreError(f"E_GENERATION: filename does not match generation_id: {path}")
         validate_generation(generation, fetcher, network=network)
         if canonical_json(generation) != path.read_bytes():
             raise StoreError(f"E_NON_CANONICAL_JSON: {path}")
@@ -574,6 +729,11 @@ def validate_tree(root: Path, fetcher: Fetch = fetch_bytes, *, network: bool = F
             network=network,
             previous=by_name[previous_name],
         )
+        expected_digest = sha256_bytes(canonical_json(by_name[previous_name]))
+        if generation["previous_generation_sha256"] != expected_digest:
+            raise StoreError(
+                f"E_GENERATION_CHAIN: wrong predecessor digest in {generation['generation_id']}"
+            )
 
     if canonical_json(discovery) != discovery_path.read_bytes():
         raise StoreError(f"E_NON_CANONICAL_JSON: {discovery_path}")
@@ -599,6 +759,12 @@ def main(argv: list[str] | None = None) -> int:
     tree_parser.add_argument("--root", default=".")
     tree_parser.add_argument("--network", action="store_true")
 
+    candidate_parser = sub.add_parser("validate-candidate")
+    candidate_parser.add_argument("--base-discovery", required=True)
+    candidate_parser.add_argument("--candidate-discovery", default="api/v2/discovery.json")
+    candidate_parser.add_argument("--candidate-generation", required=True)
+    candidate_parser.add_argument("--offline", action="store_true")
+
     args = parser.parse_args(argv)
     try:
         if args.command == "apply-issue":
@@ -617,9 +783,17 @@ def main(argv: list[str] | None = None) -> int:
                 args.generation_path,
                 Path(args.output),
             )
-        else:
+        elif args.command == "validate-tree":
             validate_tree(Path(args.root), network=args.network)
             print("Zoo v2 catalog is valid.")
+        else:
+            validate_candidate(
+                Path(args.base_discovery),
+                Path(args.candidate_discovery),
+                Path(args.candidate_generation),
+                network=not args.offline,
+            )
+            print("Zoo v2 candidate is an exact successor of current main.")
     except (StoreError, OSError, json.JSONDecodeError) as exc:
         print(str(exc), file=sys.stderr)
         return 1

@@ -1,0 +1,36 @@
+name: Zoo v2 bootstrap permanent-ref migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  protect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Configure migration identity
+        run: |
+          git config user.name "rapp-store-bot"
+          git config user.email "rapp-store-bot@users.noreply.github.com"
+
+      - name: Create or verify the bootstrap permanent ref
+        run: |
+          python3 scripts/zoo_v2_release.py protect-bootstrap \
+            --repository "$GITHUB_REPOSITORY"
+
+      - name: Audit all generations
+        run: |
+          python3 scripts/zoo_v2_release.py audit-refs \
+            --repository "$GITHUB_REPOSITORY" \
+            --network

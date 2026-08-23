@@ -47,6 +47,16 @@
         }
       ]
     },
+    "previous_generation_sha256": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/sha256"
+        }
+      ]
+    },
     "prototypes": {
       "type": "array",
       "items": {
@@ -60,6 +70,30 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "previous_generation_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "previous_generation_url"
+        ]
+      },
+      "then": {
+        "required": [
+          "previous_generation_sha256"
+        ],
+        "properties": {
+          "previous_generation_sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "sha256": {
       "type": "string",

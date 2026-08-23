@@ -75,6 +75,7 @@ def _generation(prototypes=None, tombstones=None):
         "created_at": "2026-08-22T19:16:00Z",
         "source_issue": 1,
         "previous_generation_url": None,
+        "previous_generation_sha256": None,
         "prototypes": prototypes or [],
         "tombstones": tombstones or [],
     }
@@ -202,6 +203,10 @@ class TestSecurityMutations:
         current = deepcopy(previous)
         current["generation_id"] = "issue-9"
         current["source_issue"] = 9
+        current["previous_generation_url"] = CURRENT_URL
+        current["previous_generation_sha256"] = zoo.sha256_bytes(
+            zoo.canonical_json(previous)
+        )
         current["tombstones"][0]["reason"] = "rewritten"
         with pytest.raises(zoo.StoreError, match="E_TOMBSTONE_APPEND_ONLY"):
             zoo.validate_generation(
@@ -212,6 +217,52 @@ class TestSecurityMutations:
 
 
 class TestCrudAndPointer:
+    def test_issue_generation_write_is_idempotent_but_never_overwritten(self, tmp_path):
+        current = _generation()
+        routes = {
+            **_routes(),
+            CURRENT_URL: zoo.canonical_json(current),
+        }
+        discovery = tmp_path / "discovery.json"
+        discovery.write_bytes(zoo.canonical_json({
+            "schema": zoo.DISCOVERY_SCHEMA,
+            "generation_url": CURRENT_URL,
+        }))
+        command = _command("create", _prototype())
+        event = {
+            "issue": {
+                "number": 2,
+                "title": "[ZOO V2 CREATE] synthetic-example",
+                "body": "```json\n" + json.dumps(command) + "\n```",
+                "user": {"login": "allowed-bot"},
+                "updated_at": "2026-08-22T19:17:00Z",
+            }
+        }
+        output_dir = tmp_path / "generations"
+        first = zoo.process_event(
+            event,
+            discovery,
+            output_dir,
+            {"allowed-bot"},
+            _fetcher(routes),
+        )
+        assert zoo.process_event(
+            event,
+            discovery,
+            output_dir,
+            {"allowed-bot"},
+            _fetcher(routes),
+        ) == first
+        first.write_text("{}\n")
+        with pytest.raises(zoo.StoreError, match="E_IMMUTABLE_GENERATION"):
+            zoo.process_event(
+                event,
+                discovery,
+                output_dir,
+                {"allowed-bot"},
+                _fetcher(routes),
+            )
+
     def test_create_then_update_requires_higher_version(self):
         create = zoo.validate_command(
             _command("create", _prototype()),
