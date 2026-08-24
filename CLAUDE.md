@@ -56,7 +56,10 @@ Every shipped `*_agent.py` must satisfy SPEC §5 (in `kody-w/RAPP/pages/docs/SPE
 5. A module-level `__manifest__` dict (schema `rapp-agent/1.0`).
 6. LLM dispatch routes through `from utils.llm import call_llm` (provided by the host). Don't hard-code Azure/OpenAI clients in singletons.
 
-For composites with a public class that doesn't end in `Agent` (e.g. `BookFactory`), add a trailing-`Agent` alias subclass at the bottom so discovery picks it up.
+Composite builders must emit the public class with its final trailing-`Agent`
+name directly. Do not add an alias subclass: it creates a second distinct
+`BasicAgent` class with the same registered tool name in loaders that inspect
+all public classes.
 
 ## Service contract
 

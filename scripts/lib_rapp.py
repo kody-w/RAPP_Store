@@ -820,21 +820,47 @@ def _validate_singleton(path: Path) -> list[str]:
     if not found_manifest:
         errs.append("E_NO_INTERNAL_MANIFEST: missing top-level __manifest__ dict")
 
-    public_classes: list[ast.ClassDef] = []
-    for node in tree.body:
-        if isinstance(node, ast.ClassDef):
-            if node.name == "BasicAgent" or node.name.startswith("_Internal"):
-                continue
-            if node.name.endswith("Agent"):
-                public_classes.append(node)
+    class_nodes = {
+        node.name: node for node in tree.body if isinstance(node, ast.ClassDef)
+    }
+
+    def extends_basic_agent(class_name: str, seen: set[str] | None = None) -> bool:
+        if class_name == "BasicAgent":
+            return True
+        if class_name not in class_nodes:
+            return False
+        seen = set() if seen is None else seen
+        if class_name in seen:
+            return False
+        seen.add(class_name)
+        for base in class_nodes[class_name].bases:
+            base_name = (
+                base.id if isinstance(base, ast.Name)
+                else base.attr if isinstance(base, ast.Attribute)
+                else None
+            )
+            if base_name and extends_basic_agent(base_name, seen):
+                return True
+        return False
+
+    public_classes = [
+        node for name, node in class_nodes.items()
+        if name != "BasicAgent"
+        and not name.startswith("_")
+        and extends_basic_agent(name)
+    ]
 
     if len(public_classes) == 0:
         errs.append("E_NO_AGENT_CLASS: no public class ending in 'Agent' (extending BasicAgent)")
     elif len(public_classes) > 1:
         errs.append(f"E_MULTIPLE_AGENT_CLASSES: {[c.name for c in public_classes]} "
-                    f"(only one public *Agent allowed; prefix internals with _Internal)")
+                    f"(only one public BasicAgent subclass allowed; prefix internals with _Internal)")
     else:
         cls = public_classes[0]
+        if not cls.name.endswith("Agent"):
+            errs.append(
+                f"E_NO_AGENT_SUFFIX: {cls.name} must end in 'Agent' for deterministic discovery"
+            )
         bases = {b.id if isinstance(b, ast.Name) else (
                   b.attr if isinstance(b, ast.Attribute) else None)
                  for b in cls.bases}
