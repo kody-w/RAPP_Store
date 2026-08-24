@@ -25,9 +25,9 @@
       "manifest_name": "@rapp/book-factory-singleton",
       "singleton_filename": "bookfactory_agent.py",
       "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@rapp/bookfactory/singleton/bookfactory_agent.py",
-      "singleton_sha256": "1224fe87e3cfbc569aa6d0aa5edf5f796247a9cdbcd5e26222399e68373e4f02",
+      "singleton_sha256": "7419619b65eacd27dbfa418f391ba755b9d30fffbf084be211cfa011286b73d9",
       "singleton_lines": 522,
-      "singleton_bytes": 23458,
+      "singleton_bytes": 23555,
       "egg_url": null,
       "egg_note": "No pre-populated state .egg shipped — BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
       "produced_by": {
@@ -275,7 +275,7 @@
       "ui_sha256": "08e492c5e8db5cd04c903a5652c199221e6181cdf80586e227de4d551024c369",
       "ui_filename": "index.html",
       "egg_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/thoughtbox.egg",
-      "egg_sha256": "6c560ad4466ebc7d69b8b5cc049120989f559d112e526650222e964a8b7b7165",
+      "egg_sha256": "290803fca9378c41eed349ce89dfd22c137276a8efc61b759956544dac1a1189",
       "egg_filename": "thoughtbox.egg",
       "example_call": {
         "args": {

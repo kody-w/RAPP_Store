@@ -495,10 +495,10 @@ class BookFactory(BasicAgent):
         )
 
 
-# Alias so the brainstem's "name ends in Agent" discovery picks it up.
-# (BookFactory is the canonical name; BookFactoryAgent is the discovery hook.)
-class BookFactoryAgent(BookFactory):
-    pass
+# NOTE: no BookFactoryAgent subclass/alias here. The brainstem discovers any
+# public class with a perform() — a second public class inheriting this
+# constructor ships a second agent with the SAME name, and the loader
+# quarantines the whole file as "duplicate agent name within one file".
 
 
 
