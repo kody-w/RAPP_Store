@@ -26,7 +26,7 @@ The collapse is mechanical:
     2. Extract every leaf class body (drop their per-file _llm_call/_post)
     3. Extract every composite class body (drop the from agents.X imports)
     4. Inline ONE _llm_call + _post helper at the bottom
-    5. Inline a single BookFactory class as the public entrypoint
+    5. Inline a single BookFactoryAgent class as the public entrypoint
     6. Add a unified __manifest__ that lists everything inlined
 
 The output passes the same BasicAgent contract as any single-file agent.
@@ -160,9 +160,9 @@ Inlined personas (sacred SOULs preserved verbatim):
   - Publisher
   - Reviewer
 
-Public entrypoint: the BookFactory class. Every internal class is
+Public entrypoint: the BookFactoryAgent class. Every internal class is
 prefixed with _Internal to keep them out of the brainstem's automatic
-*Agent discovery — only BookFactory is exposed as a hot-loadable agent.
+*Agent discovery — only BookFactoryAgent is exposed as a hot-loadable agent.
 
 Generated from:
 '''
@@ -184,7 +184,7 @@ __manifest__ = {
     "name": "@rapp/book-factory-singleton",
     "tier": "core",
     "trust": "community",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "tags": ["composite", "creative-pipeline", "twin-stack", "singleton"],
     "delegates_to_inlined": [
         "@rapp/persona-writer",
@@ -277,38 +277,15 @@ for (cname, csrc), name in zip(composite_classes, COMPOSITES):
         continue
     OUT_SRC += rewrite_composite(csrc) + '\n\n'
 
-# ── BookFactory (the public class — only one without _Internal prefix) ─
+# ── BookFactoryAgent (the only public BasicAgent subclass) ─────────────
 
-# Take the BookFactoryAgent source, rename internal class refs but KEEP
-# the public class name as BookFactory (drop the trailing "Agent" too —
-# this is the singleton's name, the brainstem will discover it via the
-# trailing-Agent rule, so we keep "Agent" suffix actually).
 public = bookfactory_src
-public = re.sub(r'class BookFactoryAgent\b', 'class BookFactory(BasicAgent):  # type: ignore', public)
-# Wait — the previous regex already gave us a class with parens. Let me
-# do it more carefully: keep the original class declaration shape.
-public = bookfactory_src  # reset
-public = re.sub(r'class BookFactoryAgent\(BasicAgent\)', 'class BookFactory(BasicAgent)', public)
 # Rewrite delegate instantiations to internal names
 for old, new_name in COMPOSITE_RENAMES.items():
     public = re.sub(rf'\b{re.escape(old)}\b', new_name, public)
-# Update self.name and metadata.name to "BookFactory" (was "BookFactory" already, fine)
-# Make sure it's discoverable by the brainstem's "ends with Agent and != BasicAgent"
-# rule — we add an alias class at the bottom.
 
 OUT_SRC += '# ─── PUBLIC ENTRYPOINT ──────────────────────────────────────────────────\n\n'
 OUT_SRC += public + '\n\n'
-
-# Brainstem discovers classes whose names end in "Agent" and aren't BasicAgent.
-# Our public class is "BookFactory" which doesn't end in Agent — add an alias.
-OUT_SRC += '''
-# Alias so the brainstem's "name ends in Agent" discovery picks it up.
-# (BookFactory is the canonical name; BookFactoryAgent is the discovery hook.)
-class BookFactoryAgent(BookFactory):
-    pass
-
-
-'''
 
 # ─── The unified _llm_call + _post (one inlined helper for the whole file) ─
 
@@ -334,4 +311,4 @@ print(f"  ✓ wrote {OUT}")
 print(f"    {n_lines} lines, {n_chars:,} chars")
 print(f"    {len(souls)} SOULs inlined")
 print(f"    {len(leaf_classes)} leaf classes inlined (prefixed _Internal)")
-print(f"    {len(composite_classes) - 1} internal composites + 1 public BookFactory")
+print(f"    {len(composite_classes) - 1} internal composites + 1 public BookFactoryAgent")

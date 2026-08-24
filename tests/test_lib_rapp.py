@@ -249,6 +249,26 @@ class TestSingletonContract:
         assert not result.ok
         assert any("E_MULTIPLE_AGENT_CLASSES" in e for e in result.errors)
 
+    def test_public_alias_subclass_is_rejected_as_a_second_agent(self, make_rapp_dir):
+        rapp = make_rapp_dir()
+        agent_file = rapp / "singleton" / "my_thing_agent.py"
+        agent_file.write_text(
+            'from agents.basic_agent import BasicAgent\n'
+            '__manifest__ = {"schema": "rapp-agent/1.0", "name": "x", "version": "0.1.0", "description": "x"}\n'
+            'class MyThing(BasicAgent):\n'
+            '    def perform(self, **kw): return "a"\n'
+            'class MyThingAgent(MyThing):\n'
+            '    pass\n'
+        )
+        result = lib_rapp.validate_dir(rapp)
+        assert not result.ok
+        assert any(
+            "E_MULTIPLE_AGENT_CLASSES" in error
+            and "MyThing" in error
+            and "MyThingAgent" in error
+            for error in result.errors
+        )
+
     def test_validator_marker_opts_out_of_placeholder_check(self, make_rapp_dir):
         rapp = make_rapp_dir()
         agent_file = rapp / "singleton" / "my_thing_agent.py"

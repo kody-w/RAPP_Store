@@ -3,8 +3,8 @@
   "id": "bookfactory",
   "kind": "rapplication",
   "name": "BookFactory",
-  "rappid": "rappid:@rapp/bookfactory:edc381d96132392e03496d4da7c1ec991f254b63956e39384162bd956b7548f1",
-  "version": "0.3.0",
+  "rappid": "rappid:@rapp/bookfactory:a8419b331b1ced3340508c82cd2d8a4810ed4c6ecd82a852682653f2e98607e7",
+  "version": "0.3.1",
   "publisher": "@rapp",
   "category": "creative",
   "tags": [
@@ -24,9 +24,9 @@
   "spec_post": "blog/89-double-jump-loop.md",
   "parent_rappid": "rappid:@kody-w/rapp:9a8f0a4b5a710e20f4d819a0f37d2a4c9f113b5e78fb3c29e70b54fff48a38f9",
   "has_skin": true,
-  "singleton_lines": 522,
-  "singleton_bytes": 23458,
-  "singleton_sha256": "1224fe87e3cfbc569aa6d0aa5edf5f796247a9cdbcd5e26222399e68373e4f02",
+  "singleton_lines": 515,
+  "singleton_bytes": 23274,
+  "singleton_sha256": "b6b39ec2f0ee00bad872b9a779ddb1d1604fa6940b1ee7a09ca6ad144d64c89c",
   "install_one_liner": null,
   "default_port": null,
   "sprite_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/bookfactory.svg",
@@ -34,6 +34,5 @@
   "singleton_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/bookfactory/singleton/bookfactory_agent.py",
   "ui_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@rapp/bookfactory/ui/index.html",
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/bookfactory.json",
-  "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/bookfactory",
-  "egg_bytes": 12862
+  "github_url": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@rapp/bookfactory"
 }

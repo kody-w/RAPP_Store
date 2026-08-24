@@ -19,9 +19,9 @@ Inlined personas (sacred SOULs preserved verbatim):
   - Publisher
   - Reviewer
 
-Public entrypoint: the BookFactory class. Every internal class is
+Public entrypoint: the BookFactoryAgent class. Every internal class is
 prefixed with _Internal to keep them out of the brainstem's automatic
-*Agent discovery — only BookFactory is exposed as a hot-loadable agent.
+*Agent discovery — only BookFactoryAgent is exposed as a hot-loadable agent.
 
 Generated from:
   - agents/persona_writer_agent.py
@@ -51,7 +51,7 @@ __manifest__ = {
     "name": "@rapp/book-factory-singleton",
     "tier": "core",
     "trust": "community",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "tags": ["composite", "creative-pipeline", "twin-stack", "singleton"],
     "delegates_to_inlined": [
         "@rapp/persona-writer",
@@ -431,7 +431,7 @@ class _InternalPersonaCEO(BasicAgent):
 
 # ─── PUBLIC ENTRYPOINT ──────────────────────────────────────────────────
 
-class BookFactory(BasicAgent):
+class BookFactoryAgent(BasicAgent):
     def __init__(self):
         self.name = "BookFactory"
         self.metadata = {
@@ -493,13 +493,6 @@ class BookFactory(BasicAgent):
             f"---\n"
             f"REVIEWER:\n\n{review}\n"
         )
-
-
-# Alias so the brainstem's "name ends in Agent" discovery picks it up.
-# (BookFactory is the canonical name; BookFactoryAgent is the discovery hook.)
-class BookFactoryAgent(BookFactory):
-    pass
-
 
 
 # ─── Inlined LLM dispatch (one copy for the whole singleton) ──────────
