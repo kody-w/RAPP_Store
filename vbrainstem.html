@@ -20,7 +20,8 @@
   <p>Redirecting to <a id="dest" href="https://kody-w.github.io/heimdall/?seed=kody-w/RAPP">the grail (embodying kody-w/RAPP)</a>…</p>
   <p style="margin-top: 30px;"><small>Other twins to embody: <a href="https://kody-w.github.io/RAPP/pages/summon.html">summon portal</a>.</small></p>
   <script>
-    setTimeout(() => location.replace("https://kody-w.github.io/heimdall/?seed=kody-w/RAPP"), 600);
+    // carry the #rapp=<id> deep link through — a brainstem that hosts skins opens it
+    setTimeout(() => location.replace("https://kody-w.github.io/heimdall/?seed=kody-w/RAPP" + (location.hash || "")), 600);
   </script>
 </body>
 </html>
