@@ -3,8 +3,8 @@
   "name": "RAPP_Store Pok\u00e9dex API",
   "description": "Static catalog API for cataloged rapplications. PokeAPI-style: predictable JSON URLs hosted via raw.githubusercontent.com, no backend. Each rapplication is browsable as an organism \u2014 sprite, lineage, stats, downloadable .egg cartridge. Updated by pushing to main; the rebuild is a static script (scripts/build_pokedex_api.py).",
   "version": "1.0.0",
-  "generated_at": "2026-07-24T16:47:49Z",
-  "count": 15,
+  "generated_at": "2026-08-24T20:31:37Z",
+  "count": 22,
   "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/index.json",
   "rapplications": [
     {
@@ -60,6 +60,19 @@
       "install_one_liner": null
     },
     {
+      "id": "novell",
+      "name": "Novell",
+      "kind": "rapplication",
+      "publisher": "@kody-w",
+      "category": "analysis",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/novell.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/novell.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/novell.egg",
+      "install_one_liner": null
+    },
+    {
       "id": "perpetual_loop_factory",
       "name": "Perpetual Loop Factory",
       "kind": "rapplication",
@@ -70,6 +83,19 @@
       "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/perpetual_loop_factory.json",
       "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/perpetual_loop_factory.svg",
       "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/perpetual_loop_factory.egg",
+      "install_one_liner": null
+    },
+    {
+      "id": "project_tracker",
+      "name": "Project Tracker",
+      "kind": "rapplication",
+      "publisher": "@kody-w",
+      "category": "productivity",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/project_tracker.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/project_tracker.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/project_tracker.egg",
       "install_one_liner": null
     },
     {
@@ -138,6 +164,19 @@
       "install_one_liner": null
     },
     {
+      "id": "csv_surgeon",
+      "name": "CSV Surgeon",
+      "kind": "rapplication",
+      "publisher": "@rapp",
+      "category": "data",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/csv_surgeon.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/csv_surgeon.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/csv_surgeon.egg",
+      "install_one_liner": null
+    },
+    {
       "id": "egg_hatcher",
       "name": "Egg Hatcher",
       "kind": "rapplication",
@@ -151,6 +190,58 @@
       "install_one_liner": null
     },
     {
+      "id": "json_doctor",
+      "name": "JSON Doctor",
+      "kind": "rapplication",
+      "publisher": "@rapp",
+      "category": "data",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/json_doctor.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/json_doctor.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/json_doctor.egg",
+      "install_one_liner": null
+    },
+    {
+      "id": "log_detective",
+      "name": "Log Detective",
+      "kind": "rapplication",
+      "publisher": "@rapp",
+      "category": "operations",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/log_detective.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/log_detective.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/log_detective.egg",
+      "install_one_liner": null
+    },
+    {
+      "id": "markdown_medic",
+      "name": "Markdown Medic",
+      "kind": "rapplication",
+      "publisher": "@rapp",
+      "category": "docs",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/markdown_medic.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/markdown_medic.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/markdown_medic.egg",
+      "install_one_liner": null
+    },
+    {
+      "id": "pii_scout",
+      "name": "PII Scout",
+      "kind": "rapplication",
+      "publisher": "@rapp",
+      "category": "operations",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/pii_scout.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/pii_scout.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/pii_scout.egg",
+      "install_one_liner": null
+    },
+    {
       "id": "rapp-zoo",
       "name": "rapp-zoo",
       "kind": "rapplication",
@@ -161,6 +252,19 @@
       "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/rapp-zoo.json",
       "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/rapp-zoo.svg",
       "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/rapp-zoo.egg",
+      "install_one_liner": null
+    },
+    {
+      "id": "toaster",
+      "name": "Toaster",
+      "kind": "rapplication",
+      "publisher": "@rapp",
+      "category": "developer",
+      "version": "1.0.0",
+      "has_skin": true,
+      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/toaster.json",
+      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/toaster.svg",
+      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/toaster.egg",
       "install_one_liner": null
     },
     {
@@ -187,19 +291,6 @@
       "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/wildhaven_ceo.json",
       "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/wildhaven_ceo.svg",
       "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/wildhaven_ceo.egg",
-      "install_one_liner": null
-    },
-    {
-      "id": "project_tracker",
-      "name": "Project Tracker",
-      "kind": "rapplication",
-      "publisher": "@kody-w",
-      "category": "productivity",
-      "version": "1.0.0",
-      "has_skin": true,
-      "url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/project_tracker.json",
-      "sprite": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/project_tracker.svg",
-      "egg": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/project_tracker.egg",
       "install_one_liner": null
     }
   ]

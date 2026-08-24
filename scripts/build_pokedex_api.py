@@ -39,6 +39,8 @@ import re
 import os
 import shutil
 import sys
+import subprocess
+import datetime
 import time
 import zipfile
 from pathlib import Path
@@ -62,6 +64,28 @@ def _short_hash(s: str) -> str:
 
 def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _app_iso(app_dir) -> str:
+    """Deterministic timestamp for an app: its last git commit date (UTC).
+
+    Wall-clock stamps inside egg bytes made every producer run rewrite every
+    egg — and every egg sha256 pin with it. An egg's bytes must be a pure
+    function of its app directory, so identical inputs build identical eggs.
+    Falls back to _now_iso() only outside a git checkout."""
+    try:
+        out = subprocess.run(
+            ["git", "log", "-1", "--format=%cI", "--", str(app_dir)],
+            capture_output=True, text=True, cwd=str(_REPO), timeout=20,
+        ).stdout.strip()
+        if out:
+            return time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ",
+                time.gmtime(datetime.datetime.fromisoformat(out).timestamp()),
+            )
+    except Exception:
+        pass
+    return "2020-01-01T00:00:00Z"   # fixed sentinel: deterministic outside git
 
 
 # ── Sprite generator ───────────────────────────────────────────────────────
@@ -126,7 +150,17 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
     import io
     buf = io.BytesIO()
 
+    # zipfile stamps each member with the wall clock by default, which makes
+    # every build produce different egg bytes (and break every sha256 pin).
+    # Stamp members with the app's own deterministic date instead.
+    egg_dt = time.strptime(_app_iso(app_dir), "%Y-%m-%dT%H:%M:%SZ")[:6]
+
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        def _writestr(arcname, data):
+            info = zipfile.ZipInfo(arcname, date_time=egg_dt)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            z.writestr(info, data)
         # rappid.json
         identity = {
             "schema": "rapp/1",
@@ -137,9 +171,9 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
             "version": version,
             "publisher": publisher,
             "rapp_id": rapp_id,
-            "born_at": _now_iso(),
+            "born_at": _app_iso(app_dir),
         }
-        z.writestr("rappid.json", json.dumps(identity, indent=2))
+        _writestr("rappid.json", json.dumps(identity, indent=2))
 
         # The singleton agent (one per rapp — the chat face)
         singleton_dir = app_dir / "singleton"
@@ -147,7 +181,7 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
         if singleton_dir.is_dir():
             for f in sorted(singleton_dir.iterdir()):
                 if f.suffix == ".py":
-                    z.writestr(f"agents/{f.name}", f.read_bytes())
+                    _writestr(f"agents/{f.name}", f.read_bytes())
                     agent_filename = f.name
                     counts["agent"] += 1
                     break  # one singleton per rapp
@@ -160,7 +194,7 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
         if organ_dir.is_dir():
             for f in sorted(organ_dir.iterdir()):
                 if f.suffix == ".py" and f.name != "__init__.py":
-                    z.writestr(f"organs/{f.name}", f.read_bytes())
+                    _writestr(f"organs/{f.name}", f.read_bytes())
                     organ_filename = f.name
                     counts["organ"] += 1
                     break  # one organ per rapp (matches the agent-first contract)
@@ -171,14 +205,14 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
             for f in ui_dir.rglob("*"):
                 if f.is_file():
                     rel = f.relative_to(ui_dir).as_posix()
-                    z.writestr(f"rapp_ui/{rapp_id}/{rel}", f.read_bytes())
+                    _writestr(f"rapp_ui/{rapp_id}/{rel}", f.read_bytes())
                     counts["ui"] += 1
 
         # Manifest
         api_manifest = {
             "schema": "brainstem-egg/2.2-rapplication",
             "type": "rapplication",
-            "exported_at": _now_iso(),
+            "exported_at": _app_iso(app_dir),
             "rappid": rappid,
             "rapp_id": rapp_id,
             "name": name,
@@ -190,7 +224,7 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
             "has_skin": counts["ui"] > 0,
             "counts": counts,
         }
-        z.writestr("manifest.json", json.dumps(api_manifest, indent=2))
+        _writestr("manifest.json", json.dumps(api_manifest, indent=2))
 
     return buf.getvalue()
 
@@ -365,7 +399,7 @@ def main():
             "to main; the rebuild is a static script (scripts/build_pokedex_api.py)."
         ),
         "version": "1.0.0",
-        "generated_at": _now_iso(),
+        "generated_at": _app_iso(_APPS),
         "count": len(entries),
         "self_url":      f"{RAW_PREFIX}/api/v1/index.json",
         "rapplications": [
@@ -388,7 +422,11 @@ def main():
     (_API / "index.json").write_text(json.dumps(index, indent=2) + "\n")
 
     print()
-    print(f"  → wrote {len(entries)} rapplication(s) to {_API.relative_to(_REPO)}/")
+    try:
+        api_label = _API.relative_to(_REPO)
+    except ValueError:
+        api_label = _API
+    print(f"  → wrote {len(entries)} rapplication(s) to {api_label}/")
     print(f"  → index: api/v1/index.json")
 
 

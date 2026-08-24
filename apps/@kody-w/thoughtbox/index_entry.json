@@ -2,7 +2,7 @@
   "id": "thoughtbox",
   "name": "Thoughtbox",
   "version": "1.0.0",
-  "summary": "Local-first reflection journal — append, list, search, tag, export, import. Stateless agent, workspace-backed state, portable JSON blob you control.",
+  "summary": "Local-first reflection journal \u2014 append, list, search, tag, export, import. Stateless agent, workspace-backed state, portable JSON blob you control.",
   "tagline": "A box for your thoughts. Local-first, portable, yours.",
   "category": "productivity",
   "tags": [
@@ -37,7 +37,7 @@
       ]
     }
   },
-  "egg_sha256": "290803fca9378c41eed349ce89dfd22c137276a8efc61b759956544dac1a1189",
+  "egg_sha256": "98b0e5d5f2e04199c332f1e89c1e721f9ab1e6acfa4feb2b8ff10ee86d417d6d",
   "egg_bytes": 8250,
   "egg_filename": "thoughtbox.egg"
 }
