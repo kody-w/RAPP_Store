@@ -16,7 +16,7 @@
         "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
         "bundle_id": {"type": "string"},
         "arch": {"enum": ["arm64", "x86_64"]},
-        "url": {"$ref": "desktop.schema.json#/$defs/releaseURL"},
+        "url": {"$ref": "desktop.schema.json#/$defs/releaseAssetURL"},
         "bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824},
         "sha256": {"$ref": "desktop.schema.json#/$defs/sha256"}
       }

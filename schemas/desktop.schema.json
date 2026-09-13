@@ -22,20 +22,14 @@
         "properties": {
           "arch": {"enum": ["arm64", "x86_64"]},
           "format": {"enum": ["dmg", "zip"]},
-          "url": {
-            "allOf": [
-              {"$ref": "#/$defs/releaseURL"},
-              {"pattern": "\\.evidence(\\.[0-9a-f]{64})?\\.json$"}
-            ],
-            "description": "Use a new content-addressed asset for corrections; the suffix hashes the exact evidence file bytes, not the archive. lib_desktop.py enforces suffix-to-evidence.sha256 equality."
-          },
+          "url": {"$ref": "#/$defs/releaseAssetURL"},
           "bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824},
           "sha256": {"$ref": "#/$defs/sha256"},
           "evidence": {
             "type": "object", "additionalProperties": false,
             "required": ["url", "bytes", "sha256"],
             "properties": {
-              "url": {"$ref": "#/$defs/releaseURL"},
+              "url": {"$ref": "#/$defs/evidenceURL"},
               "bytes": {"type": "integer", "minimum": 1, "maximum": 262144},
               "sha256": {"$ref": "#/$defs/sha256"}
             }
@@ -59,6 +53,19 @@
       }
     },
     "releaseURL": {"type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*/releases/download/v[0-9]+\\.[0-9]+\\.[0-9]+/[A-Za-z0-9_.-]+$"},
+    "releaseAssetURL": {
+      "allOf": [
+        {"$ref": "#/$defs/releaseURL"},
+        {"pattern": "\\.(dmg|zip)$"}
+      ]
+    },
+    "evidenceURL": {
+      "allOf": [
+        {"$ref": "#/$defs/releaseURL"},
+        {"pattern": "\\.evidence(\\.[0-9a-f]{64})?\\.json$"}
+      ],
+      "description": "Use a new content-addressed asset for corrections; the suffix hashes the exact evidence file bytes, not the archive. lib_desktop.py enforces suffix-to-evidence.sha256 equality."
+    },
     "text": {"type": "string", "minLength": 1, "maxLength": 4000, "pattern": "\\S"},
     "steps": {
       "type": "array", "minItems": 1, "maxItems": 20,
