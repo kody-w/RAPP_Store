@@ -21,6 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -29,32 +30,22 @@ jobs:
 
       - name: Promote to live catalog
         id: promote
-        continue-on-error: true
         run: |
-          set +e
+          set -euo pipefail
+          mkdir -p .ci-work
           python3 scripts/promote_rapplication.py \
             --event-path "$GITHUB_EVENT_PATH" \
             --staging-dir staging/ \
             --catalog index.json \
-            > /tmp/report.md
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
-
-      - name: Comment on issue
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const body = fs.readFileSync('/tmp/report.md', 'utf8');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body
-            });
+            > .ci-work/promotion-report.md
 
       - name: Commit promotion
-        if: steps.promote.outputs.exit_code == '0'
+        id: persist
+        if: steps.promote.outcome == 'success'
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          set -euo pipefail
           git config user.name "rapp-store-bot"
           git config user.email "rapp-store-bot@users.noreply.github.com"
           # -f overrides .gitignore on staging/ (see process-rapplication.yml).
@@ -62,30 +53,48 @@ jobs:
           # Bundle promotions also touched <id>/ — add it generically.
           git add -A
           if git diff --staged --quiet; then
-            echo "No promotion changes (already up to date)."
-          else
-            git commit -m "promote: rapplication for issue #${{ github.event.issue.number }}"
-            for i in 1 2 3; do
-              git pull --rebase origin main && git push origin HEAD:main && break
-              echo "push attempt $i failed; retrying"
-              sleep 3
-            done
+            echo "Validated promotion state is already present in current main."
+            exit 0
           fi
+          git commit -m "promote: rapplication for issue #${ISSUE_NUMBER}"
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push attempt $i failed; retrying the same commit without rebasing state"
+            sleep 3
+          done
+          echo "::error::Promotion publication was not confirmed. Retry through the approval flow."
+          exit 1
 
-      - name: Close issue
-        if: steps.promote.outputs.exit_code == '0'
+      - name: Report outcome
+        if: always()
         uses: actions/github-script@v7
+        env:
+          PROMOTION_OUTCOME: ${{ steps.promote.outcome }}
+          PUBLICATION_OUTCOME: ${{ steps.persist.outcome }}
         with:
           script: |
+            const fs = require('fs');
+            const promoted = process.env.PROMOTION_OUTCOME === 'success';
+            const published = promoted && process.env.PUBLICATION_OUTCOME === 'success';
+            const path = '.ci-work/promotion-report.md';
+            const report = fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : '';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = published
+              ? report || '## ✅ Promotion published'
+              : promoted
+                ? `## ❌ Promotion not published\n\nLocal promotion completed, but publication to current main was not confirmed. No promotion or issue closure is claimed. Inspect current main before retrying normal approval.\n\nWorkflow: ${runUrl}`
+                : report || `## ❌ Promotion failed\n\nNo promotion or issue closure is claimed.\n\nWorkflow: ${runUrl}`;
+            await github.rest.issues.createComment({
+              ...context.repo, issue_number: context.issue.number, body
+            });
             await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: ['promoted']
+              ...context.repo, issue_number: context.issue.number,
+              labels: published ? ['promoted'] : ['failed']
             });
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              state: 'closed'
-            });
+            if (published) {
+              await github.rest.issues.update({
+                ...context.repo, issue_number: context.issue.number, state: 'closed'
+              });
+            }

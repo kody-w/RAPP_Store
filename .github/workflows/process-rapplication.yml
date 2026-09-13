@@ -19,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -27,46 +28,22 @@ jobs:
 
       - name: Validate submission
         id: validate
-        continue-on-error: true
         run: |
-          set +e
+          set -euo pipefail
+          mkdir -p .ci-work
           python3 scripts/process_rapplication.py \
             --event-path "$GITHUB_EVENT_PATH" \
             --staging-dir staging/ \
             --catalog index.json \
-            > /tmp/report.md
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
-
-      - name: Comment on issue
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const body = fs.readFileSync('/tmp/report.md', 'utf8');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body
-            });
-
-      - name: Apply labels
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const code = '${{ steps.validate.outputs.exit_code }}';
-            const labels = code === '0' ? ['pending-review', 'rapplication-submission']
-                                        : ['failed', 'rapplication-submission'];
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels
-            });
+            > .ci-work/process-report.md
 
       - name: Commit staging changes
-        if: steps.validate.outputs.exit_code == '0'
+        id: persist
+        if: steps.validate.outcome == 'success'
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          set -euo pipefail
           git config user.name "rapp-store-bot"
           git config user.email "rapp-store-bot@users.noreply.github.com"
           # staging/ is in .gitignore so a local clone doesn't accumulate
@@ -75,12 +52,44 @@ jobs:
           # state committed to read it.
           git add -fA staging/
           if git diff --staged --quiet; then
-            echo "No staging changes to commit (federation mode or unchanged)."
-          else
-            git commit -m "stage: rapplication for issue #${{ github.event.issue.number }} [skip ci]"
-            for i in 1 2 3; do
-              git pull --rebase origin main && git push origin HEAD:main && break
-              echo "push attempt $i failed; retrying"
-              sleep 3
-            done
+            echo "Validated pending state is already present in current main."
+            exit 0
           fi
+          git commit -m "stage: rapplication for issue #${ISSUE_NUMBER} [skip ci]"
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push attempt $i failed; retrying the same commit without rebasing state"
+            sleep 3
+          done
+          echo "::error::Pending state publication was not confirmed. Resubmit from current main."
+          exit 1
+
+      - name: Report outcome
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          VALIDATION_OUTCOME: ${{ steps.validate.outcome }}
+          PUBLICATION_OUTCOME: ${{ steps.persist.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const validated = process.env.VALIDATION_OUTCOME === 'success';
+            const published = validated && process.env.PUBLICATION_OUTCOME === 'success';
+            const path = '.ci-work/process-report.md';
+            const report = fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : '';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = published
+              ? report || '## ✅ Submission validated and pending state published'
+              : validated
+                ? `## ❌ Submission not published\n\nValidation passed, but publication of pending state was not confirmed. Do not approve this attempt. Inspect current main, then resubmit through this issue.\n\nWorkflow: ${runUrl}`
+                : report || `## ❌ Submission validation failed\n\nNo success or pending-state publication is claimed.\n\nWorkflow: ${runUrl}`;
+            await github.rest.issues.createComment({
+              ...context.repo, issue_number: context.issue.number, body
+            });
+            await github.rest.issues.addLabels({
+              ...context.repo, issue_number: context.issue.number,
+              labels: published ? ['pending-review', 'rapplication-submission']
+                                : ['failed', 'rapplication-submission']
+            });
