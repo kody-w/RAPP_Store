@@ -76,7 +76,10 @@ The canonical spec is `SPEC.md`. Submission goes through one of:
 
 - **`@rapp/publish-to-rapp-store` agent** — `publish_to_rapp_store/singleton/publish_to_rapp_store_agent.py`. Validates locally, opens a `[RAPP]` issue. Two modes: `submit_bundle` (files copied into rapp_store) and `submit_repo` (federation — catalog entry points at submitter's own public GitHub repo via `raw.githubusercontent.com`).
 - **Issue template** — `.github/ISSUE_TEMPLATE/submit-rapplication.yml` (structured form).
-- **Direct PR** (bundle mode only) — drop a `<id>/` directory in, regenerate the relevant `index.json` entry.
+- **Pages submission UI** (`submit.html`) — creates the same structured `[RAPP]` issue.
+
+All future submissions require the `[RAPP]` receiver and approval flow.
+Direct live catalog edits and release uploads alone are not submissions.
 
 Receiver flow (GH Actions):
 - `process-rapplication.yml` (issues:opened/edited/reopened) → `scripts/process_rapplication.py` parses payload, calls `scripts/lib_rapp.py` validator, stages bundles under `staging/<id>/`, comments + labels `pending-review`.
@@ -85,5 +88,14 @@ Receiver flow (GH Actions):
 The validator (`scripts/lib_rapp.py`) is the single source of truth for SPEC.md §6 (validation rules) and §4 (singleton AST contract). Both the agent (local pre-flight) and the receiver workflow use it. Tests in `tests/test_lib_rapp.py`, `tests/test_publish_agent.py`, `tests/test_receiver.py`. Run `python3 -m pytest tests/`.
 
 Federation submissions add a `source: {repo, ref, path, commit_sha}` block to their catalog entry. The brainstem's binder service still installs from `singleton_url` (which uses `ref`, e.g. `main`) and verifies SHA256 — drift surfaces as a hard install failure. To publish a new version, the submitter bumps `manifest.version` in their repo and resubmits; the agent re-resolves `commit_sha`.
+
+Optional public native macOS distribution is defined in SPEC §14 / Proposal
+0006 and `schemas/desktop*.schema.json`. `desktop` supplements the existing
+singleton/UI contract with same-repo GitHub Release DMGs and hash-bound
+publisher reports. Native integration URLs use the immutable manifest commit,
+and native-build provenance is pinned separately. Promotion rechecks current
+versions and exact staging, then refreshes only that native ID's v1 JSON
+metadata. Do not run legacy producers to invent federation eggs/hatchers,
+mirror binaries, claim Apple/RAPP/1 acceptance, or amend the Constitution.
 
 `publish_to_rapp_store` is in `RESERVED_IDS` — only `@kody-w` / `@rapp` can publish updates. The validator's `# rapp-validator: allow-template-placeholders` source marker exempts files (like the publish agent itself) that legitimately need to embed the template-placeholder strings as constants.

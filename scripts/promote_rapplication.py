@@ -27,6 +27,9 @@ import time
 from pathlib import Path
 
 import lib_rapp
+import lib_desktop
+import build_pokedex_api
+from process_rapplication import extract_payload, ProcessError, submission_fingerprint
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -68,6 +71,13 @@ def promote_bundle(item: dict, staging_dir: Path, repo_root: Path,
     src = base / item["staged_dir"]
     if not src.is_dir():
         raise PromoteError(f"E_STAGED_MISSING: {src}")
+    current = json.loads(catalog_path.read_text()) if catalog_path.is_file() else {}
+    result = lib_rapp.validate_dir(src, expected_publisher=item.get("submitter"),
+                                   existing_catalog=current, submission_type="bundle")
+    if not result.ok:
+        raise PromoteError(f"E_REVALIDATE_FAILED: {result.errors}")
+    if result.manifest["id"] != item["id"] or result.manifest["version"] != item["version"]:
+        raise PromoteError("E_STALE_PENDING: staged bundle ID/version changed; resubmit")
     target = base / rapp_id
     if target.exists():
         previous_versions = repo_root / rapp_id / "versions"
@@ -95,13 +105,26 @@ def promote_bundle(item: dict, staging_dir: Path, repo_root: Path,
 
 
 def promote_federation(item: dict, catalog_path: Path) -> tuple[dict, dict]:
-    src = item.get("entry", {}).get("source") or {}
+    staged = item.get("entry", {})
+    src = staged.get("source") or {}
     repo, ref, path = src.get("repo"), src.get("ref", "main"), src.get("path", "")
     if not repo:
         raise PromoteError("E_BAD_FEDERATION_SOURCE: source.repo missing in pending entry")
-    result = lib_rapp.validate_federation(repo, ref=ref, path=path)
+    current = json.loads(catalog_path.read_text()) if catalog_path.is_file() else {}
+    native = "desktop" in staged
+    if native and not lib_desktop.COMMIT_RE.fullmatch(src.get("commit_sha") or ""):
+        raise PromoteError("E_DESKTOP_SOURCE_PIN: native staging lacks an immutable manifest commit")
+    result = lib_rapp.validate_federation(
+        repo, ref=ref, path=path, existing_catalog=current,
+        expected_publisher=item.get("submitter"),
+        expected_commit_sha=src.get("commit_sha") if native else None)
     if not result.ok:
         raise PromoteError(f"E_REVALIDATE_FAILED: {result.errors}")
+    if result.manifest["id"] != item["id"] or result.manifest["version"] != item["version"]:
+        raise PromoteError("E_STALE_PENDING: federation ID/version changed since review; resubmit")
+    if native or "desktop" in result.index_entry:
+        if result.index_entry != staged:
+            raise PromoteError("E_DESKTOP_STALE_PENDING: native metadata or provenance changed since staging; resubmit")
     return result.index_entry, result.manifest
 
 
@@ -129,6 +152,15 @@ def promote(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
     except PromoteError as e:
         return False, f"## ❌ Promotion failed\n\n`{e}`\n"
 
+    if "desktop" in item.get("entry", {}):
+        try:
+            payload = extract_payload(issue.get("body") or "")
+        except ProcessError:
+            return False, "## ❌ Promotion failed\n\n`E_DESKTOP_STALE_ISSUE: missing approved submission payload; resubmit`\n"
+        if (not issue.get("title", "").startswith("[RAPP]")
+                or submission_fingerprint(payload) != item.get("submission_sha256")):
+            return False, "## ❌ Promotion failed\n\n`E_DESKTOP_STALE_ISSUE: issue payload changed since staging; resubmit`\n"
+
     try:
         if item["mode"] == "bundle":
             entry, manifest = promote_bundle(item, staging_dir, staging_dir.parent, catalog_path)
@@ -139,7 +171,17 @@ def promote(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
     except PromoteError as e:
         return False, f"## ❌ Promotion failed\n\n`{e}`\n"
 
+    discovery = {}
+    if "desktop" in entry:
+        current = json.loads(catalog_path.read_text()) if catalog_path.is_file() else {}
+        try:
+            discovery = build_pokedex_api.native_discovery_updates(
+                lib_rapp.merge_index_entry(current, entry),
+                catalog_path.parent / "api" / "v1", [entry["id"]])
+        except ValueError as exc:
+            return False, f"## ❌ Promotion failed\n\n`{exc}`\n"
     update_catalog(catalog_path, entry)
+    build_pokedex_api.write_native_discovery(discovery)
     remove_pending(staging_dir, issue_number)
 
     return True, _md_promotion(item, entry, manifest)
@@ -161,6 +203,12 @@ def _md_promotion(item, entry, manifest):
              f"- **singleton_url:** {entry.get('singleton_url')}\n\n"
              f"Catalog updated. The brainstem's binder service will pick up "
              f"the new entry on next `catalog` action.\n")
+    if "desktop" in entry:
+        head += ("\nNative downloads remain in the source repository's GitHub Release. "
+                 "Only this ID's v1 discovery/detail metadata was refreshed; no eggs, "
+                 "hatchers, native binaries or RAPP/1 acceptance were generated. "
+                 "Release report references and byte pins were checked; this is not "
+                 "independent authentication of Apple's signing/notarization reports.\n")
     return head
 
 

@@ -2,13 +2,45 @@
 
 **[📦 Browse the store](https://kody-w.github.io/RAPP_Store/)** · **[🦎 Pokédex API](#pokédex-api)** · **[📋 SPEC](./SPEC.md)** · **[🔒 Gated rapps (§11)](./SPEC.md#11-gated-rapplications-access-private)** · **[🔌 RAPP Agent Registry](https://github.com/kody-w/RAR)** · **[⚙️ RAPP engine](https://github.com/kody-w/RAPP)**
 
-Public catalog of RAPP **rapplications** — bundled directories that pair a single-file agent with a UI, a service, or a state cartridge. Drop them into your local brainstem and they work — or browse them like Pokémon via the [Pokédex API](#pokédex-api).
+Public catalog of RAPP **rapplications** — agent/UI integrations, optionally
+supplemented by genuine native macOS release downloads. Legacy integrations
+load into a brainstem; native applications install separately. Browse the
+[store](https://kody-w.github.io/RAPP_Store/) or [Pokédex API](#pokédex-api).
 
-> **Rapplications are organisms.** Per the unification ratified in `kody-w/RAPP` (vault note: *Rapplications Are Organisms*), every entry in this catalog is a digital organism that has graduated — passed review, earned skin (a UI bundle), suitable for hosting inside someone else's brainstem. Distributed via this catalog as both a bare singleton `.py` and a portable `.egg` cartridge ([brainstem-egg/2.2-rapplication schema](https://github.com/kody-w/RAPP/blob/main/rapp_brainstem/utils/bond.py)).
+> Legacy local producer outputs may include a singleton `.py` and portable
+> `.egg` cartridge ([brainstem-egg/2.2-rapplication schema](https://github.com/kody-w/RAPP/blob/main/rapp_brainstem/utils/bond.py)).
+> Federation does not imply that an egg, hatcher, lineage or protocol
+> identity exists. Only explicitly published artifacts are offered.
 
 > **Looking for bare agents?** A single `*_agent.py` with no UI belongs in **[kody-w/RAR](https://github.com/kody-w/RAR)** — single-celled organisms without skin. Per [Constitution Article XXVII](https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md), bundle goes here, bare goes there.
 
 This repo was extracted from [`kody-w/RAPP`](https://github.com/kody-w/RAPP) on 2026-04-26 as the content layer of the platform. The engine (Tier 1 brainstem, Tier 2 swarm, Tier 3 worker) lives in `kody-w/RAPP`. Trust metadata (signing, identity, provenance) lives in the RAR registry. This repo is just **content** — rapplications you can fetch and run.
+
+## Native macOS distribution (optional)
+
+The backward-compatible `desktop: rapp-desktop/1.0` extension describes
+real native releases in their **existing source repositories**. It requires
+a minimum OS, stable bundle ID, full native-build commit, versioned tag,
+architecture-specific DMG URLs/exact bytes/SHA256, bound public signing and
+notarization reports, and prerequisites/privacy/setup disclosures.
+
+The existing Fable5 IDs remain **`rapp_crispy`, `rapp_rewind`, `rapp_shot`,
+`rapp_voice`**. RAPP Tools is infrastructure, not another listing.
+This plumbing change does not itself publish releases or alter their live
+catalog entries.
+
+Native downloads are GitHub Release assets, never mirrored/inline store
+binaries. The Python singleton is secondary integration; dropping it into
+`agents/` does **not** install the native app. The receiver checks actual
+release/evidence byte pins and public tag/build references. Publisher
+reports are not independent Apple authentication or RAPP/1 acceptance;
+reviewers and macOS/Gatekeeper must verify the native application.
+
+See [SPEC §14](./SPEC.md#14-optional-native-desktop-distribution),
+[Proposal 0006](./docs/proposals/0006-native-desktop-distribution.md), and the
+[desktop](./schemas/desktop.schema.json) /
+[evidence](./schemas/desktop-evidence.schema.json) schemas. No constitutional
+amendment is made; any such change requires explicit owner approval.
 
 ## Gated rapplications (private substance, public discovery)
 
@@ -56,15 +88,34 @@ https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sprite/<id>.svg
 https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/egg/<id>.egg
 ```
 
-Each `<id>.json` is a Pokédex entry: id, name, rappid, types, stats (`has_skin`, `singleton_lines`, `singleton_bytes`, `singleton_sha256`), parent rappid (lineage walks back to the species root), URLs to the egg + sprite + singleton + UI bundle. Each `<id>.svg` is a deterministic 6×6 sprite generated from the rappid hash. Each `<id>.egg` is a brainstem-egg/2.2-rapplication cartridge — drop into a brainstem and the rapp installs.
+Legacy local `<id>.json` records contain stats, lineage and published
+egg/sprite/singleton/UI URLs. Native federated records instead carry
+`distribution: desktop`, validated `desktop` metadata, pinned source and
+agent/UI integration fields. Native projection does not manufacture a
+`rappid`, parent, sprite, egg or hatcher. Consumers must tolerate absent
+legacy artifact fields.
 
 The [`rapp-zoo`](https://github.com/kody-w/rapp-zoo) consumes this API in its **Discover** tab — sprites + cards + one-click egg downloads. Drag the egg back onto any brainstem to hatch the rapp.
 
-Rebuild: `python3 scripts/build_pokedex_api.py` (walks `apps/@*/`, regenerates `api/v1/` atomically — JSON entries, sprites, eggs).
+The legacy full producer (`python3 scripts/build_pokedex_api.py`) walks
+`apps/@*/` and rebuilds local JSON/sprite/egg outputs, then projects approved
+native federation metadata. **Do not run it to invent missing federation
+artifacts.** Native promotion instead runs a deterministic, scoped refresh:
+
+```bash
+python3 scripts/build_pokedex_api.py --native-only --ids <approved-native-id>
+```
+
+The scoped command reads the already-approved canonical catalog, writes
+only that ID's v1 detail/list row, preserves unrelated generated files,
+performs no network fetch, and never changes `index.json` at the root.
 
 ## Legacy catalog
 
-[`index.json`](./index.json) at the repo root remains the original catalog (`schema: "rapp-store/1.0"`) consumed by the brainstem's binder service. Same source data as the Pokédex API; both are generated from the per-app `manifest.json` files.
+[`index.json`](./index.json) at the repo root remains the canonical catalog
+(`schema: "rapp-store/1.0"`) consumed by the brainstem's binder service.
+Approved manifests supply local or federated entries; native v1 discovery
+is a metadata-only projection of those reviewed entries.
 
 ```
 https://raw.githubusercontent.com/kody-w/rapp_store/main/index.json
@@ -134,14 +185,24 @@ Each rapplication is a directory with at least:
 
 ## Submitting a rapplication
 
-The catalog accepts any single-file agent that satisfies the SPEC §5 contract in `kody-w/RAPP/pages/docs/SPEC.md`:
+All future submissions go through the **`[RAPP]` issue receiver and
+maintainer approval** front door. Use
+[the submission UI](https://kody-w.github.io/RAPP_Store/submit.html),
+the publishing agent, or the issue template. The shared validator enforces
+[SPEC §6](./SPEC.md#6-validation-rules-the-receiver-enforces-these), including
+the singleton contract and mandatory UI:
 
 - one file
 - one class extending `BasicAgent`
 - one `metadata` dict (OpenAI function-calling schema)
 - one `perform(**kwargs) -> str`
 
-Open a PR with your rapplication directory + a regenerated `index.json` entry. There is no review gate beyond the contract — RAR (the trust layer) provides identity attestation separately, but the catalog itself never refuses a contract-conformant agent.
+Native submissions use **federation** with genuine public source-release
+artifacts and complete §14 evidence; update the existing ID with a strictly
+higher version. Do not hand-edit live catalog entries, submit inline native
+binaries, or fabricate hashes/signing evidence. Direct catalog PRs and
+release uploads alone are not submissions. See [SKILL.md](./SKILL.md) for
+the exact issue envelope and staged approval sequence.
 
 ## Related
 

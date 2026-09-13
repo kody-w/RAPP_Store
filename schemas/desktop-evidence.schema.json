@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kody-w.github.io/RAPP_Store/schemas/desktop-evidence.schema.json",
+  "title": "Publisher native-release reports (not independent Apple authentication)",
+  "description": "lib_desktop.py verifies subject/source equality, actual report contents and the successful same-repo workflow run. A checksum alone does not authenticate Apple reports.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "subject", "source", "workflow_run", "signing", "notarization", "gatekeeper", "stapler"],
+  "properties": {
+    "schema": {"const": "rapp-desktop-evidence/1.0"},
+    "subject": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "bundle_id", "arch", "url", "bytes", "sha256"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "bundle_id": {"type": "string"},
+        "arch": {"enum": ["arm64", "x86_64"]},
+        "url": {"$ref": "desktop.schema.json#/$defs/releaseURL"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824},
+        "sha256": {"$ref": "desktop.schema.json#/$defs/sha256"}
+      }
+    },
+    "source": {"$ref": "desktop.schema.json#/$defs/source"},
+    "workflow_run": {"type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*/actions/runs/[1-9][0-9]*$"},
+    "signing": {
+      "type": "object", "additionalProperties": false,
+      "required": ["team_id", "authority", "codesign_details", "codesign_verify", "architectures"],
+      "properties": {
+        "team_id": {"type": "string", "pattern": "^[A-Z0-9]{10}$"},
+        "authority": {"type": "string", "pattern": "^Developer ID Application: .+ \\([A-Z0-9]{10}\\)$"},
+        "codesign_details": {"type": "string", "minLength": 1},
+        "codesign_verify": {"$ref": "#/$defs/report"},
+        "architectures": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"enum": ["arm64", "x86_64"]}}
+      }
+    },
+    "notarization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["submission_id", "submitted_sha256", "log"],
+      "properties": {
+        "submission_id": {"type": "string", "pattern": "^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$"},
+        "submitted_sha256": {"$ref": "desktop.schema.json#/$defs/sha256"},
+        "log": {
+          "type": "object",
+          "required": ["jobId", "status", "statusCode", "archiveFilename", "sha256", "issues"],
+          "properties": {
+            "jobId": {"type": "string"},
+            "status": {"const": "Accepted"},
+            "statusCode": {"const": 0},
+            "archiveFilename": {"type": "string"},
+            "sha256": {"$ref": "desktop.schema.json#/$defs/sha256"},
+            "issues": {"enum": [null, []]}
+          }
+        }
+      }
+    },
+    "gatekeeper": {"$ref": "#/$defs/report"},
+    "stapler": {"$ref": "#/$defs/report"}
+  },
+  "$defs": {
+    "report": {
+      "type": "object", "additionalProperties": false,
+      "required": ["exit_code", "output"],
+      "properties": {
+        "exit_code": {"const": 0},
+        "output": {"type": "string", "minLength": 1, "maxLength": 262144}
+      }
+    }
+  }
+}
