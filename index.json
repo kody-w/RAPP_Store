@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.1.0",
-  "generated_at": "2026-09-13T17:17:36Z",
+  "generated_at": "2026-09-13T17:18:56Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
@@ -1069,7 +1069,7 @@
     {
       "id": "rapp_voice",
       "name": "RAPP Voice",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "publisher": "@kody-w",
       "manifest_name": "@kody-w/rapp-voice-singleton",
       "runtime": "twin",
@@ -1100,33 +1100,33 @@
         "bundle_id": "io.rapp.voice",
         "source": {
           "repo": "kody-w/rapp-voice",
-          "commit_sha": "45e5529509c04b2b346e27b8b8a82c59cb5ec32d"
+          "commit_sha": "75d10cc14819573f6d771231a0677aa21e157c47"
         },
-        "release_tag": "v1.1.0",
+        "release_tag": "v1.1.1",
         "artifacts": [
           {
             "arch": "arm64",
-            "bytes": 1467143,
+            "bytes": 1473621,
             "evidence": {
               "bytes": 2715,
-              "sha256": "ad6dc775592c074cc52b1df95835e60d18e6ca4122fbdf9337230e02195e271c",
-              "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-arm64.zip.evidence.ad6dc775592c074cc52b1df95835e60d18e6ca4122fbdf9337230e02195e271c.json"
+              "sha256": "0146c5d9e0f77a6714362188b6204da6ca7217d571415dcec23581c94b045876",
+              "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.1/rapp_voice-1.1.1-arm64.zip.evidence.0146c5d9e0f77a6714362188b6204da6ca7217d571415dcec23581c94b045876.json"
             },
             "format": "zip",
-            "sha256": "2b32c75c7530b51e58666c55eae5b0bddd3dd134f286a7ea01fc38fd164ed741",
-            "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-arm64.zip"
+            "sha256": "cb84d4178ba383a788fc5b6ade05bde6f751eeb1e680c4d6d8b6c5ce2f262afa",
+            "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.1/rapp_voice-1.1.1-arm64.zip"
           },
           {
             "arch": "x86_64",
-            "bytes": 1684556,
+            "bytes": 1691382,
             "evidence": {
               "bytes": 2719,
-              "sha256": "a988b9a0de46b5e45a92f980b116ea387785442c600a92561bbe004d5392ddcf",
-              "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-x86_64.zip.evidence.a988b9a0de46b5e45a92f980b116ea387785442c600a92561bbe004d5392ddcf.json"
+              "sha256": "f84632710dd8fa94273120514cb498e053be11cf9dc5669ede97e1d1e5ef5002",
+              "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.1/rapp_voice-1.1.1-x86_64.zip.evidence.f84632710dd8fa94273120514cb498e053be11cf9dc5669ede97e1d1e5ef5002.json"
             },
             "format": "zip",
-            "sha256": "e90ef0da386c9d4b1017bbce8179d112b4c6be222688cad1651bc955b432d2e0",
-            "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-x86_64.zip"
+            "sha256": "f25ca135afd819f957d86316b0b01ffabffa402119616213f8b56d16481ccf9f",
+            "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.1/rapp_voice-1.1.1-x86_64.zip"
           }
         ],
         "prerequisites": [
@@ -1147,22 +1147,22 @@
         ],
         "agent_integration": "The Python singleton and existing twin/UI are secondary integration, not a native installer. In a compatible RAPP/BasicAgent host they discover the installed RAPPVoice.app or the explicit RAPPVOICE_NATIVE_CLI path and send typed JSON to RAPPVoice --action. The existing doctor, dictionary, add_term, stats, and process actions inspect readiness, manage vocabulary, summarize status-only logs, or clean supplied text; none can record, inject input, or invoke polish. A .py drop does not install the app, its speech model, or macOS permissions. When no native executable is present, the existing Hammerspoon/localhost backend remains a legacy fallback; native failures are not replayed through that fallback."
       },
-      "egg_note": "The retained .egg is an unchanged legacy twin hatch cartridge, not the native 1.1.0 application or its installer. Native downloads are listed only in desktop.artifacts; current singleton/UI integration files live in the source repository.",
+      "egg_note": "The retained .egg is an unchanged legacy twin hatch cartridge, not the native 1.1.1 application or its installer. Native downloads are listed only in desktop.artifacts; current singleton/UI integration files live in the source repository.",
       "singleton_filename": "rapp_voice_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/7120b06a7bb2db598f00f355f5d58890d58d3f34/rapp_voice/singleton/rapp_voice_agent.py",
-      "singleton_sha256": "a04c1100a70545f13b0cdce6c39e24c34f55daae4aeaf8fde6b6e9e1d5b1e785",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/c9be9f1936dd848030cf5f5833b1e7cb5e6b1c2b/rapp_voice/singleton/rapp_voice_agent.py",
+      "singleton_sha256": "39028adae65b34b524fc615ca4bb7a135d4bf5720c7a5bccb51328891f52b398",
       "singleton_lines": 294,
       "singleton_bytes": 12589,
       "ui_filename": "index.html",
-      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/7120b06a7bb2db598f00f355f5d58890d58d3f34/rapp_voice/ui/index.html",
-      "ui_sha256": "8ae834434b9cfb867672b10f87c589d3829610cb866049f3e5f1919e2b825acb",
-      "ui_bytes": 3505,
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/c9be9f1936dd848030cf5f5833b1e7cb5e6b1c2b/rapp_voice/ui/index.html",
+      "ui_sha256": "7a94a86b90be150ec1d72430143a42e449812e4ac0a33b8eb31482a6cb3a5df6",
+      "ui_bytes": 3491,
       "source": {
         "type": "federation",
         "repo": "kody-w/rapp-voice",
-        "ref": "7120b06a7bb2db598f00f355f5d58890d58d3f34",
+        "ref": "c9be9f1936dd848030cf5f5833b1e7cb5e6b1c2b",
         "path": "rapp_voice",
-        "commit_sha": "7120b06a7bb2db598f00f355f5d58890d58d3f34"
+        "commit_sha": "c9be9f1936dd848030cf5f5833b1e7cb5e6b1c2b"
       }
     },
     {
