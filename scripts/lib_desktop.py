@@ -377,8 +377,7 @@ def _verify_evidence(report, entry, artifact, fetcher):
             or log.get("sha256") != notarization["submitted_sha256"]
             or "issues" not in log or log["issues"] not in (None, [])):
         raise DesktopError("E_DESKTOP_NOTARIZATION: accepted Apple notarytool log must bind the pre-staple DMG upload")
-    if not _successful_report(report["gatekeeper"], ": accepted", "source=Notarized Developer ID",
-                               f"origin={authority}"):
+    if not _gatekeeper_report(report["gatekeeper"], authority):
         raise DesktopError("E_DESKTOP_GATEKEEPER: an accepted Notarized Developer ID assessment is required")
     if not _successful_report(report["stapler"], "The validate action worked!"):
         raise DesktopError("E_DESKTOP_STAPLER: final DMG stapler validation is required")
@@ -406,8 +405,7 @@ def _verify_stapled_app(report, entry):
             or not _app_report_line(signing["codesign_verify"]["output"], app, ": valid on disk")
             or not _app_report_line(signing["codesign_verify"]["output"], app, ": satisfies its Designated Requirement")):
         raise DesktopError("E_DESKTOP_SIGNING: ZIP signing reports must identify the enclosed application")
-    if (not _successful_report(report["gatekeeper"], f"{app}: accepted",
-                                "source=Notarized Developer ID", f"origin={signing['authority']}")
+    if (not _gatekeeper_report(report["gatekeeper"], signing["authority"])
             or not _app_report_line(report["gatekeeper"].get("output", ""), app, ": accepted")):
         raise DesktopError("E_DESKTOP_GATEKEEPER: ZIP evidence requires the enclosed app's Notarized Developer ID assessment")
     if not _successful_report(report["stapler"], app, "The validate action worked!"):
@@ -420,6 +418,17 @@ def _verify_stapled_app(report, entry):
 
 def _app_report_line(output, app, suffix):
     return re.search(rf"^(?:.*/)?{re.escape(app)}{re.escape(suffix)}$", output, re.MULTILINE) is not None
+
+
+def _gatekeeper_report(report, authority):
+    if not _successful_report(report, ": accepted", "source=Notarized Developer ID"):
+        return False
+    lines = report["output"].splitlines()
+    sources = [line for line in lines if line.startswith("source=")]
+    origins = [line for line in lines if line.startswith("origin=")]
+    # Some genuine spctl versions omit origin; codesign remains authoritative.
+    return sources == ["source=Notarized Developer ID"] and (
+        not origins or origins == [f"origin={authority}"])
 
 
 def _hardened_runtime_details(details):

@@ -4,6 +4,7 @@ import json
 import types
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import pytest
 
@@ -400,3 +401,87 @@ def test_runtime_word_is_not_a_substitute_for_hardened_runtime_flags(native_zip_
     n.refresh()
     errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
     assert any("E_DESKTOP_SIGNING" in error for error in errors)
+
+
+def _real_spctl_form(release):
+    report = release.reports["arm64"]
+    app = "RAPPVoice.app"
+    original_app = report["notarization"].get("app_path", "Fixture.app")
+    signing = report["signing"]
+    signing["codesign_details"] = signing["codesign_details"].replace(original_app, app)
+    signing["codesign_verify"]["output"] = signing["codesign_verify"]["output"].replace(original_app, app)
+    if release.desktop["artifacts"][0]["format"] == "zip":
+        report["notarization"]["app_path"] = app
+        report["stapler"]["output"] = report["stapler"]["output"].replace(original_app, app)
+    report["gatekeeper"]["output"] = (
+        Path(__file__).parent / "fixtures" / "spctl-notarized-no-origin.txt"
+    ).read_text()
+    return report
+
+
+@pytest.mark.parametrize("fixture_name", ["native_release", "native_zip_release"])
+def test_real_spctl_form_without_origin_is_accepted(request, fixture_name):
+    n = request.getfixturevalue(fixture_name)
+    report = _real_spctl_form(n)
+    original = copy.deepcopy(report)
+    assert report["gatekeeper"]["output"] == "RAPPVoice.app: accepted\nsource=Notarized Developer ID\n"
+    n.refresh()
+    assert desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream) == []
+    assert report == original
+    assert "origin=" not in report["gatekeeper"]["output"]
+
+
+@pytest.mark.parametrize("origin", [
+    "origin=Developer ID Application: Other Publisher (TESTTEAM01)\n",
+    "origin=\n",
+    "origin=Developer ID Application: Fixture Publisher (TESTTEAM01)\n" * 2,
+])
+@pytest.mark.parametrize("fixture_name", ["native_release", "native_zip_release"])
+def test_present_gatekeeper_origin_must_match_codesign(request, fixture_name, origin):
+    n = request.getfixturevalue(fixture_name)
+    report = _real_spctl_form(n)
+    report["gatekeeper"]["output"] += origin
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_GATEKEEPER" in error for error in errors)
+    assert not n.stream_calls
+
+
+@pytest.mark.parametrize("field", ["authority", "team_id"])
+def test_missing_origin_still_requires_codesign_authority_and_team(native_zip_release, field):
+    n = native_zip_release
+    report = _real_spctl_form(n)
+    del report["signing"][field]
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_SIGNING" in error for error in errors)
+    assert not n.stream_calls
+
+
+@pytest.mark.parametrize("old,new", [
+    ("Authority=Developer ID Application: Fixture Publisher (TESTTEAM01)", "Authority=Developer ID Application: Other Publisher (TESTTEAM01)"),
+    ("TeamIdentifier=TESTTEAM01", "TeamIdentifier=OTHERTEAM1"),
+])
+def test_missing_origin_still_rejects_mismatched_codesign_details(native_zip_release, old, new):
+    n = native_zip_release
+    report = _real_spctl_form(n)
+    report["signing"]["codesign_details"] = report["signing"]["codesign_details"].replace(old, new)
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_SIGNING" in error for error in errors)
+    assert not n.stream_calls
+
+
+@pytest.mark.parametrize("old,new", [
+    ("RAPPVoice.app", "OtherRAPPVoice.app"),
+    (": accepted", ": rejected"),
+    ("source=Notarized Developer ID", "source=Developer ID"),
+])
+def test_missing_origin_preserves_exact_app_status_and_notary_source(native_zip_release, old, new):
+    n = native_zip_release
+    report = _real_spctl_form(n)
+    report["gatekeeper"]["output"] = report["gatekeeper"]["output"].replace(old, new)
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_GATEKEEPER" in error for error in errors)
+    assert not n.stream_calls

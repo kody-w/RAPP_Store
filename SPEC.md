@@ -797,7 +797,11 @@ The referenced JSON object has exactly:
     staple is required or permitted.
 - **`gatekeeper`:** command report from `spctl --assess --type execute
   --verbose=4` on the released application. Requires accepted output,
-  `source=Notarized Developer ID`, and matching `origin=<authority>`.
+  `source=Notarized Developer ID`, and exact application-path binding for
+  ZIP evidence. Some genuine macOS/Xcode versions omit `origin=`; absence
+  is accepted, but an emitted origin must match the codesign authority.
+  Developer ID authority and matching `TeamIdentifier` remain mandatory in
+  the codesign report. Never synthesize an origin line to satisfy validation.
 - **`stapler`:** command report from `xcrun stapler validate` on the
   final DMG **or the enclosed app for ZIP distribution**, including
   “The validate action worked!”. ZIP archives cannot themselves be stapled.
