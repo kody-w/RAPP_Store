@@ -211,6 +211,26 @@ binaries, or fabricate hashes/signing evidence. Direct catalog PRs and
 release uploads alone are not submissions. See [SKILL.md](./SKILL.md) for
 the exact issue envelope and staged approval sequence.
 
+## Validation
+
+[`Store validation`](./.github/workflows/store-validation.yml) runs on every
+PR targeting `main` and every push to `main`, using Python 3.11 and Node 24.
+It installs [`requirements-test.txt`](./requirements-test.txt) and runs the
+**complete** `tests/` suite, including native metadata/receiver tests,
+Node-executed storefront tests, producer determinism and Zoo v2 regressions.
+Permissions are read-only; no signing credentials or catalog-publication
+steps are involved. Producer tests write only isolated fixture outputs.
+
+To run the same suite locally with Python and Node installed:
+
+```bash
+mkdir -p .ci-work/tmp
+TMPDIR="$PWD/.ci-work/tmp" python3 -m venv .ci-work/venv
+TMPDIR="$PWD/.ci-work/tmp" .ci-work/venv/bin/python -m pip install -r requirements-test.txt
+node --version
+TMPDIR="$PWD/.ci-work/tmp" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .ci-work/venv/bin/python -m pytest tests -q --basetemp=.ci-work/pytest
+```
+
 ## Related
 
 - **Engine:** [`kody-w/RAPP`](https://github.com/kody-w/RAPP) — brainstem, swarm, worker, install one-liner
