@@ -210,7 +210,10 @@ Title format: `[RAPP] @publisher/id vX.Y.Z`. The workflow's `if:` filter only fi
 1. Issue opened/edited → `process-rapplication.yml` triggers.
 2. `scripts/process_rapplication.py` extracts the JSON + bundle blocks.
 3. `scripts/lib_rapp.py` validates against SPEC §6.
-4. **On success:** files staged under `staging/<id>/` (bundle) or `staging/_pending.json` updated (federation), validation report posted as a comment, labels `pending-review` + `rapplication-submission` applied, staging committed to main.
+4. **On success:** files staged under `staging/<id>/` (bundle) or
+   `staging/_pending.json` updated (federation), state committed and published
+   to main, **then** the validation comment and `pending-review` +
+   `rapplication-submission` labels are applied.
 5. **On failure:** error report posted as a comment, label `failed` applied, no commit.
 
 ## Approval flow
@@ -223,7 +226,34 @@ A maintainer reviews the comment on the issue and adds the `approved` label. Tha
    `commit_sha`, and merges the entry. For native distribution, the source,
    issue payload and metadata must equal their staged pins; drift requires
    resubmission. Only that native ID's v1 discovery/detail metadata is refreshed.
-4. Promotion committed, issue closed, `promoted` label applied.
+4. Promotion committed and its push confirmed, then the success report,
+   `promoted` label and issue closure are issued.
+
+### Serialized state and recovery
+
+Both mutation jobs check out current `main` after acquiring their shared
+`rapp-store-state` concurrency slot. They preserve other pending issue
+records and never rebase stale JSON snapshots onto newer state. Failed
+validation/promotion or exhausted push retries produce a failed workflow,
+not a success-shaped report. The concurrency group is not a durable queue;
+cancelled pending jobs need a fresh trigger.
+
+If an issue validated locally but its pending record was never published:
+
+1. Confirm it has not already been promoted by inspecting current main.
+2. Remove any stale `approved` label.
+3. Edit the existing `[RAPP]` issue body (or reopen it) to trigger a new
+   receiver run. Preserve the valid immutable submission payload unless
+   source metadata actually needs correction.
+4. Wait for that run to succeed and confirm its pending record exists on
+   main, alongside any other pending issues.
+5. Add `approved` again and require a successful approval run, the correct
+   catalog entry, and a confirmed promotion comment/closure.
+
+Never repair this by hand-editing published index/staging files. After a
+workflow fix, use new issue/label events rather than rerunning an old run
+whose workflow definition may still be stale. If a push outcome was
+uncertain, inspect main before deciding which step to repeat.
 
 ## Bundle vs federation tradeoffs
 

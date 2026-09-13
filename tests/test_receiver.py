@@ -456,3 +456,48 @@ def test_bundle_approval_also_rejects_stale_version(tmp_path, make_rapp_dir):
     assert "E_VERSION_NOT_BUMPED" in report
     assert catalog.read_bytes() == before
     assert (staging / "my_thing").is_dir()
+
+
+def test_reprocessing_and_promoting_one_issue_preserves_other_pending_records(tmp_path, make_rapp_dir):
+    root = tmp_path / "serialized-store"
+    root.mkdir()
+    staging = root / "staging"
+    catalog = root / "index.json"
+    catalog.write_text('{"schema":"rapp-store/1.0","rapplications":[]}')
+    events = {}
+    for number, rapp_id in ((56, "first_thing"), (57, "second_thing")):
+        rapp = make_rapp_dir(rapp_id=rapp_id)
+        events[number] = json.loads(_make_event(
+            root, number, "alice", f"[RAPP] @alice/{rapp_id} v0.1.0",
+            _bundle_payload(rapp, "alice")).read_text())
+        ok, report = proc.process(events[number], staging, catalog)
+        assert ok, report
+    pending = json.loads((staging / "_pending.json").read_text())["items"]
+    assert [item["issue"] for item in pending] == [56, 57]
+    second = copy.deepcopy(next(item for item in pending if item["issue"] == 57))
+
+    assert proc.process(events[56], staging, catalog)[0]
+    pending = json.loads((staging / "_pending.json").read_text())["items"]
+    assert next(item for item in pending if item["issue"] == 57) == second
+    first = copy.deepcopy(next(item for item in pending if item["issue"] == 56))
+    ok, report = prom.promote(events[57], staging, catalog)
+    assert ok, report
+    assert json.loads((staging / "_pending.json").read_text())["items"] == [first]
+    assert prom.find_pending(staging, 56) == first
+    assert (staging / "first_thing" / "manifest.json").is_file()
+
+
+def test_missing_pending_issue_is_nonzero_and_preserves_other_state(tmp_path, capsys):
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    pending = staging / "_pending.json"
+    pending.write_text('{"items":[{"issue":57,"id":"other_thing","version":"0.1.0"}]}')
+    catalog = tmp_path / "index.json"
+    catalog.write_text('{"rapplications":[]}')
+    event = _make_event(tmp_path, 56, "alice", "[RAPP] missing pending", "")
+    before = pending.read_bytes()
+    code = prom.main(["--event-path", str(event), "--staging-dir", str(staging), "--catalog", str(catalog)])
+    assert code == 1
+    assert "E_NO_PENDING_FOR_ISSUE" in capsys.readouterr().out
+    assert pending.read_bytes() == before
+    assert catalog.read_text() == '{"rapplications":[]}'

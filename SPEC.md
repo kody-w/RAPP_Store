@@ -228,7 +228,9 @@ submissions. The issue can be created through:
 1. Workflow parses the issue payload (bundle attachment OR `repo: <url>` field).
 2. **Mode A:** download the zip, extract, validate per §6.
    **Mode B:** fetch `manifest.json` and the singleton from `raw.githubusercontent.com`, validate per §6 (file existence checks become HTTP GETs).
-3. On pass: comment `Validated. Awaiting maintainer approval.` and label `pending-review`. For mode A, also write the bundle to `staging/<id>/`.
+3. On pass: write pending state (and `staging/<id>/` for mode A), commit and
+   confirm publication to current `main`, **then** comment
+   `Validated. Awaiting maintainer approval.` and label `pending-review`.
 4. Maintainer adds `approved` label.
 5. Approval workflow:
    - **Mode A:** promote `staging/<id>/` → `<id>/`, recompute integrity, merge into `index.json`.
@@ -238,6 +240,29 @@ submissions. The issue can be created through:
      the exact staged issue/manifest/metadata pins and refresh scoped v1
      discovery (§14); a moved source or stale version requires resubmission.
 6. Commit, comment `Approved. Available at <singleton_url>`, close issue.
+
+Both issue mutation workflows share `rapp-store-state` concurrency and
+explicitly check out **current `main` when the serialized job starts**, not
+the issue event's earlier SHA. Pending updates replace only the matching
+issue record; approval removes only that record. Unrelated pending items
+must survive processing, reprocessing and promotion.
+
+Validation/promotion failures fail the workflow. Success reports, labels and
+closure require successful state publication, not merely local validation.
+Push retries retry the same commit without rebasing stale catalog/pending
+JSON; exhausted retries fail explicitly. A non-fast-forward or uncertain push
+requires inspection and a fresh issue event against current main.
+Actions concurrency is not a durable event queue: cancelled pending runs
+also require a normal retrigger.
+
+To recover an unpromoted issue after a failed/lost pending-state publication:
+remove a stale `approved` label, edit or reopen the same `[RAPP]` issue, wait
+for a new successful receiver run and the correct pending record on main,
+then apply `approved` again. Verify the new approval run succeeds, the catalog
+entry is correct, and unrelated pending/catalog entries remain intact.
+Do not patch `index.json` or `staging/_pending.json` by hand. When deploying
+a workflow fix, create fresh issue/label events; rerunning a historical run
+can retain its old workflow definition.
 
 ## 8. Versioning
 
