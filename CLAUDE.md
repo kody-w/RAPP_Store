@@ -6,7 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the **content layer** of the RAPP platform — a public catalog of "rapplications" (single-file Python agents). The engine (Tier 1 brainstem, Tier 2 swarm, Tier 3 worker) lives in [`kody-w/RAPP`](https://github.com/kody-w/RAPP); trust/identity metadata lives in the RAR registry. This repo ships **only content** — agents, services, UIs, and the catalog that points to them.
 
-There is no build system, test suite, or package manager at the repo root. Each rapplication is independent, and the brainstem in the consuming repo is what executes them.
+The root hosts stdlib validation/projection scripts and pytest regressions under
+`tests/`. Each rapplication is independent; a consuming host executes it.
+Reusable skills live in the separate RAR Skills catalog, not in this app index
+or the RAR agent registry. The additive bootstrap in root `SKILL.md` preserves
+this repository's existing public interface and keeps local workspace state
+private without moving application source.
 
 ## Catalog mechanics
 
