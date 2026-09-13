@@ -217,7 +217,8 @@ def native_release(make_rapp_dir, fake_fetcher):
     def refresh():
         api_release["assets"] = []
         for artifact in desktop["artifacts"]:
-            blob = json.dumps(reports[artifact["arch"]], sort_keys=True).encode()
+            report = reports.get((artifact["arch"], artifact["format"]), reports[artifact["arch"]])
+            blob = json.dumps(report, sort_keys=True).encode()
             evidence = artifact["evidence"]
             evidence["bytes"] = len(blob)
             evidence["sha256"] = hashlib.sha256(blob).hexdigest()
@@ -257,3 +258,36 @@ def native_release(make_rapp_dir, fake_fetcher):
         api_release=api_release, run=run, rapp_dir=rapp_dir, refresh=refresh,
         fetch=fake_fetcher(routes), stream=stream, stream_calls=stream_calls, entry=entry,
     )
+
+
+@pytest.fixture
+def native_zip_release(native_release):
+    """The ZIP test double has an app staple, never a fabricated archive ticket."""
+    n = native_release
+    app = "MyThing.app"
+    n.desktop["setup"] = [
+        "In Finder, double-click the ZIP, then drag MyThing.app to Applications and launch it.",
+    ]
+    for artifact in n.desktop["artifacts"]:
+        arch = artifact["arch"]
+        blob = f"NOT A REAL ZIP: {arch} metadata test double".encode()
+        artifact.update(
+            format="zip", url=artifact["url"][:-4] + ".zip",
+            bytes=len(blob), sha256=hashlib.sha256(blob).hexdigest(),
+        )
+        n.binaries[artifact["url"]] = blob
+        artifact["evidence"]["url"] = artifact["url"] + ".evidence.json"
+        report = n.reports[arch]
+        report["subject"].update({key: artifact[key] for key in ("url", "bytes", "sha256")})
+        report["notarization"] = {
+            "method": "stapled-app", "app_path": app,
+            "bundle_id": n.desktop["bundle_id"], "version": n.manifest["version"],
+            "minimum_os": n.desktop["minimum_os"],
+        }
+        signing = report["signing"]
+        signing["codesign_details"] = f"Executable=/fixture/{app}/Contents/MacOS/MyThing\n" + signing["codesign_details"]
+        signing["codesign_verify"]["output"] = signing["codesign_verify"]["output"].replace("Fixture.app", app)
+        report["gatekeeper"]["output"] = report["gatekeeper"]["output"].replace("Fixture.app", app)
+        report["stapler"]["output"] = f"Processing: /fixture/{app}\nThe validate action worked!"
+    n.refresh()
+    return n

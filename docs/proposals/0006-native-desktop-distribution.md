@@ -25,7 +25,7 @@ claims, or live entries.
 Add optional `desktop` metadata to `rapp-application/1.0` and the resulting
 `rapp-store/1.0` entry. Absence preserves the legacy agent/UI contract.
 Presence supplements that contract with public, architecture-specific
-DMG downloads in the **same existing source repository's GitHub Release**.
+DMG or ZIP downloads in the **same existing source repository's GitHub Release**.
 There is no binary mirror, inline native bundle, server, credential
 store, automatic installer, signing service, or new RAPP/1 trust layer.
 
@@ -33,11 +33,14 @@ The extension requires:
 
 - `platform: macos`, minimum OS, stable reverse-DNS bundle identifier.
 - Full native-build commit and exact `v<manifest.version>` release tag.
-- One or both of `arm64` and `x86_64`, each with an exact version/ID/arch
-  filename, HTTPS release URL, positive byte count and SHA-256.
+- One or both of `arm64` and `x86_64`, with `dmg` and/or `zip` per architecture:
+  at most four unique `(arch, format)` pairs, each with an exact
+  version/ID/arch/format filename, HTTPS release URL, byte count and SHA-256.
 - Hash/size-bound public publisher evidence, containing actual
-  Developer ID/codesign, accepted notarytool log, Gatekeeper and stapler
-  reports, plus a successful same-repository Actions run for that build.
+  Developer ID/codesign, Gatekeeper and stapler reports, plus a successful
+  same-repository build/verification Actions run for that source. DMGs
+  also bind the accepted notarytool upload log; ZIPs describe the enclosed
+  app's notarization/staple, never a container ticket.
 - Plain-text prerequisites, privacy/permissions, setup, and a truthful
   explanation of the optional Python integration.
 
@@ -50,8 +53,8 @@ new contract or other author-supplied descriptive metadata.
 
 The receiver verifies anonymous GitHub release/tag/run references,
 GitHub's release-asset size/digest inventory, pinned evidence bytes, report
-bindings, and the final DMG's streamed SHA-256/byte count. It does **not**
-mount or execute a DMG, authenticate Apple-server responses
+bindings, and the final archive's streamed SHA-256/byte count. It does **not**
+mount, unpack or execute native applications, authenticate Apple-server responses
 cryptographically, or prove that a publisher's report is honest.
 
 These are inspectable **publisher release reports**, not a Store-issued
@@ -68,6 +71,15 @@ binds `notarization.submitted_sha256` to the unmodified Apple log and
 successful final-DMG stapler validation; do not rewrite Apple's log to
 contain a post-staple hash.
 
+ZIP distribution instead binds the final archive hash/size and records
+`notarization: {method: "stapled-app", app_path, bundle_id, version, minimum_os}`.
+The Developer ID/hardened-runtime, codesign verification, Gatekeeper
+notarization assessment and stapler output must describe that same enclosed
+application. ZIPs cannot be stapled; no ZIP ticket, submission UUID or
+notarytool container log is invented. Local Xcode-managed signing and
+notarization is supported without exporting Apple credentials to CI. The
+public same-commit Actions reference can be a build or verification run.
+
 ## Submission and approval
 
 All future submissions use the existing **`[RAPP]` issue receiver and
@@ -76,7 +88,7 @@ never `submit_bundle`, direct catalog edits, or a PR that manufactures
 generated artifacts.
 
 1. Build/sign/notarize in the existing application source repo and
-   publish genuine DMG/evidence assets in its versioned release.
+   publish genuine DMG/ZIP and evidence assets in its versioned release.
 2. Wait for that public build workflow to succeed.
 3. Add real `desktop` metadata to the source manifest in a subsequent
    commit. This avoids a self-referential commit/hash cycle:
@@ -95,7 +107,7 @@ generated artifacts.
    It does not run either global legacy producer.
 
 The 5 MiB bundle, 200 KiB singleton and 500 KiB UI caps are unchanged.
-Native DMGs have their own 1 GiB-per-artifact limit (at most two),
+Native DMG/ZIP archives have their own 1 GiB-per-artifact limit (at most four),
 64 KiB streaming chunks and a 900-second per-download budget; evidence
 is limited to 256 KiB. Fetches are anonymous HTTPS with constrained
 GitHub/CDN redirects, no credential lookup and no binary persistence.
@@ -104,7 +116,8 @@ GitHub/CDN redirects, no credential lookup and no binary persistence.
 
 - Native details offer real **Download for macOS** architecture choices,
   exact byte/hash pins, evidence links, prerequisites, privacy and setup.
-  Python/UI integration is explicitly secondary.
+  ZIP details use plain Finder unzip → Applications instructions. Python/UI
+  integration is explicitly secondary.
 - Missing/invalid native metadata fails closed rather than falling back
   to a fictitious Python native installer.
 - Legacy entries retain explicit egg/hatcher links. No entry receives

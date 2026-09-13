@@ -720,7 +720,7 @@ All fields in this table are required when `desktop` is present:
 | `bundle_id` | Stable reverse-DNS identifier, at least three components. Cannot change for an existing native ID. |
 | `source` | Exactly `{repo, commit_sha}`. `repo` is the same canonical `owner/repo` as federation; `commit_sha` is the full lowercase 40-hex **native-build** commit. |
 | `release_tag` | Exactly `v<manifest.version>`; version is canonical `MAJOR.MINOR.PATCH`. The public tag must resolve to `desktop.source.commit_sha`. |
-| `artifacts` | One or two objects as below. Architecture must be unique; `universal` and implicit architecture are not supported. |
+| `artifacts` | One to four objects as below. Each `(arch, format)` pair must be unique; `universal` and implicit architecture are not supported. |
 | `prerequisites` | 1–20 nonempty plain-text items, at most 1,000 characters each. Disclose required tools/models, OS permissions and optional integrations. Use an explicit “none beyond …” item if appropriate. |
 | `privacy` | Nonempty plain text, at most 4,000 characters. Describe capture/permissions, storage and any remote data transfer or optional provider. |
 | `setup` | 1–20 nonempty plain-text steps, at most 1,000 characters each. Explain installing the native application and granting appropriate permissions. |
@@ -731,11 +731,11 @@ Each `artifacts[]` object has exactly:
 | Field | Contract |
 |---|---|
 | `arch` | `arm64` or `x86_64`. |
-| `format` | `dmg`. |
-| `url` | Exactly `https://github.com/<source.repo>/releases/download/<release_tag>/<id>-<version>-<arch>.dmg`. |
-| `bytes` | Exact positive integer size of the final downloadable DMG, at most 1,073,741,824 bytes (1 GiB). Booleans/floats are not integers here. |
+| `format` | `dmg` or `zip`. ZIPs contain a signed, stapled, notarized `.app`; they are not unsigned-source or Python integration bundles. |
+| `url` | Exactly `https://github.com/<source.repo>/releases/download/<release_tag>/<id>-<version>-<arch>.<format>`. |
+| `bytes` | Exact positive integer size of the final downloadable archive, at most 1,073,741,824 bytes (1 GiB). Booleans/floats are not integers here. |
 | `sha256` | SHA-256 of those final bytes: 64 lowercase hex characters. |
-| `evidence` | Exactly `{url, bytes, sha256}` for the public evidence JSON. URL uses the same repo/tag and filename `<id>-<version>-<arch>.evidence.json`; exact positive byte count is at most 262,144 (256 KiB); SHA-256 is 64 lowercase hex. |
+| `evidence` | Exactly `{url, bytes, sha256}` for the public evidence JSON. URL uses the same repo/tag. DMGs retain filename `<id>-<version>-<arch>.evidence.json`; ZIPs use `<id>-<version>-<arch>.zip.evidence.json`, allowing both formats for one architecture without collisions. Exact positive byte count is at most 262,144 (256 KiB); SHA-256 is 64 lowercase hex. |
 
 No URL credentials, HTTP/file/custom schemes, alternate owner/repository,
 mutable `latest` URLs, percent-encoded aliases, traversal, query strings,
@@ -754,44 +754,65 @@ The referenced JSON object has exactly:
 
 - **`schema`:** `rapp-desktop-evidence/1.0`.
 - **`subject`:** exactly `{id, version, bundle_id, arch, url, bytes, sha256}`,
-  matching this manifest and the **final** DMG artifact.
+  matching this manifest and the **final** downloadable DMG or ZIP artifact.
 - **`source`:** exactly the manifest's `desktop.source`.
 - **`workflow_run`:** `https://github.com/<source.repo>/actions/runs/<positive-integer>`.
   The anonymous GitHub run API must report that exact URL/repository,
   `head_sha == desktop.source.commit_sha`, `status: completed`,
-  `conclusion: success`.
+  `conclusion: success`. This may be a public build or artifact-verification
+  run; signing/notarization can remain local and Xcode-managed. It does not
+  require exporting Apple signing credentials to third-party CI.
 - **`signing`:** exactly `{team_id, authority, architectures, codesign_details,
   codesign_verify}`. Team ID is ten uppercase alphanumeric characters.
   Authority is `Developer ID Application: <name> (<team_id>)`.
   `architectures` is the one-element array matching the artifact's arch.
   `codesign_details` is actual `codesign -dvvv` output containing matching
   `Identifier=`, `TeamIdentifier=`, `Authority=` lines and hardened-runtime
-  information. `codesign_verify` is a command report from
+  information (`CodeDirectory` flags must contain the `0x10000` hardened
+  runtime bit and name `runtime`, not merely mention it elsewhere).
+  `codesign_verify` is a command report from
   `codesign --verify --deep --strict --verbose=2` on the released application;
   output must include “valid on disk” and “satisfies its Designated Requirement”.
-- **`notarization`:** exactly `{submission_id, submitted_sha256, log}`.
-  Submission ID is the real UUID. `log` is the unmodified JSON from
-  `xcrun notarytool log`, with matching `jobId`, `status: Accepted`,
-  integer `statusCode: 0`, exact DMG `archiveFilename`,
-  `sha256 == submitted_sha256`, and `issues: null` or `[]`.
-  Additional Apple log fields are retained. The submitted hash refers to
-  the **pre-staple upload** and can differ from final `subject.sha256`;
-  never falsify the Apple log to make them equal.
+- **`notarization`:** depends on the archive format:
+  - **DMG:** exactly `{submission_id, submitted_sha256, log}`.
+    Submission ID is the real UUID. `log` is the unmodified JSON from
+    `xcrun notarytool log`, with matching `jobId`, `status: Accepted`,
+    integer `statusCode: 0`, exact DMG `archiveFilename`,
+    `sha256 == submitted_sha256`, and `issues: null` or `[]`.
+    Additional Apple log fields are retained. The submitted hash refers to
+    the **pre-staple upload** and can differ from final `subject.sha256`;
+    never falsify the Apple log to make them equal.
+  - **ZIP:** exactly `{method: "stapled-app", app_path, bundle_id, version,
+    minimum_os}`. `app_path` is the enclosed top-level `.app` basename
+    (for example `RAPP Shot.app`), at most 200 characters, without traversal
+    or path separators. Bundle ID, version and minimum OS must match the
+    manifest and the app's Info.plist. `codesign_details` must name
+    `<app_path>/Contents/MacOS/`; codesign verification and Gatekeeper
+    output must name that same application. Stapler's `Processing:` line
+    must name the exact `.app` basename, not a similarly named `.app.zip`;
+    stapler output must name the
+    **app**, not the ZIP. This path supports an app notarized/stapled by
+    Xcode-managed distribution without requiring a notarytool container log.
+    No ZIP submission UUID, upload hash, fabricated container ticket or ZIP
+    staple is required or permitted.
 - **`gatekeeper`:** command report from `spctl --assess --type execute
   --verbose=4` on the released application. Requires accepted output,
   `source=Notarized Developer ID`, and matching `origin=<authority>`.
 - **`stapler`:** command report from `xcrun stapler validate` on the
-  final DMG, including “The validate action worked!”.
+  final DMG **or the enclosed app for ZIP distribution**, including
+  “The validate action worked!”. ZIP archives cannot themselves be stapled.
 
 Every command report is exactly `{exit_code: 0, output: "<actual combined
 command output>"}`. A success Boolean or an invented string is not evidence.
 The issuer must capture the reports from the actual released build;
 reviewers should independently inspect version, bundle ID, minimum OS and
-architecture from the mounted application and reproduce the macOS checks.
+architecture from the mounted/unzipped application and reproduce the macOS
+checks. The ZIP's independent `subject.sha256`/`bytes` still bind the final
+download exactly; app-staple evidence does not replace archive integrity.
 
 **Important trust limit:** the receiver verifies public references, report
 bindings, and actual downloaded byte hashes. It does **not** authenticate
-Apple logs cryptographically, mount/execute a DMG, or certify the truth of a
+Apple logs cryptographically, mount/unpack/execute native archives, or certify the truth of a
 publisher's reports. The storefront calls these *publisher release reports*;
 macOS/Gatekeeper performs native signature checks. This is neither Apple
 certification by the Store nor RAPP/1 acceptance. Native entries cannot
@@ -805,18 +826,20 @@ through this extension.
    `validate_federation(...)` apply the same native contract and verification.
    A local `index_entry.desktop`, if present, must equal the manifest.
    Native `validate_zip` / bundle submissions fail with
-   `E_DESKTOP_FEDERATION_ONLY`.
+   `E_DESKTOP_FEDERATION_ONLY`. Here `validate_zip` means the inline
+   integration-submission bundle validator, not the native artifact
+   verifier: native release ZIPs are accepted through federation references.
 2. Federation resolves a full **manifest** commit and fetches integration
    files from it. Failure to resolve is fatal for native entries (legacy
    federation retains best-effort behavior). A mutable-ref manifest must
    equal the immutable commit's bytes.
 3. GitHub's public stable release, tag target, asset names/URLs/sizes/SHA256
-   digests and successful build-run references must match. Evidence bytes
+   digests and successful build/verification-run references must match. Evidence bytes
    are fetched and hash/size verified; report subjects and outputs must
-   match. Only then are DMGs streamed and checked against exact byte/hash
+   match. Only then are native archives streamed and checked against exact byte/hash
    pins. No native files are persisted.
 4. Existing 5 MiB bundle, 200 KiB singleton and 500 KiB UI caps are unchanged.
-   Native DMGs use a separate 1 GiB cap, at most two artifacts, 64 KiB
+   Native DMGs/ZIPs use a separate 1 GiB cap each, at most four artifacts, 64 KiB
    chunks, 30-second socket timeout and 900-second per-download budget.
    Evidence is capped at 256 KiB; other metadata fetches at 5 MiB.
    Fetchers are injectable; unit tests use tiny inert byte fixtures, never
@@ -826,7 +849,7 @@ through this extension.
    fingerprint. Native submission metadata must match fetched
    ID/version/publisher; the manifest is authoritative for `desktop`.
 6. Approval checks the current catalog, exact issue payload, staged
-   manifest commit and complete entry, and repeats release/evidence/DMG
+   manifest commit and complete entry, and repeats release/evidence/archive
    verification. Any stale version, changed source/tag/artifact or
    changed metadata requires resubmission rather than silent promotion.
 
@@ -841,7 +864,9 @@ submitted ref was a branch.
 
 Validated native entries show architecture-specific macOS downloads,
 full artifact hashes/bytes, evidence links, prerequisites, privacy and
-setup. The Python singleton/UI is secondary integration, never a native
+setup. ZIP downloads explicitly explain: double-click the ZIP in Finder,
+drag the extracted `.app` to Applications, and launch it from Applications.
+The Python singleton/UI is secondary integration, never a native
 installer. Invalid native metadata offers no download fallback.
 Non-native entries use **explicit** egg/hatcher references only; kind
 `rapp` does not imply generated artifacts exist.

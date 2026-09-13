@@ -670,3 +670,13 @@ class TestNativeFederation:
         result = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
         assert any("E_BAD_INDEX_ENTRY_JSON" in e for e in result.errors)
         assert not n.stream_calls
+
+    def test_zip_native_local_and_federation_validation_preserve_app_evidence(self, native_zip_release):
+        n = native_zip_release
+        local = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert local.ok, local.errors
+        result = self.validate(n)
+        assert result.ok, result.errors
+        assert result.index_entry["desktop"] == n.desktop
+        assert local.index_entry["desktop"] == n.desktop
+        assert all(a["format"] == "zip" for a in result.index_entry["desktop"]["artifacts"])

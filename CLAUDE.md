@@ -91,11 +91,14 @@ Federation submissions add a `source: {repo, ref, path, commit_sha}` block to th
 
 Optional public native macOS distribution is defined in SPEC §14 / Proposal
 0006 and `schemas/desktop*.schema.json`. `desktop` supplements the existing
-singleton/UI contract with same-repo GitHub Release DMGs and hash-bound
+singleton/UI contract with same-repo GitHub Release DMG/ZIP archives and hash-bound
 publisher reports. Native integration URLs use the immutable manifest commit,
 and native-build provenance is pinned separately. Promotion rechecks current
 versions and exact staging, then refreshes only that native ID's v1 JSON
 metadata. Do not run legacy producers to invent federation eggs/hatchers,
 mirror binaries, claim Apple/RAPP/1 acceptance, or amend the Constitution.
+ZIP evidence verifies the enclosed signed/stapled/notarized `.app`, not a
+fictional ZIP container ticket. Signing may remain local/Xcode-managed;
+Apple credentials are not required in third-party CI.
 
 `publish_to_rapp_store` is in `RESERVED_IDS` — only `@kody-w` / `@rapp` can publish updates. The validator's `# rapp-validator: allow-template-placeholders` source marker exempts files (like the publish agent itself) that legitimately need to embed the template-placeholder strings as constants.

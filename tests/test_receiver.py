@@ -404,6 +404,21 @@ class TestNativeReceiver:
         assert "E_PAYLOAD_MISMATCH" in report
         assert not (tmp_path / "staging").exists()
 
+    def test_zip_native_release_stages_promotes_and_refreshes_metadata_only(
+            self, tmp_path, monkeypatch, native_zip_release):
+        n = native_zip_release
+        root, catalog, staging, event = _stage_native(tmp_path, monkeypatch, n)
+        ok, report = prom.promote(event, staging, catalog)
+        assert ok, report
+        published = json.loads(catalog.read_text())["rapplications"][0]
+        assert published["desktop"] == n.desktop
+        detail = json.loads((root / "api" / "v1" / "rapplication" / "my_thing.json").read_text())
+        assert detail["desktop"] == n.desktop
+        assert not list(root.rglob("*.zip"))
+        assert not list(root.rglob("*.dmg"))
+        assert not list(root.rglob("*.egg"))
+        assert json.loads((staging / "_pending.json").read_text())["items"] == []
+
 
 def test_receiver_requires_rapp_issue_front_door(tmp_path):
     event = {"issue": {"number": 1, "title": "Bypass review", "body": "{}"}}

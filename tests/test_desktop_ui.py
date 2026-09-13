@@ -167,3 +167,33 @@ def test_shared_zoo_prototype_dial_remains_inert():
     assert "Needs owner review" in result["text"]
     assert "Install — drop it into your brainstem" not in result["text"]
     assert not any("hatcher" in link["href"] or link["href"].endswith(".egg") for link in result["links"])
+
+
+def test_zip_storefront_uses_real_downloads_and_plain_finder_instructions(native_zip_release):
+    entry = native_zip_release.entry()
+    result = render(entry)
+    assert result["desktop"]
+    hrefs = [link["href"] for link in result["links"]]
+    for artifact in entry["desktop"]["artifacts"]:
+        assert artifact["url"] in hrefs
+        assert artifact["evidence"]["url"] in hrefs
+    assert "Apple silicon (arm64) · ZIP" in result["text"]
+    assert "Intel (x86_64) · ZIP" in result["text"]
+    assert "In Finder, double-click the ZIP to unzip it" in result["text"]
+    assert "Drag the extracted .app to Applications" in result["text"]
+    assert "ZIP archives themselves cannot be stapled" in result["text"]
+    assert not any(link["href"].endswith((".dmg", ".egg")) or "hatcher" in link["href"] for link in result["links"])
+
+
+def test_storefront_can_offer_zip_and_dmg_for_each_architecture(native_zip_release):
+    entry = native_zip_release.entry()
+    for original in list(entry["desktop"]["artifacts"]):
+        dmg = copy.deepcopy(original)
+        dmg.update(format="dmg", url=original["url"][:-4] + ".dmg")
+        dmg["evidence"]["url"] = original["url"][:-4] + ".evidence.json"
+        entry["desktop"]["artifacts"].append(dmg)
+    result = render(entry)
+    assert result["desktop"]
+    assert "Apple silicon (arm64) · ZIP" in result["text"]
+    assert "Apple silicon (arm64) · DMG" in result["text"]
+    assert len([link for link in result["links"] if link["href"].endswith((".zip", ".dmg"))]) == 4

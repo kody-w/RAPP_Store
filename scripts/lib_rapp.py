@@ -357,7 +357,7 @@ def validate_dir(rapp_dir: Path, *,
         if index_entry.get("desktop", manifest["desktop"]) != manifest["desktop"]:
             errors.append("E_DESKTOP_INDEX_MISMATCH: manifest and index_entry desktop metadata differ")
         if sum(p.stat().st_size for p in rapp_dir.rglob("*") if p.is_file()) > MAX_BUNDLE_BYTES:
-            errors.append("E_BUNDLE_TOO_LARGE: local integration bundle exceeds 5 MiB; DMGs belong in GitHub Releases")
+            errors.append("E_BUNDLE_TOO_LARGE: local integration bundle exceeds 5 MiB; native archives belong in GitHub Releases")
         if singleton_path and singleton_path.is_file():
             errors.extend(_validate_native_agent_version(singleton_path.read_bytes(), manifest["version"]))
         if not errors:
@@ -524,7 +524,7 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
     is the rapp directory inside the repo (empty if the repo root IS the
     rapp).     `fetcher` is an optional callable (url) -> bytes for metadata/testing;
     defaults to bounded anonymous HTTPS. `artifact_fetcher(url)` yields
-    <=64 KiB byte chunks for native DMG verification, separately from the
+    <=64 KiB byte chunks for native DMG/ZIP verification, separately from the
     metadata and legacy integration caps.
 
     Native manifests and integration files are commit-pinned; release/tag/

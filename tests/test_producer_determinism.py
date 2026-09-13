@@ -165,3 +165,17 @@ def test_full_producer_in_isolated_fixture_also_includes_federated_native_metada
     subprocess.run([sys.executable, "scripts/build_pokedex_api.py"], cwd=work,
                    check=True, capture_output=True, timeout=30)
     assert _tree_digest(api) == before
+
+
+def test_zip_native_projection_is_deterministic_and_metadata_only(tmp_path, native_zip_release):
+    api = tmp_path / "api" / "v1"
+    catalog = {"rapplications": [native_zip_release.entry()]}
+    producer.refresh_native_discovery(catalog, api, ["my_thing"])
+    before = _tree_digest(api)
+    assert producer.refresh_native_discovery(catalog, api, ["my_thing"]) == []
+    assert _tree_digest(api) == before
+    detail = json.loads((api / "rapplication" / "my_thing.json").read_text())
+    assert detail["desktop"] == native_zip_release.desktop
+    assert sorted(str(p.relative_to(api)) for p in api.rglob("*") if p.is_file()) == [
+        "index.json", "rapplication/my_thing.json",
+    ]

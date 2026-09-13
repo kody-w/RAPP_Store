@@ -39,7 +39,7 @@ def _set(value, path, replacement):
     (("desktop", "artifacts", 0, "arch"), "universal", "E_DESKTOP_ARCH"),
     (("desktop", "artifacts", 1, "arch"), "arm64", "E_DESKTOP_ARCH"),
     (("desktop", "artifacts", 0, "arch"), [], "E_DESKTOP_ARCH"),
-    (("desktop", "artifacts", 0, "format"), "zip", "E_DESKTOP_FORMAT"),
+    (("desktop", "artifacts", 0, "format"), "pkg", "E_DESKTOP_FORMAT"),
     (("desktop", "artifacts", 0, "bytes"), True, "E_DESKTOP_SIZE"),
     (("desktop", "artifacts", 0, "bytes"), 0, "E_DESKTOP_SIZE"),
     (("desktop", "artifacts", 0, "bytes"), -1, "E_DESKTOP_SIZE"),
@@ -267,6 +267,8 @@ def test_schema_contract_fields_match_validator():
     assert set(artifact["required"]) == desktop.ARTIFACT_FIELDS
     assert artifact["properties"]["bytes"]["maximum"] == desktop.MAX_ARTIFACT_BYTES
     assert artifact["properties"]["evidence"]["properties"]["bytes"]["maximum"] == desktop.MAX_EVIDENCE_BYTES
+    assert artifact["properties"]["format"]["enum"] == list(desktop.ARTIFACT_FORMATS)
+    assert schema["properties"]["artifacts"]["maxItems"] == desktop.MAX_ARTIFACTS
 
 
 @pytest.mark.parametrize("rapp_id", [None, "../escape", "NotSnakeCase"])
@@ -298,3 +300,103 @@ def test_metadata_fetch_cap_stops_without_unbounded_buffering(monkeypatch):
 def test_native_evidence_json_is_unambiguous(blob):
     with pytest.raises(desktop.DesktopError, match="E_DESKTOP_JSON"):
         desktop.load_json_object(blob)
+
+
+def test_zip_supports_stapled_notarized_app_without_a_container_ticket(native_zip_release):
+    n = native_zip_release
+    assert desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream) == []
+    assert len(n.stream_calls) == 2
+    for artifact in n.desktop["artifacts"]:
+        assert artifact["format"] == "zip"
+        assert artifact["evidence"]["url"] == artifact["url"] + ".evidence.json"
+        report = n.reports[artifact["arch"]]
+        assert report["notarization"]["method"] == "stapled-app"
+        assert not {"submission_id", "submitted_sha256", "log"} & report["notarization"].keys()
+        assert report["subject"]["sha256"] == artifact["sha256"]
+
+
+@pytest.mark.parametrize("path,value,code", [
+    (("notarization",), {"submission_id": "fake", "submitted_sha256": "a" * 64, "log": {}}, "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "method"), "zip-ticket", "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "app_path"), "../MyThing.app", "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "app_path"), "nested/MyThing.app", "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "app_path"), "MyThing.zip", "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "app_path"), None, "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "bundle_id"), "dev.other.app", "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "version"), "9.0.0", "E_DESKTOP_APP_NOTARIZATION"),
+    (("notarization", "minimum_os"), "11.0", "E_DESKTOP_APP_NOTARIZATION"),
+    (("signing", "codesign_verify", "output"), "Other.app: valid on disk\nOther.app: satisfies its Designated Requirement", "E_DESKTOP_SIGNING"),
+    (("signing", "codesign_verify", "output"), "OtherMyThing.app: valid on disk\nOtherMyThing.app: satisfies its Designated Requirement", "E_DESKTOP_SIGNING"),
+    (("gatekeeper", "output"), "archive.zip: accepted\nsource=Notarized Developer ID\norigin=Developer ID Application: Fixture Publisher (TESTTEAM01)", "E_DESKTOP_GATEKEEPER"),
+    (("stapler", "output"), "Processing: archive.zip\nThe validate action worked!", "E_DESKTOP_STAPLER"),
+    (("stapler", "output"), "Processing: /fixture/MyThing.app.zip\nThe validate action worked!", "E_DESKTOP_STAPLER"),
+    (("stapler", "output"), "Processing: /fixture/OtherMyThing.app\nThe validate action worked!", "E_DESKTOP_STAPLER"),
+    (("stapler", "output"), "The validate action worked!", "E_DESKTOP_STAPLER"),
+    (("stapler", "exit_code"), 1, "E_DESKTOP_STAPLER"),
+])
+def test_zip_requires_matching_enclosed_app_reports(native_zip_release, path, value, code):
+    n = native_zip_release
+    _set(n.reports["arm64"], path, value)
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any(code in error for error in errors), errors
+    assert not n.stream_calls
+
+
+@pytest.mark.parametrize("other", ["Other.app", "OtherMyThing.app"])
+def test_zip_codesign_details_must_name_the_enclosed_app(native_zip_release, other):
+    n = native_zip_release
+    signing = n.reports["arm64"]["signing"]
+    signing["codesign_details"] = signing["codesign_details"].replace("MyThing.app/Contents/MacOS/", other + "/Contents/MacOS/")
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_SIGNING" in error for error in errors)
+
+
+def test_zip_rejects_an_added_fake_container_ticket(native_zip_release):
+    n = native_zip_release
+    n.reports["arm64"]["notarization"]["zip_ticket"] = "invented"
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_APP_NOTARIZATION" in error for error in errors)
+
+
+@pytest.mark.parametrize("change,code", [
+    (lambda b: b + b" ", "E_DESKTOP_BYTES_MISMATCH"),
+    (lambda b: b"X" + b[1:], "E_DESKTOP_HASH_MISMATCH"),
+])
+def test_final_zip_bytes_have_independent_exact_pins(native_zip_release, change, code):
+    n = native_zip_release
+    url = n.desktop["artifacts"][0]["url"]
+    n.binaries[url] = change(n.binaries[url])
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any(code in error for error in errors)
+
+
+def test_both_formats_per_architecture_have_distinct_evidence_urls(native_zip_release):
+    n = native_zip_release
+    for zip_artifact in list(n.desktop["artifacts"]):
+        dmg = copy.deepcopy(zip_artifact)
+        dmg.update(format="dmg", url=zip_artifact["url"][:-4] + ".dmg")
+        dmg["evidence"]["url"] = zip_artifact["url"][:-4] + ".evidence.json"
+        n.desktop["artifacts"].append(dmg)
+    assert desktop.validate_metadata(n.manifest) == []
+    assert len({a["evidence"]["url"] for a in n.desktop["artifacts"]}) == 4
+    n.desktop["artifacts"].append(copy.deepcopy(n.desktop["artifacts"][0]))
+    assert any("E_DESKTOP_ARTIFACTS" in e for e in desktop.validate_metadata(n.manifest))
+
+
+def test_duplicate_zip_for_same_architecture_is_rejected(native_zip_release):
+    n = native_zip_release
+    n.desktop["artifacts"].append(copy.deepcopy(n.desktop["artifacts"][0]))
+    assert any("E_DESKTOP_ARCH" in e for e in desktop.validate_metadata(n.manifest))
+
+
+@pytest.mark.parametrize("flags", ["0x0(none)", "0x0(runtime)", "0x10000(adhoc)"])
+def test_runtime_word_is_not_a_substitute_for_hardened_runtime_flags(native_zip_release, flags):
+    n = native_zip_release
+    signing = n.reports["arm64"]["signing"]
+    signing["codesign_details"] = signing["codesign_details"].replace("0x10000(runtime)", flags) + "\nruntime claimed elsewhere\n"
+    n.refresh()
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_SIGNING" in error for error in errors)

@@ -673,17 +673,19 @@ function nativeDesktopFor(r) {
       || !steps(d.prerequisites) || !steps(d.setup)
       || !text(d.privacy) || d.privacy.length > 4000
       || !text(d.agent_integration) || d.agent_integration.length > 4000
-      || !Array.isArray(d.artifacts) || !d.artifacts.length || d.artifacts.length > 2) return null;
+      || !Array.isArray(d.artifacts) || !d.artifacts.length || d.artifacts.length > 4) return null;
   const seen = new Set();
   for (const a of d.artifacts) {
     if (!exact(a, ['arch', 'format', 'url', 'bytes', 'sha256', 'evidence'])
-        || !['arm64', 'x86_64'].includes(a.arch) || seen.has(a.arch) || a.format !== 'dmg') return null;
-    seen.add(a.arch);
+        || !['arm64', 'x86_64'].includes(a.arch) || !['dmg', 'zip'].includes(a.format)
+        || seen.has(a.arch + ':' + a.format)) return null;
+    seen.add(a.arch + ':' + a.format);
     const base = `https://github.com/${d.source.repo}/releases/download/${d.release_tag}/${r.id}-${r.version}-${a.arch}`;
-    if (a.url !== base + '.dmg' || !Number.isSafeInteger(a.bytes) || a.bytes <= 0
+    const evidenceUrl = base + (a.format === 'zip' ? '.zip' : '') + '.evidence.json';
+    if (a.url !== base + '.' + a.format || !Number.isSafeInteger(a.bytes) || a.bytes <= 0
         || a.bytes > 1073741824 || !hex(a.sha256, 64)
         || !exact(a.evidence, ['url', 'bytes', 'sha256'])
-        || a.evidence.url !== base + '.evidence.json'
+        || a.evidence.url !== evidenceUrl
         || !Number.isSafeInteger(a.evidence.bytes) || a.evidence.bytes <= 0
         || a.evidence.bytes > 262144 || !hex(a.evidence.sha256, 64)) return null;
   }
@@ -960,16 +962,21 @@ function appendNativeDownload(body, r) {
     el('h4', { text: 'Download for macOS' }),
     el('p', { class: 'note', text: `Requires macOS ${d.minimum_os} or later. Choose the architecture of your Mac.` }),
     ...d.artifacts.map(a => {
-      const label = a.arch === 'arm64' ? 'Apple silicon (arm64)' : 'Intel (x86_64)';
+      const architecture = a.arch === 'arm64' ? 'Apple silicon (arm64)' : 'Intel (x86_64)';
+      const label = architecture + ' · ' + a.format.toUpperCase();
       return el('section', {}, [
         el('a', { class: 'btn primary dl', href: a.url, target: '_blank', rel: 'noopener noreferrer' },
           [`⬇ Download for macOS — ${label}`]),
         el('p', { class: 'note', text: `${a.bytes} bytes · SHA-256: ${a.sha256}` }),
+        el('p', { class: 'note', text: a.format === 'zip'
+          ? 'In Finder, double-click the ZIP to unzip it. Drag the extracted .app to Applications, then open it from Applications. '
+            + 'Signing and stapling apply to the enclosed application; ZIP archives themselves cannot be stapled.'
+          : 'Open the DMG in Finder, drag the application to Applications, then open it from Applications.' }),
         el('a', { class: 'btn', href: a.evidence.url, target: '_blank', rel: 'noopener noreferrer' },
           [`Signing & notarization reports — ${label}`]),
       ]);
     }),
-    el('p', { class: 'note', text: 'Downloads are native DMGs hosted by the source repository, not Python installers. '
+    el('p', { class: 'note', text: 'Downloads are native DMG or ZIP archives hosted by the source repository, not Python installers. '
       + 'The receiver checks byte pins and release references. Publisher signing/notarization reports are not '
       + 'independent Apple authentication or RAPP/1 acceptance. macOS/Gatekeeper verifies the installed application.' }),
   ]));

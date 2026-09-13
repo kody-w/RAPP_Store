@@ -22,6 +22,8 @@ MAX_METADATA_BYTES = 5 * 1024 * 1024
 CHUNK_BYTES = 64 * 1024
 MAX_DOWNLOAD_SECONDS = 900
 ARCHITECTURES = ("arm64", "x86_64")
+ARTIFACT_FORMATS = ("dmg", "zip")
+MAX_ARTIFACTS = len(ARCHITECTURES) * len(ARTIFACT_FORMATS)
 
 COMMIT_RE = re.compile(r"[0-9a-f]{40}\Z")
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
@@ -31,6 +33,7 @@ VERSION_RE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 OS_RE = re.compile(r"(1[0-9]|[2-9][0-9])\.(0|[1-9][0-9]*)(?:\.(0|[1-9][0-9]*))?\Z")
 BUNDLE_ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z][A-Za-z0-9-]*){2,}\Z")
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\Z")
+APP_PATH_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._()-]*\.app\Z")
 
 DESKTOP_FIELDS = {
     "schema", "platform", "minimum_os", "bundle_id", "source", "release_tag",
@@ -66,8 +69,14 @@ def release_url(repo, tag, filename):
     return f"https://github.com/{repo}/releases/download/{tag}/{filename}"
 
 
-def artifact_filename(entry, arch):
-    return f"{entry['id']}-{entry['version']}-{arch}.dmg"
+def artifact_filename(entry, arch, artifact_format="dmg"):
+    return f"{entry['id']}-{entry['version']}-{arch}.{artifact_format}"
+
+
+def evidence_filename(entry, arch, artifact_format="dmg"):
+    filename = artifact_filename(entry, arch, artifact_format)
+    # Preserve existing DMG references while allowing both formats per arch.
+    return (filename[:-4] if artifact_format == "dmg" else filename) + ".evidence.json"
 
 
 def _reference_errors(value, expected_url, cap, label):
@@ -141,28 +150,34 @@ def validate_metadata(entry, *, repo=None, previous=None):
         errors.append("E_DESKTOP_UNSUPPORTED_CLAIM: native metadata cannot supply " + ", ".join(forbidden))
 
     artifacts = desktop["artifacts"]
-    if not isinstance(artifacts, list) or not 1 <= len(artifacts) <= len(ARCHITECTURES):
-        return errors + ["E_DESKTOP_ARTIFACTS: provide one or two architecture-specific DMGs"]
+    if not isinstance(artifacts, list) or not 1 <= len(artifacts) <= MAX_ARTIFACTS:
+        return errors + ["E_DESKTOP_ARTIFACTS: provide 1..4 architecture-specific DMG/ZIP releases"]
     seen = set()
     for artifact in artifacts:
         if not _exact_fields(artifact, ARTIFACT_FIELDS):
             errors.append("E_DESKTOP_ARTIFACT: each artifact must contain exactly arch, format, url, bytes, sha256, evidence")
             continue
         arch = artifact["arch"]
-        if not isinstance(arch, str) or arch not in ARCHITECTURES or arch in seen:
-            errors.append("E_DESKTOP_ARCH: arch must be unique arm64 or x86_64 (no universal artifacts)")
+        if not isinstance(arch, str) or arch not in ARCHITECTURES:
+            errors.append("E_DESKTOP_ARCH: arch must be arm64 or x86_64 (no universal artifacts)")
             continue
-        seen.add(arch)
-        if artifact["format"] != "dmg":
-            errors.append("E_DESKTOP_FORMAT: only DMG release assets are supported")
-        filename = artifact_filename(entry, arch)
+        artifact_format = artifact["format"]
+        if artifact_format not in ARTIFACT_FORMATS:
+            errors.append("E_DESKTOP_FORMAT: only DMG and ZIP release assets are supported")
+            continue
+        pair = (arch, artifact_format)
+        if pair in seen:
+            errors.append("E_DESKTOP_ARCH: each architecture/format pair must be unique")
+            continue
+        seen.add(pair)
+        filename = artifact_filename(entry, arch, artifact_format)
         url = release_url(source["repo"], desktop["release_tag"], filename)
         errors.extend(_reference_errors(artifact, url, MAX_ARTIFACT_BYTES, arch))
         evidence = artifact["evidence"]
         if not _exact_fields(evidence, REFERENCE_FIELDS):
             errors.append("E_DESKTOP_EVIDENCE: evidence requires exactly url, bytes, sha256")
         evidence_url = release_url(source["repo"], desktop["release_tag"],
-                                   filename[:-4] + ".evidence.json")
+                                   evidence_filename(entry, arch, artifact_format))
         errors.extend(_reference_errors(evidence, evidence_url, MAX_EVIDENCE_BYTES, f"{arch}.evidence"))
     return errors
 
@@ -268,7 +283,7 @@ def _verify_blob(blob, ref):
 
 
 def verify_artifact(artifact, artifact_fetcher):
-    """Hash a DMG without buffering or saving it. Stop on the first excess byte."""
+    """Hash a native archive without buffering/saving it; stop on excess bytes."""
     stream = None
     total = 0
     digest = hashlib.sha256()
@@ -341,11 +356,14 @@ def _verify_evidence(report, entry, artifact, fetcher):
             or f"Identifier={desktop['bundle_id']}" not in details.splitlines()
             or f"TeamIdentifier={signing['team_id']}" not in details.splitlines()
             or f"Authority={authority}" not in details.splitlines()
-            or "runtime" not in details
+            or not _hardened_runtime_details(details)
             or not _successful_report(signing["codesign_verify"],
                                       "valid on disk", "satisfies its Designated Requirement")):
         raise DesktopError("E_DESKTOP_SIGNING: codesign verification/details do not match the signed application")
     notarization = report["notarization"]
+    if artifact["format"] == "zip":
+        _verify_stapled_app(report, entry)
+        return
     if not _exact_fields(notarization, {"submission_id", "submitted_sha256", "log"}):
         raise DesktopError("E_DESKTOP_NOTARIZATION: notarytool submission and log are required")
     log = notarization["log"]
@@ -366,8 +384,53 @@ def _verify_evidence(report, entry, artifact, fetcher):
         raise DesktopError("E_DESKTOP_STAPLER: final DMG stapler validation is required")
 
 
+def _verify_stapled_app(report, entry):
+    """ZIPs have no staple/ticket; verify reports about the enclosed application."""
+    notarization = report["notarization"]
+    fields = {"method", "app_path", "bundle_id", "version", "minimum_os"}
+    if (not _exact_fields(notarization, fields)
+            or notarization["method"] != "stapled-app"
+            or not _matches(APP_PATH_RE, notarization["app_path"])
+            or len(notarization["app_path"]) > 200
+            or notarization["bundle_id"] != entry["desktop"]["bundle_id"]
+            or notarization["version"] != entry["version"]
+            or notarization["minimum_os"] != entry["desktop"]["minimum_os"]):
+        raise DesktopError("E_DESKTOP_APP_NOTARIZATION: ZIP evidence must identify the enclosed stapled app, not a container ticket")
+    app = notarization["app_path"]
+    signing = report["signing"]
+    executable = re.compile(rf"^Executable=(?:.*/)?{re.escape(app)}/Contents/MacOS/[^\r\n]+$", re.MULTILINE)
+    if (not executable.search(signing["codesign_details"])
+            or not _successful_report(signing["codesign_verify"],
+                                      f"{app}: valid on disk",
+                                      f"{app}: satisfies its Designated Requirement")
+            or not _app_report_line(signing["codesign_verify"]["output"], app, ": valid on disk")
+            or not _app_report_line(signing["codesign_verify"]["output"], app, ": satisfies its Designated Requirement")):
+        raise DesktopError("E_DESKTOP_SIGNING: ZIP signing reports must identify the enclosed application")
+    if (not _successful_report(report["gatekeeper"], f"{app}: accepted",
+                                "source=Notarized Developer ID", f"origin={signing['authority']}")
+            or not _app_report_line(report["gatekeeper"].get("output", ""), app, ": accepted")):
+        raise DesktopError("E_DESKTOP_GATEKEEPER: ZIP evidence requires the enclosed app's Notarized Developer ID assessment")
+    if not _successful_report(report["stapler"], app, "The validate action worked!"):
+        raise DesktopError("E_DESKTOP_STAPLER: ZIP evidence requires app stapler validation, never a ZIP staple")
+    targets = [line[len("Processing:"):].strip()
+               for line in report["stapler"]["output"].splitlines() if line.startswith("Processing:")]
+    if len(targets) != 1 or targets[0].rsplit("/", 1)[-1] != app:
+        raise DesktopError("E_DESKTOP_STAPLER: stapler must process the exact .app, not a similarly named ZIP/container")
+
+
+def _app_report_line(output, app, suffix):
+    return re.search(rf"^(?:.*/)?{re.escape(app)}{re.escape(suffix)}$", output, re.MULTILINE) is not None
+
+
+def _hardened_runtime_details(details):
+    match = re.search(r"^CodeDirectory\b[^\r\n]*\bflags=0x([0-9a-fA-F]+)\(([^)\r\n]*)\)",
+                      details, re.MULTILINE)
+    return bool(match and int(match[1], 16) & 0x10000
+                and "runtime" in [flag.strip() for flag in match[2].split(",")])
+
+
 def verify_release(entry, *, fetcher=None, artifact_fetcher=None):
-    """Verify public release/tag/run references, evidence pins and streamed DMGs."""
+    """Verify public release/tag/run references, evidence pins and native archives."""
     errors = validate_metadata(entry)
     if errors:
         return errors

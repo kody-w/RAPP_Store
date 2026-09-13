@@ -21,7 +21,7 @@ This repo was extracted from [`kody-w/RAPP`](https://github.com/kody-w/RAPP) on 
 The backward-compatible `desktop: rapp-desktop/1.0` extension describes
 real native releases in their **existing source repositories**. It requires
 a minimum OS, stable bundle ID, full native-build commit, versioned tag,
-architecture-specific DMG URLs/exact bytes/SHA256, bound public signing and
+architecture-specific DMG or ZIP URLs/exact bytes/SHA256, bound public signing and
 notarization reports, and prerequisites/privacy/setup disclosures.
 
 The existing Fable5 IDs remain **`rapp_crispy`, `rapp_rewind`, `rapp_shot`,
@@ -35,6 +35,13 @@ binaries. The Python singleton is secondary integration; dropping it into
 release/evidence byte pins and public tag/build references. Publisher
 reports are not independent Apple authentication or RAPP/1 acceptance;
 reviewers and macOS/Gatekeeper must verify the native application.
+
+For ZIP distribution, Finder unzips the archive and the user drags the
+enclosed application to Applications. Evidence describes that app's
+Developer ID/hardened-runtime signature, Gatekeeper notarization assessment
+and app staple, together with the final ZIP hash/size. ZIP archives cannot
+themselves be stapled; no container ticket is invented. Local Xcode-managed
+signing/notarization does not require exporting Apple credentials to CI.
 
 See [SPEC §14](./SPEC.md#14-optional-native-desktop-distribution),
 [Proposal 0006](./docs/proposals/0006-native-desktop-distribution.md), and the

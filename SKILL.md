@@ -244,19 +244,28 @@ native apps are `rapp_crispy`, `rapp_rewind`, `rapp_shot`, `rapp_voice`.
    [SPEC §14](./SPEC.md#14-optional-native-desktop-distribution), and the
    exact [desktop](./schemas/desktop.schema.json) /
    [evidence](./schemas/desktop-evidence.schema.json) schemas.
-2. Produce genuine architecture-specific signed/notarized DMGs in the
-   existing source repo's `v<version>` GitHub Release. Capture actual
+2. Produce genuine architecture-specific DMGs or ZIPs containing a
+   signed/stapled/notarized `.app` in the existing source repo's
+   `v<version>` GitHub Release. Capture actual
    codesign, notarytool, Gatekeeper and stapler reports from the released
-   build and record a successful public Actions run for its full commit.
+   build as applicable, and record a successful public build/verification
+   Actions run for its full commit. Signing/notarization can remain local
+   and Xcode-managed; that run does not require exported Apple credentials.
    Never fill missing evidence with `signed: true`, `notarized: true`,
    placeholder logs, invented trust or an ad-hoc signing receipt.
 3. After release/build completion, add the complete optional `desktop`
    object to the source manifest. Required: schema, macOS platform,
    minimum OS, stable bundle ID, full native-build source, release tag,
-   architecture-specific DMG and evidence URLs/exact bytes/SHA256,
+   architecture-specific archive and evidence URLs/exact bytes/SHA256,
    prerequisites, privacy, setup and truthful secondary agent integration.
    The metadata commit may follow the native-build commit. Apple's
-   notarytool log hashes the pre-staple upload, not necessarily the final DMG.
+   notarytool log for DMG distribution hashes the pre-staple upload, not
+   necessarily the final DMG. ZIP distribution uses
+   `notarization: {method: "stapled-app", app_path, bundle_id, version, minimum_os}`
+   and genuine codesign/Gatekeeper/stapler reports naming the enclosed app.
+   No ZIP submission hash, notarytool container log or ZIP staple is required
+   or permitted. ZIP evidence filenames end in `.zip.evidence.json`; legacy
+   DMG evidence filenames remain `<id>-<version>-<arch>.evidence.json`.
 4. Run local/federation preflight with `scripts/lib_rapp.py`. Real preflight
    downloads and hashes release assets (bounded separately from legacy
    integration caps). Tests must inject metadata and chunk fetchers rather
@@ -292,7 +301,9 @@ observed release evidence; the example is deliberately not submit-ready.
 Do not put `desktop` assertions in the issue to override the source manifest.
 
 The storefront offers native architecture choices, disclosures and setup,
-then optional agent/UI integration. Dropping the singleton into `agents/`
+including plain Finder unzip → Applications steps for ZIPs, then optional
+agent/UI integration. Up to four unique `(arch, format)` pairs can be
+listed (`arm64`/`x86_64` × `dmg`/`zip`). Dropping the singleton into `agents/`
 **does not install the native application**. Publisher reports are not
 independent Apple authentication or RAPP/1 acceptance. Any actual
 constitutional change remains owner-approval gated; do not amend it as

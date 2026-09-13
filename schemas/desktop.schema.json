@@ -14,13 +14,14 @@
     "source": {"$ref": "#/$defs/source"},
     "release_tag": {"type": "string", "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
     "artifacts": {
-      "type": "array", "minItems": 1, "maxItems": 2,
+      "type": "array", "minItems": 1, "maxItems": 4,
+      "description": "Unique (arch, format) pairs. DMG evidence retains <id>-<version>-<arch>.evidence.json; ZIP evidence uses <id>-<version>-<arch>.zip.evidence.json.",
       "items": {
         "type": "object", "additionalProperties": false,
         "required": ["arch", "format", "url", "bytes", "sha256", "evidence"],
         "properties": {
           "arch": {"enum": ["arm64", "x86_64"]},
-          "format": {"const": "dmg"},
+          "format": {"enum": ["dmg", "zip"]},
           "url": {"$ref": "#/$defs/releaseURL"},
           "bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824},
           "sha256": {"$ref": "#/$defs/sha256"},
