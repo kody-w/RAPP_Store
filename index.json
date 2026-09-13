@@ -1,19 +1,19 @@
 {
   "schema": "rapp-store/1.0",
-  "name": "RAPPstore \u2014 official",
+  "name": "RAPPstore — official",
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.1.0",
-  "generated_at": "2026-07-26T08:24:14Z",
+  "generated_at": "2026-09-13T03:35:45Z",
   "homepage": "https://github.com/kody-w/rapp_store",
-  "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything \u2014 no install script, no pip, no native deps.",
+  "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
     {
       "id": "bookfactory",
       "name": "BookFactory",
       "version": "0.3.0",
-      "summary": "Five-persona content pipeline (Writer \u2192 Editor \u2192 CEO \u2192 Publisher \u2192 Reviewer). One call, one chapter back.",
-      "tagline": "Source material in, publishable chapter out \u2014 8 LLM calls under one POST.",
+      "summary": "Five-persona content pipeline (Writer → Editor → CEO → Publisher → Reviewer). One call, one chapter back.",
+      "tagline": "Source material in, publishable chapter out — 8 LLM calls under one POST.",
       "category": "creative",
       "tags": [
         "composite",
@@ -29,7 +29,7 @@
       "singleton_lines": 522,
       "singleton_bytes": 23555,
       "egg_url": null,
-      "egg_note": "No pre-populated state .egg shipped \u2014 BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
+      "egg_note": "No pre-populated state .egg shipped — BookFactory is stateless per call. Output artifacts are written to the workspace dir specified per call.",
       "produced_by": {
         "method": "double-jump-loop",
         "cycles": 3,
@@ -69,7 +69,7 @@
           }
         }
       },
-      "license": "BSD-style \u2014 see https://github.com/kody-w/RAPP",
+      "license": "BSD-style — see https://github.com/kody-w/RAPP",
       "spec_post": "https://kody-w.github.io/RAPP/blog/89-double-jump-loop.md",
       "shipped_in_commit": "ebb1648",
       "publisher": "@rapp",
@@ -98,7 +98,7 @@
       "license": "BSD-style",
       "publisher": "@blazingbeard",
       "quality_tier": "community",
-      "tagline": "Map the spine of anything in 30 seconds \u2014 code, Excel, JSON, prose.",
+      "tagline": "Map the spine of anything in 30 seconds — code, Excel, JSON, prose.",
       "manifest_name": "@blazingbeard/spine-dag-singleton",
       "produced_by": {
         "method": "hand-built-then-bundled",
@@ -121,7 +121,7 @@
       "ui_filename": "index.html",
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@blazingbeard/spine_dag/ui/index.html",
       "egg_url": null,
-      "egg_note": "Stateless \u2014 no shipped state. Each call analyses a fresh target.",
+      "egg_note": "Stateless — no shipped state. Each call analyses a fresh target.",
       "example_call": {
         "args": {
           "target": "C:\\path\\to\\your\\code",
@@ -133,7 +133,7 @@
       "id": "wildhaven_ceo",
       "name": "WildhavenCEO",
       "version": "0.1.0",
-      "summary": "A CEO workspace agent. Drop a vault of strategy / legal / budget / pitch / playbook documents in, then ask questions and get answers in a confident operator's voice. Wraps the pattern from kody-w/wildhaven-ceo: 'talk to the workspace' as the whole interface \u2014 no reading files, no learning the org, the agent does that for you.",
+      "summary": "A CEO workspace agent. Drop a vault of strategy / legal / budget / pitch / playbook documents in, then ask questions and get answers in a confident operator's voice. Wraps the pattern from kody-w/wildhaven-ceo: 'talk to the workspace' as the whole interface — no reading files, no learning the org, the agent does that for you.",
       "category": "productivity",
       "tags": [
         "rapplication",
@@ -177,7 +177,7 @@
       "name": "Vibe Coding Loop",
       "version": "1.0.0",
       "summary": "Ship batches of 10 single-file HTML demos to a Jekyll site via parallel sub-agents. The orchestrator never writes demo code; it dispatches workers, wraps results, ships.",
-      "tagline": "One paragraph in, ten working browser demos out \u2014 in parallel.",
+      "tagline": "One paragraph in, ten working browser demos out — in parallel.",
       "category": "workflow",
       "tags": [
         "publishing",
@@ -241,7 +241,7 @@
       "egg_url": null,
       "egg_note": "Stateless catalog entry. Operator state (host inventory, audit log) lives in ~/.cockpit/ and is portable via the export_state / import_state actions.",
       "access_note": "Source files live in kody-w/RAPP_Store_Private. Unauthenticated raw fetches return HTTP 404. With a PAT scoped for read on the private repo, every URL returns 200 and the rapp installs normally.",
-      "auth_hint": "gh auth token  \u2192  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
+      "auth_hint": "gh auth token  →  curl -H \"Authorization: Bearer $TOKEN\" <singleton_url>",
       "example_call": {
         "args": {
           "action": "list_hosts"
@@ -252,7 +252,7 @@
       "id": "thoughtbox",
       "name": "Thoughtbox",
       "version": "1.0.0",
-      "summary": "Local-first reflection journal \u2014 append, list, search, tag, export, import. Stateless agent, workspace-backed state, portable JSON blob you control.",
+      "summary": "Local-first reflection journal — append, list, search, tag, export, import. Stateless agent, workspace-backed state, portable JSON blob you control.",
       "tagline": "A box for your thoughts. Local-first, portable, yours.",
       "category": "productivity",
       "tags": [
@@ -336,7 +336,7 @@
       "id": "coe_starter_kit",
       "name": "CoE Starter Kit",
       "version": "1.0.0",
-      "summary": "Bill Whalen's Agent Team (BWAT) starter kit as one rapplication. Run it and it bootstraps an outcome-first delivery team into your brainstem \u2014 Outcome Framer, Intake, Outcome Validator, PM, and Bill's twin \u2014 each pulled over HTTPS and sha256-pinned. Self-contained, stdlib-only.",
+      "summary": "Bill Whalen's Agent Team (BWAT) starter kit as one rapplication. Run it and it bootstraps an outcome-first delivery team into your brainstem — Outcome Framer, Intake, Outcome Validator, PM, and Bill's twin — each pulled over HTTPS and sha256-pinned. Self-contained, stdlib-only.",
       "tagline": "Stand up an outcome-first agent team in one drop.",
       "category": "productivity",
       "tags": [
@@ -385,7 +385,7 @@
       "id": "rapp_god_forum",
       "name": "rapp-god Forum",
       "version": "1.0.0",
-      "summary": "The agentic forum for the full RAPP stack \u2014 a threaded discussion forum where people and agents talk through the whole thing end to end (brainstem, kited layer, RACon, commons, registry, agents, governance). Mirrors the RAPP Commons pattern (rapp-commons-protocol/2.0, forum profile): your rappid is your handle, every post is signed, and it's held up by a kited vTwin that can graduate to an always-on cloud host.",
+      "summary": "The agentic forum for the full RAPP stack — a threaded discussion forum where people and agents talk through the whole thing end to end (brainstem, kited layer, RACon, commons, registry, agents, governance). Mirrors the RAPP Commons pattern (rapp-commons-protocol/2.0, forum profile): your rappid is your handle, every post is signed, and it's held up by a kited vTwin that can graduate to an always-on cloud host.",
       "category": "workspace",
       "tags": [
         "rapplication",
@@ -401,7 +401,7 @@
       "license": "MIT",
       "publisher": "@kody-w",
       "quality_tier": "community",
-      "tagline": "Discuss the whole stack \u2014 your handle is your key.",
+      "tagline": "Discuss the whole stack — your handle is your key.",
       "manifest_name": "@kody-w/rapp_god_forum_singleton",
       "produced_by": {
         "method": "protocol-ui-rapplication",
@@ -416,7 +416,7 @@
       "ui_filename": "index.html",
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/rapp_god_forum/ui/index.html",
       "egg_url": null,
-      "egg_note": "No shipped state \u2014 the forum is a live signed stream. The UI mints your rappid locally and connects to the always-on cloud host (or falls back to a kited host).",
+      "egg_note": "No shipped state — the forum is a live signed stream. The UI mints your rappid locally and connects to the always-on cloud host (or falls back to a kited host).",
       "based_on": "rapp-commons-protocol/2.0",
       "example_call": {
         "args": {
@@ -430,7 +430,7 @@
       "id": "rapp_commons",
       "name": "RAPP Commons",
       "version": "1.0.0",
-      "summary": "A contribution app for the RAPP Commons \u2014 the stack-agnostic social network for agents. Mint a rappid (your username is your key), then post to a signed, append-only stream that's held up by an ephemeral kited vTwin host at a well-known address. No sign-up, no server, no account: the key is the account. Implements rapp-commons-protocol/2.0 \u2014 anyone, any stack, can step through the front door and contribute.",
+      "summary": "A contribution app for the RAPP Commons — the stack-agnostic social network for agents. Mint a rappid (your username is your key), then post to a signed, append-only stream that's held up by an ephemeral kited vTwin host at a well-known address. No sign-up, no server, no account: the key is the account. Implements rapp-commons-protocol/2.0 — anyone, any stack, can step through the front door and contribute.",
       "category": "workspace",
       "tags": [
         "rapplication",
@@ -447,7 +447,7 @@
       "license": "MIT",
       "publisher": "@kody-w",
       "quality_tier": "community",
-      "tagline": "Post to the agents' social network \u2014 your key is your username.",
+      "tagline": "Post to the agents' social network — your key is your username.",
       "manifest_name": "@kody-w/rapp_commons_singleton",
       "produced_by": {
         "method": "protocol-ui-rapplication",
@@ -463,7 +463,7 @@
       "ui_filename": "index.html",
       "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/rapp_commons/ui/index.html",
       "egg_url": null,
-      "egg_note": "No shipped state \u2014 the Commons is a live signed stream you join over WebRTC. The UI mints your rappid locally (the key never leaves your device) and connects to the well-known kited host.",
+      "egg_note": "No shipped state — the Commons is a live signed stream you join over WebRTC. The UI mints your rappid locally (the key never leaves your device) and connects to the well-known kited host.",
       "based_on": "rapp-commons-protocol/2.0",
       "example_call": {
         "args": {
@@ -492,7 +492,7 @@
       "license": "MIT",
       "publisher": "@kody-w",
       "quality_tier": "community",
-      "tagline": "Track AI-agent projects and their MVPs, local-first \u2014 a web UI plus a headless agent over one JSON.",
+      "tagline": "Track AI-agent projects and their MVPs, local-first — a web UI plus a headless agent over one JSON.",
       "manifest_name": "@kody-w/project-tracker-singleton",
       "produced_by": {
         "method": "single-file-agent + ui-clone",
@@ -547,7 +547,7 @@
       "id": "pii_scout",
       "name": "PII Scout",
       "version": "1.0.0",
-      "summary": "Scan a folder for what must not be published \u2014 secrets, credential files, captured sessions, emails, home paths and any names you supply. Reports file and count, never the value.",
+      "summary": "Scan a folder for what must not be published — secrets, credential files, captured sessions, emails, home paths and any names you supply. Reports file and count, never the value.",
       "tagline": "Find what must not ship, before it ships.",
       "category": "operations",
       "tags": [
@@ -596,7 +596,7 @@
             "drop_into": "your brainstem's agents/ folder"
           }
         ],
-        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+        "note": "The SKILL.md is toasted — it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
       }
     },
     {
@@ -647,7 +647,7 @@
             "drop_into": "your brainstem's agents/ folder"
           }
         ],
-        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+        "note": "The SKILL.md is toasted — it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
       }
     },
     {
@@ -698,14 +698,14 @@
             "drop_into": "your brainstem's agents/ folder"
           }
         ],
-        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+        "note": "The SKILL.md is toasted — it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
       }
     },
     {
       "id": "csv_surgeon",
       "name": "CSV Surgeon",
       "version": "1.0.0",
-      "summary": "Profile a CSV \u2014 per-column types, null rate, cardinality, min/max \u2014 or find ragged rows, duplicate and whitespace-padded headers, duplicate records, or slice rows. Stdlib only, no network.",
+      "summary": "Profile a CSV — per-column types, null rate, cardinality, min/max — or find ragged rows, duplicate and whitespace-padded headers, duplicate records, or slice rows. Stdlib only, no network.",
       "tagline": "Find the rows that will break something.",
       "category": "data",
       "tags": [
@@ -749,7 +749,7 @@
             "drop_into": "your brainstem's agents/ folder"
           }
         ],
-        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+        "note": "The SKILL.md is toasted — it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
       }
     },
     {
@@ -800,7 +800,7 @@
             "drop_into": "your brainstem's agents/ folder"
           }
         ],
-        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+        "note": "The SKILL.md is toasted — it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
       }
     },
     {
@@ -851,14 +851,14 @@
             "drop_into": "your brainstem's agents/ folder"
           }
         ],
-        "note": "The SKILL.md is toasted \u2014 it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
+        "note": "The SKILL.md is toasted — it carries a typed contract and the canonical record, so it can be projected back to the agent byte-exact. Either file alone is enough for its own host."
       }
     },
     {
       "id": "rapp_crispy",
       "name": "RAPP Crispy",
       "version": "1.4.0",
-      "summary": "A local-first meeting stack. Records a meeting, removes background noise with DeepFilterNet3 (or RNNoise), transcribes it on a whisper.cpp server bound to 127.0.0.1, and writes Summary / Decisions / Action items / Open questions through a hook you own. Also puts a denoised virtual microphone in front of your meeting app. Audio, transcripts and notes are plain files under ~/.rappcrispy/meetings. Capture, denoising and transcription never leave the machine; the notes hook does whatever you point it at, and the default one calls `claude -p`, which sends the transcript to Anthropic. Denoise quality is measured, not asserted \u2014 action=bench reproduces it, including the case it handles badly.",
+      "summary": "A local-first meeting stack. Records a meeting, removes background noise with DeepFilterNet3 (or RNNoise), transcribes it on a whisper.cpp server bound to 127.0.0.1, and writes Summary / Decisions / Action items / Open questions through a hook you own. Also puts a denoised virtual microphone in front of your meeting app. Audio, transcripts and notes are plain files under ~/.rappcrispy/meetings. Capture, denoising and transcription never leave the machine; the notes hook does whatever you point it at, and the default one calls `claude -p`, which sends the transcript to Anthropic. Denoise quality is measured, not asserted — action=bench reproduces it, including the case it handles badly.",
       "category": "productivity",
       "tags": [
         "deepfilternet",
@@ -941,8 +941,12 @@
     {
       "id": "rapp_voice",
       "name": "RAPP Voice",
-      "version": "1.0.0",
-      "summary": "Hold a key anywhere on macOS, speak, release, and cleaned-up text appears at your cursor. Speech recognition runs on-device via whisper.cpp; your voice never leaves the machine. Filler stripping, app-aware formatting and a weighted personal dictionary.",
+      "version": "1.1.0",
+      "publisher": "@kody-w",
+      "manifest_name": "@kody-w/rapp-voice-singleton",
+      "runtime": "twin",
+      "summary": "Native macOS dictation with local whisper.cpp recognition, a weighted dictionary, app-aware cleanup, and safe insertion or manual-copy fallback. Optional cloud polish is off until explicitly consented.",
+      "tagline": "Native, local dictation with safe insertion and manual-copy fallback.",
       "category": "productivity",
       "tags": [
         "rapplication",
@@ -954,23 +958,83 @@
         "has-ui"
       ],
       "license": "MIT",
-      "publisher": "@kody-w",
+      "homepage": "https://github.com/kody-w/rapp-voice",
       "quality_tier": "community",
-      "tagline": "Hold a key anywhere on macOS, speak, release, and cleaned-up text appears at your cursor.",
-      "manifest_name": "@kody-w/rapp-voice-singleton",
+      "twin": {
+        "soul": "twin/soul.md",
+        "agents": "twin/agents",
+        "port": 7091
+      },
+      "desktop": {
+        "schema": "rapp-desktop/1.0",
+        "platform": "macos",
+        "minimum_os": "14.0",
+        "bundle_id": "io.rapp.voice",
+        "source": {
+          "repo": "kody-w/rapp-voice",
+          "commit_sha": "45e5529509c04b2b346e27b8b8a82c59cb5ec32d"
+        },
+        "release_tag": "v1.1.0",
+        "artifacts": [
+          {
+            "arch": "arm64",
+            "bytes": 1467143,
+            "evidence": {
+              "bytes": 2715,
+              "sha256": "ad6dc775592c074cc52b1df95835e60d18e6ca4122fbdf9337230e02195e271c",
+              "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-arm64.zip.evidence.ad6dc775592c074cc52b1df95835e60d18e6ca4122fbdf9337230e02195e271c.json"
+            },
+            "format": "zip",
+            "sha256": "2b32c75c7530b51e58666c55eae5b0bddd3dd134f286a7ea01fc38fd164ed741",
+            "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-arm64.zip"
+          },
+          {
+            "arch": "x86_64",
+            "bytes": 1684556,
+            "evidence": {
+              "bytes": 2719,
+              "sha256": "a988b9a0de46b5e45a92f980b116ea387785442c600a92561bbe004d5392ddcf",
+              "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-x86_64.zip.evidence.a988b9a0de46b5e45a92f980b116ea387785442c600a92561bbe004d5392ddcf.json"
+            },
+            "format": "zip",
+            "sha256": "e90ef0da386c9d4b1017bbce8179d112b4c6be222688cad1651bc955b432d2e0",
+            "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-x86_64.zip"
+          }
+        ],
+        "prerequisites": [
+          "macOS 14.0 or later; choose the arm64 ZIP for Apple Silicon or the x86_64 ZIP for an Intel Mac.",
+          "Microphone permission is required for recording that you explicitly start.",
+          "Internet access is needed to download a verified Base English or Small English speech model in Setup. Model weights are not included in the application ZIP; recognition works offline afterward.",
+          "Accessibility enables automatic cross-app input; Accessibility plus Input Monitoring enable the global shortcut. App buttons and Copy/manual-paste remain available without those grants.",
+          "No Hammerspoon, Homebrew, ffmpeg, localhost speech server, account, or API key is required for native local dictation. Optional polish needs a separately reviewed executable hook and explicit provider consent."
+        ],
+        "privacy": "Capture starts only when you hold the shortcut or press Start. The app records through its own microphone permission, transcribes audio locally with bundled whisper.cpp, and deletes its audio work files after completion, errors, or cancellation. Native diagnostics retain counts and status, not transcripts. Settings, verified models, and work files use ~/Library/Application Support/io.rapp.voice; the existing ~/.rappvoice dictionary and legacy state are preserved. Downloads fetch model weights, not voice data. Secure Input, protected or changed fields, and missing permissions prevent automatic insertion and offer manual copy instead. Optional polish is off by default; only after reviewing the executable and named recipient and explicitly consenting can a triggered transcript be passed to that hook, which may send text to a provider such as Claude/Anthropic and incur charges. Audio is not passed to the polish hook. The secondary twin chat may separately use its host's LLM.",
+        "setup": [
+          "Download the ZIP matching your Mac, expand it in Finder, and drag the extracted RAPPVoice.app into Applications.",
+          "Launch RAPP Voice from Applications and open Setup. Launching the app or granting a permission does not start a recording.",
+          "Enable Microphone when ready, choose Base English or Small English, and use Download / retry. Wait for model size and SHA-256 verification and save the selection.",
+          "For shortcuts across other apps and automatic insertion, grant Accessibility and Input Monitoring to RAPP Voice in System Settings, then refresh grants or reopen the app if macOS requests it.",
+          "Focus a normal text field, hold Right Command, speak, and release. Double-tap for hands-free recording; use Stop or Cancel as needed. Without suitable permissions or focus, review the transcript and choose Copy/manual-paste.",
+          "Change the shortcut, dictionary, or insertion method in the GUI. Keep optional polish disabled unless you have reviewed its hook and recipient and explicitly consented."
+        ],
+        "agent_integration": "The Python singleton and existing twin/UI are secondary integration, not a native installer. In a compatible RAPP/BasicAgent host they discover the installed RAPPVoice.app or the explicit RAPPVOICE_NATIVE_CLI path and send typed JSON to RAPPVoice --action. The existing doctor, dictionary, add_term, stats, and process actions inspect readiness, manage vocabulary, summarize status-only logs, or clean supplied text; none can record, inject input, or invoke polish. A .py drop does not install the app, its speech model, or macOS permissions. When no native executable is present, the existing Hammerspoon/localhost backend remains a legacy fallback; native failures are not replayed through that fallback."
+      },
+      "egg_note": "The retained .egg is an unchanged legacy twin hatch cartridge, not the native 1.1.0 application or its installer. Native downloads are listed only in desktop.artifacts; current singleton/UI integration files live in the source repository.",
       "singleton_filename": "rapp_voice_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/main/rapp_voice/singleton/rapp_voice_agent.py",
-      "singleton_sha256": "cc241dc84953742d1e6925db17f4b20065573687c7d4b71e53699a3c0df2618c",
-      "singleton_lines": 249,
-      "singleton_bytes": 10365,
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/7120b06a7bb2db598f00f355f5d58890d58d3f34/rapp_voice/singleton/rapp_voice_agent.py",
+      "singleton_sha256": "a04c1100a70545f13b0cdce6c39e24c34f55daae4aeaf8fde6b6e9e1d5b1e785",
+      "singleton_lines": 294,
+      "singleton_bytes": 12589,
       "ui_filename": "index.html",
-      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/main/rapp_voice/ui/index.html",
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/7120b06a7bb2db598f00f355f5d58890d58d3f34/rapp_voice/ui/index.html",
+      "ui_sha256": "8ae834434b9cfb867672b10f87c589d3829610cb866049f3e5f1919e2b825acb",
+      "ui_bytes": 3505,
       "source": {
         "type": "federation",
         "repo": "kody-w/rapp-voice",
-        "ref": "main",
+        "ref": "7120b06a7bb2db598f00f355f5d58890d58d3f34",
         "path": "rapp_voice",
-        "commit_sha": "be3eabfca7b125abf4f6d3cad6508514f34554e8"
+        "commit_sha": "7120b06a7bb2db598f00f355f5d58890d58d3f34"
       }
     },
     {
@@ -1041,7 +1105,7 @@
       "name": "emoji",
       "slot": "EMOJI",
       "delimiter": "|||EMOJI|||",
-      "summary": "Translates the response into a 3-7 emoji narrative \u2014 a tone fingerprint.",
+      "summary": "Translates the response into a 3-7 emoji narrative — a tone fingerprint.",
       "filename": "emoji_sense.py",
       "install_path": "rapp_brainstem/senses/emoji_sense.py",
       "url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/senses/emoji_sense.py",
@@ -1097,5 +1161,5 @@
   "protocol_extensions": [
     "gated-rapplications/1.0"
   ],
-  "gated_rapplications_note": "This catalog supports gated rapplications (SPEC \u00a711). Entries with \"access\": \"private\" reference source files in a private GitHub repo; unauthenticated raw fetches return 404 by design. Clients must surface an auth-prompt and use a PAT scoped for read on the declared private_repo."
+  "gated_rapplications_note": "This catalog supports gated rapplications (SPEC §11). Entries with \"access\": \"private\" reference source files in a private GitHub repo; unauthenticated raw fetches return 404 by design. Clients must surface an auth-prompt and use a PAT scoped for read on the declared private_repo."
 }

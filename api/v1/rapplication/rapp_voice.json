@@ -1,0 +1,96 @@
+{
+  "id": "rapp_voice",
+  "name": "RAPP Voice",
+  "version": "1.1.0",
+  "publisher": "@kody-w",
+  "category": "productivity",
+  "tags": [
+    "rapplication",
+    "dictation",
+    "speech",
+    "whisper",
+    "local-first",
+    "privacy",
+    "has-ui"
+  ],
+  "summary": "Native macOS dictation with local whisper.cpp recognition, a weighted dictionary, app-aware cleanup, and safe insertion or manual-copy fallback. Optional cloud polish is off until explicitly consented.",
+  "tagline": "Native, local dictation with safe insertion and manual-copy fallback.",
+  "quality_tier": "community",
+  "license": "MIT",
+  "homepage": "https://github.com/kody-w/rapp-voice",
+  "desktop": {
+    "schema": "rapp-desktop/1.0",
+    "platform": "macos",
+    "minimum_os": "14.0",
+    "bundle_id": "io.rapp.voice",
+    "source": {
+      "repo": "kody-w/rapp-voice",
+      "commit_sha": "45e5529509c04b2b346e27b8b8a82c59cb5ec32d"
+    },
+    "release_tag": "v1.1.0",
+    "artifacts": [
+      {
+        "arch": "arm64",
+        "bytes": 1467143,
+        "evidence": {
+          "bytes": 2715,
+          "sha256": "ad6dc775592c074cc52b1df95835e60d18e6ca4122fbdf9337230e02195e271c",
+          "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-arm64.zip.evidence.ad6dc775592c074cc52b1df95835e60d18e6ca4122fbdf9337230e02195e271c.json"
+        },
+        "format": "zip",
+        "sha256": "2b32c75c7530b51e58666c55eae5b0bddd3dd134f286a7ea01fc38fd164ed741",
+        "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-arm64.zip"
+      },
+      {
+        "arch": "x86_64",
+        "bytes": 1684556,
+        "evidence": {
+          "bytes": 2719,
+          "sha256": "a988b9a0de46b5e45a92f980b116ea387785442c600a92561bbe004d5392ddcf",
+          "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-x86_64.zip.evidence.a988b9a0de46b5e45a92f980b116ea387785442c600a92561bbe004d5392ddcf.json"
+        },
+        "format": "zip",
+        "sha256": "e90ef0da386c9d4b1017bbce8179d112b4c6be222688cad1651bc955b432d2e0",
+        "url": "https://github.com/kody-w/rapp-voice/releases/download/v1.1.0/rapp_voice-1.1.0-x86_64.zip"
+      }
+    ],
+    "prerequisites": [
+      "macOS 14.0 or later; choose the arm64 ZIP for Apple Silicon or the x86_64 ZIP for an Intel Mac.",
+      "Microphone permission is required for recording that you explicitly start.",
+      "Internet access is needed to download a verified Base English or Small English speech model in Setup. Model weights are not included in the application ZIP; recognition works offline afterward.",
+      "Accessibility enables automatic cross-app input; Accessibility plus Input Monitoring enable the global shortcut. App buttons and Copy/manual-paste remain available without those grants.",
+      "No Hammerspoon, Homebrew, ffmpeg, localhost speech server, account, or API key is required for native local dictation. Optional polish needs a separately reviewed executable hook and explicit provider consent."
+    ],
+    "privacy": "Capture starts only when you hold the shortcut or press Start. The app records through its own microphone permission, transcribes audio locally with bundled whisper.cpp, and deletes its audio work files after completion, errors, or cancellation. Native diagnostics retain counts and status, not transcripts. Settings, verified models, and work files use ~/Library/Application Support/io.rapp.voice; the existing ~/.rappvoice dictionary and legacy state are preserved. Downloads fetch model weights, not voice data. Secure Input, protected or changed fields, and missing permissions prevent automatic insertion and offer manual copy instead. Optional polish is off by default; only after reviewing the executable and named recipient and explicitly consenting can a triggered transcript be passed to that hook, which may send text to a provider such as Claude/Anthropic and incur charges. Audio is not passed to the polish hook. The secondary twin chat may separately use its host's LLM.",
+    "setup": [
+      "Download the ZIP matching your Mac, expand it in Finder, and drag the extracted RAPPVoice.app into Applications.",
+      "Launch RAPP Voice from Applications and open Setup. Launching the app or granting a permission does not start a recording.",
+      "Enable Microphone when ready, choose Base English or Small English, and use Download / retry. Wait for model size and SHA-256 verification and save the selection.",
+      "For shortcuts across other apps and automatic insertion, grant Accessibility and Input Monitoring to RAPP Voice in System Settings, then refresh grants or reopen the app if macOS requests it.",
+      "Focus a normal text field, hold Right Command, speak, and release. Double-tap for hands-free recording; use Stop or Cancel as needed. Without suitable permissions or focus, review the transcript and choose Copy/manual-paste.",
+      "Change the shortcut, dictionary, or insertion method in the GUI. Keep optional polish disabled unless you have reviewed its hook and recipient and explicitly consented."
+    ],
+    "agent_integration": "The Python singleton and existing twin/UI are secondary integration, not a native installer. In a compatible RAPP/BasicAgent host they discover the installed RAPPVoice.app or the explicit RAPPVOICE_NATIVE_CLI path and send typed JSON to RAPPVoice --action. The existing doctor, dictionary, add_term, stats, and process actions inspect readiness, manage vocabulary, summarize status-only logs, or clean supplied text; none can record, inject input, or invoke polish. A .py drop does not install the app, its speech model, or macOS permissions. When no native executable is present, the existing Hammerspoon/localhost backend remains a legacy fallback; native failures are not replayed through that fallback."
+  },
+  "source": {
+    "type": "federation",
+    "repo": "kody-w/rapp-voice",
+    "ref": "7120b06a7bb2db598f00f355f5d58890d58d3f34",
+    "path": "rapp_voice",
+    "commit_sha": "7120b06a7bb2db598f00f355f5d58890d58d3f34"
+  },
+  "singleton_filename": "rapp_voice_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/7120b06a7bb2db598f00f355f5d58890d58d3f34/rapp_voice/singleton/rapp_voice_agent.py",
+  "singleton_sha256": "a04c1100a70545f13b0cdce6c39e24c34f55daae4aeaf8fde6b6e9e1d5b1e785",
+  "singleton_bytes": 12589,
+  "singleton_lines": 294,
+  "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-voice/7120b06a7bb2db598f00f355f5d58890d58d3f34/rapp_voice/ui/index.html",
+  "ui_sha256": "8ae834434b9cfb867672b10f87c589d3829610cb866049f3e5f1919e2b825acb",
+  "ui_bytes": 3505,
+  "schema": "rapp-pokedex-rapp/1.0",
+  "kind": "rapplication",
+  "distribution": "desktop",
+  "has_skin": true,
+  "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/rapp_voice.json",
+  "github_url": "https://github.com/kody-w/rapp-voice/tree/7120b06a7bb2db598f00f355f5d58890d58d3f34"
+}
