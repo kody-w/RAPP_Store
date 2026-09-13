@@ -4,7 +4,7 @@
   "description": "Public catalog of rapplications. Each rapplication is a converged single-file agent.py produced by the double-jump loop. Pull into your local brainstem's agents/ directory and it works. Optional .egg pack restores example workflow state.",
   "maintainer": "@kody.cloud",
   "version": "1.1.0",
-  "generated_at": "2026-09-13T17:18:56Z",
+  "generated_at": "2026-09-13T17:20:08Z",
   "homepage": "https://github.com/kody-w/rapp_store",
   "install_protocol": "drop the singleton .py file into your local brainstem's `agents/` dir. Then POST /api/swarm/deploy with a bundle that includes it, OR: simply hot-load it from disk if your brainstem watches the agents/ folder. The file is everything — no install script, no pip, no native deps.",
   "rapplications": [
@@ -1168,7 +1168,7 @@
     {
       "id": "rapp_shot",
       "name": "RAPP Shot",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "publisher": "@kody-w",
       "manifest_name": "@kody-w/rapp-shot-singleton",
       "runtime": "twin",
@@ -1199,33 +1199,33 @@
         "bundle_id": "io.rapp.shot",
         "source": {
           "repo": "kody-w/rapp-shot",
-          "commit_sha": "6f354f463b9d59ae308d7ab7b40f3f0704685873"
+          "commit_sha": "3310780e800da97c6c9cf4b1e3c489158de0e2ed"
         },
-        "release_tag": "v1.3.0",
+        "release_tag": "v1.3.1",
         "artifacts": [
           {
             "arch": "arm64",
-            "bytes": 421141,
+            "bytes": 421154,
             "evidence": {
               "bytes": 2587,
-              "sha256": "3400b5d80cb27ef59cd42ccb1045a06c0d3213eb9cb49ddb20b7fbd2d5be17ff",
-              "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.0/rapp_shot-1.3.0-arm64.zip.evidence.3400b5d80cb27ef59cd42ccb1045a06c0d3213eb9cb49ddb20b7fbd2d5be17ff.json"
+              "sha256": "38ed2c96f1bfd6217ec8034c4901f3386a01a5d8592f1e5413912d035d2e3686",
+              "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.1/rapp_shot-1.3.1-arm64.zip.evidence.38ed2c96f1bfd6217ec8034c4901f3386a01a5d8592f1e5413912d035d2e3686.json"
             },
             "format": "zip",
-            "sha256": "2c745e86a615699f8c0d6c543f524556c8c59aa6af0606020647e47fabec3e76",
-            "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.0/rapp_shot-1.3.0-arm64.zip"
+            "sha256": "a9b0356c22e90b6af24fb4dbd386030fa45582f8152552b2a7aed391bdb8ec77",
+            "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.1/rapp_shot-1.3.1-arm64.zip"
           },
           {
             "arch": "x86_64",
-            "bytes": 450992,
+            "bytes": 450998,
             "evidence": {
               "bytes": 2591,
-              "sha256": "de1d205e5fd958129e007c2b2e621cc9353ab07761ca37e3455a36402d59b865",
-              "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.0/rapp_shot-1.3.0-x86_64.zip.evidence.de1d205e5fd958129e007c2b2e621cc9353ab07761ca37e3455a36402d59b865.json"
+              "sha256": "e37f64f6199ec55975bcb0db90dc7b4aa45ac7bbc9017dc83d5827b49943fbbe",
+              "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.1/rapp_shot-1.3.1-x86_64.zip.evidence.e37f64f6199ec55975bcb0db90dc7b4aa45ac7bbc9017dc83d5827b49943fbbe.json"
             },
             "format": "zip",
-            "sha256": "226ef8bd164bb043383c74ba5122b782c02fe29a700cb3de377749591a223e3d",
-            "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.0/rapp_shot-1.3.0-x86_64.zip"
+            "sha256": "8db8340dfd6597c6ae8b3edf476b67c05cf229295aaffe017b7925f52ae91d4f",
+            "url": "https://github.com/kody-w/rapp-shot/releases/download/v1.3.1/rapp_shot-1.3.1-x86_64.zip"
           }
         ],
         "prerequisites": [
@@ -1235,7 +1235,7 @@
         ],
         "privacy": "Nothing is captured on launch. Capture begins only after a user action. ScreenCaptureKit capture, Vision OCR, annotation, crop and redaction run on this Mac; RAPP Shot does not upload screenshots or OCR text and requests no microphone, camera or Accessibility permission. Editable captures remain in memory until export; the default save location is ~/Library/Application Support/io.rapp.shot/Exports/, or a folder the user chooses. Existing images and ~/.rappshot history/rules are not overwritten. Copy and export use the reviewed flattened preview; automatic redaction failures never fall back to copying the original. OCR is per line and English-tuned credential labels can miss split, obscured or unrecognized secrets, while long digests can be over-redacted. Re-reading detected text is not an all-clear: inspect every pixel. Automatic detection can be explicitly disabled for an unverified manual-edit preview. Clipboard use or a user-selected synced folder may be governed by the user's macOS settings.",
         "setup": [
-          "Download the architecture-specific ZIP from the v1.3.0 GitHub release; this is the native app, not the Python integration bundle.",
+          "Download the architecture-specific ZIP from the v1.3.1 GitHub release; this is the native app, not the Python integration bundle.",
           "In Finder, double-click the ZIP to expand it, then drag RAPPShot.app to Applications (or ~/Applications). Keep existing screenshots, rules and settings; no CLI installer is needed.",
           "Open RAPP Shot from Finder. No capture starts automatically; Open Image works without Screen Recording permission.",
           "For capture, click Enable Screen Recording, enable RAPP Shot in System Settings > Privacy & Security > Screen Recording (Screen & System Audio Recording on newer macOS), and quit/reopen if macOS requests it. Do not disable Gatekeeper or reset TCC.",
@@ -1244,20 +1244,20 @@
         "agent_integration": "The singleton/twin Python adapters and browser UI are optional secondary integration for a compatible RAPP host; dropping in a .py file does not install the native application. Adapters discover RAPPShot.app or RAPP Shot.app in /Applications or ~/Applications, or an explicit RAPP_SHOT_APP path. Native doctor is a no-capture current-process diagnostic, and list reads existing PNGs. Native capture, ocr, redact and annotate requests are staged for Review & Apply in the app: a user still starts capture and approves the final preview before copy/export; staging is not a completed capture, OCR response or export. An explicit SHOT_CLI selects the separately installed legacy CLI, whose runtime and terminal Screen Recording permissions remain separate. No new network service or RAPP wire fields are introduced."
       },
       "singleton_filename": "rapp_shot_agent.py",
-      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/a6f13b5119ba467d1356a9d89ca881e7dc55f306/rapp_shot/singleton/rapp_shot_agent.py",
-      "singleton_sha256": "7ea3d9383ed9cd998d41ff64275a3b668683fe885bb8fdc56c92900c2e9bcb95",
+      "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/538d55f6d36fa9d0a6b7f4b323ab0480cb45a8ac/rapp_shot/singleton/rapp_shot_agent.py",
+      "singleton_sha256": "bc817f0fdf172cb4e16bbba507e8381838f444033cc0b277d0f55c679d72f61d",
       "singleton_lines": 257,
       "singleton_bytes": 12148,
       "ui_filename": "index.html",
-      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/a6f13b5119ba467d1356a9d89ca881e7dc55f306/rapp_shot/ui/index.html",
-      "ui_sha256": "19a522a099ed33b4c1e66092d925d81f0d56c719e104e3e0dcd4c7bdc5cfb161",
-      "ui_bytes": 3273,
+      "ui_url": "https://raw.githubusercontent.com/kody-w/rapp-shot/538d55f6d36fa9d0a6b7f4b323ab0480cb45a8ac/rapp_shot/ui/index.html",
+      "ui_sha256": "da0a0b9e0ffbe28081f288891b2635b9875bb72956fd8488f584c9eab8e3e76c",
+      "ui_bytes": 3405,
       "source": {
         "type": "federation",
         "repo": "kody-w/rapp-shot",
-        "ref": "a6f13b5119ba467d1356a9d89ca881e7dc55f306",
+        "ref": "538d55f6d36fa9d0a6b7f4b323ab0480cb45a8ac",
         "path": "rapp_shot",
-        "commit_sha": "a6f13b5119ba467d1356a9d89ca881e7dc55f306"
+        "commit_sha": "538d55f6d36fa9d0a6b7f4b323ab0480cb45a8ac"
       }
     }
   ],
