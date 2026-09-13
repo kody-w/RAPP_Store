@@ -1,6 +1,7 @@
 """Pytest fixtures for rapplication validator tests."""
 import json
 import hashlib
+import copy
 import shutil
 import sys
 import types
@@ -291,3 +292,28 @@ def native_zip_release(native_release):
         report["stapler"]["output"] = f"Processing: /fixture/{app}\nThe validate action worked!"
     n.refresh()
     return n
+
+
+@pytest.fixture
+def address_native_evidence():
+    """Append report assets in the release test double without changing old bytes."""
+    import lib_desktop
+
+    def address(release):
+        previous_assets = copy.deepcopy(release.api_release["assets"])
+        for artifact in release.desktop["artifacts"]:
+            report = release.reports.get(
+                (artifact["arch"], artifact["format"]), release.reports[artifact["arch"]])
+            digest = hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
+            artifact["evidence"]["url"] = lib_desktop.release_url(
+                release.repo, release.desktop["release_tag"],
+                lib_desktop.evidence_filename(release.manifest, artifact["arch"],
+                                             artifact["format"], sha256=digest))
+        release.refresh()
+        current_urls = {asset["browser_download_url"] for asset in release.api_release["assets"]}
+        release.api_release["assets"].extend(
+            asset for asset in previous_assets if asset["browser_download_url"] not in current_urls)
+        release.routes[
+            f"https://api.github.com/repos/{release.repo}/releases/tags/{release.desktop['release_tag']}"
+        ] = json.dumps(release.api_release).encode()
+    return address

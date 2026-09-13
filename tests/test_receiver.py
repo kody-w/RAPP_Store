@@ -419,6 +419,20 @@ class TestNativeReceiver:
         assert not list(root.rglob("*.egg"))
         assert json.loads((staging / "_pending.json").read_text())["items"] == []
 
+    def test_content_addressed_evidence_survives_receiver_approval_and_discovery(
+            self, tmp_path, monkeypatch, native_zip_release, address_native_evidence):
+        n = native_zip_release
+        address_native_evidence(n)
+        expected_urls = [a["evidence"]["url"] for a in n.desktop["artifacts"]]
+        root, catalog, staging, event = _stage_native(tmp_path, monkeypatch, n)
+        ok, report = prom.promote(event, staging, catalog)
+        assert ok, report
+        entry = json.loads(catalog.read_text())["rapplications"][0]
+        detail = json.loads((root / "api" / "v1" / "rapplication" / "my_thing.json").read_text())
+        for published in (entry, detail):
+            assert [a["evidence"]["url"] for a in published["desktop"]["artifacts"]] == expected_urls
+        assert not list(root.rglob("*.evidence*.json"))
+
 
 def test_receiver_requires_rapp_issue_front_door(tmp_path):
     event = {"issue": {"number": 1, "title": "Bypass review", "body": "{}"}}

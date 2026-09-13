@@ -681,11 +681,11 @@ function nativeDesktopFor(r) {
         || seen.has(a.arch + ':' + a.format)) return null;
     seen.add(a.arch + ':' + a.format);
     const base = `https://github.com/${d.source.repo}/releases/download/${d.release_tag}/${r.id}-${r.version}-${a.arch}`;
-    const evidenceUrl = base + (a.format === 'zip' ? '.zip' : '') + '.evidence.json';
+    const evidenceBase = base + (a.format === 'zip' ? '.zip' : '') + '.evidence';
     if (a.url !== base + '.' + a.format || !Number.isSafeInteger(a.bytes) || a.bytes <= 0
         || a.bytes > 1073741824 || !hex(a.sha256, 64)
         || !exact(a.evidence, ['url', 'bytes', 'sha256'])
-        || a.evidence.url !== evidenceUrl
+        || ![evidenceBase + '.json', evidenceBase + '.' + a.evidence.sha256 + '.json'].includes(a.evidence.url)
         || !Number.isSafeInteger(a.evidence.bytes) || a.evidence.bytes <= 0
         || a.evidence.bytes > 262144 || !hex(a.evidence.sha256, 64)) return null;
   }

@@ -15,14 +15,20 @@
     "release_tag": {"type": "string", "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
     "artifacts": {
       "type": "array", "minItems": 1, "maxItems": 4,
-      "description": "Unique (arch, format) pairs. DMG evidence retains <id>-<version>-<arch>.evidence.json; ZIP evidence uses <id>-<version>-<arch>.zip.evidence.json.",
+      "description": "Unique (arch, format) pairs. DMG evidence uses <id>-<version>-<arch>.evidence[.<sha256>].json; ZIP evidence uses <id>-<version>-<arch>.zip.evidence[.<sha256>].json. An optional full hash suffix must equal evidence.sha256.",
       "items": {
         "type": "object", "additionalProperties": false,
         "required": ["arch", "format", "url", "bytes", "sha256", "evidence"],
         "properties": {
           "arch": {"enum": ["arm64", "x86_64"]},
           "format": {"enum": ["dmg", "zip"]},
-          "url": {"$ref": "#/$defs/releaseURL"},
+          "url": {
+            "allOf": [
+              {"$ref": "#/$defs/releaseURL"},
+              {"pattern": "\\.evidence(\\.[0-9a-f]{64})?\\.json$"}
+            ],
+            "description": "Use a new content-addressed asset for corrections; the suffix hashes the exact evidence file bytes, not the archive. lib_desktop.py enforces suffix-to-evidence.sha256 equality."
+          },
           "bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824},
           "sha256": {"$ref": "#/$defs/sha256"},
           "evidence": {

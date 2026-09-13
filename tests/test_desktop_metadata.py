@@ -485,3 +485,91 @@ def test_missing_origin_preserves_exact_app_status_and_notary_source(native_zip_
     errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
     assert any("E_DESKTOP_GATEKEEPER" in error for error in errors)
     assert not n.stream_calls
+
+
+@pytest.mark.parametrize("fixture_name", ["native_release", "native_zip_release"])
+def test_content_addressed_evidence_names_bind_exact_report_hash(request, fixture_name, address_native_evidence):
+    n = request.getfixturevalue(fixture_name)
+    legacy = {a["evidence"]["url"]: n.routes[a["evidence"]["url"]] for a in n.desktop["artifacts"]}
+    address_native_evidence(n)
+    for artifact in n.desktop["artifacts"]:
+        evidence = artifact["evidence"]
+        assert evidence["url"].endswith(f".evidence.{evidence['sha256']}.json")
+    assert desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream) == []
+    assert all(n.routes[url] == blob for url, blob in legacy.items())
+
+
+@pytest.mark.parametrize("fixture_name", ["native_release", "native_zip_release"])
+@pytest.mark.parametrize("suffix", ["0" * 64, "a" * 63, "A" * 64])
+def test_evidence_filename_suffix_must_equal_full_lowercase_metadata_hash(request, fixture_name, suffix):
+    n = request.getfixturevalue(fixture_name)
+    evidence = n.desktop["artifacts"][0]["evidence"]
+    assert evidence["sha256"] != suffix
+    evidence["url"] = evidence["url"][:-5] + "." + suffix + ".json"
+    assert any("E_DESKTOP_URL" in e for e in desktop.validate_metadata(n.manifest))
+
+
+@pytest.mark.parametrize("old,new", [
+    ("https://", "http://"),
+    ("/alice/native-app/", "/other/native-app/"),
+    ("/releases/download/v0.1.0/", "/releases/download/v9.0.0/"),
+    ("my_thing-0.1.0-arm64.zip", "my_thing-0.1.0-x86_64.zip"),
+])
+def test_addressed_evidence_retains_scheme_repo_release_and_arch_bindings(
+        native_zip_release, address_native_evidence, old, new):
+    n = native_zip_release
+    address_native_evidence(n)
+    evidence = n.desktop["artifacts"][0]["evidence"]
+    evidence["url"] = evidence["url"].replace(old, new)
+    assert any("E_DESKTOP_URL" in e for e in desktop.validate_metadata(n.manifest))
+
+
+def test_evidence_correction_appends_new_asset_and_preserves_archive_tag_and_old_report(
+        native_zip_release, address_native_evidence):
+    n = native_zip_release
+    report = _real_spctl_form(n)
+    correct_details = report["signing"]["codesign_details"]
+    report["signing"]["codesign_details"] = correct_details.replace(
+        "/fixture/RAPPVoice.app/", "/privateRAPPVoice.app/")
+    n.refresh()
+    artifact = n.desktop["artifacts"][0]
+    archive = {key: copy.deepcopy(value) for key, value in artifact.items() if key != "evidence"}
+    archive_bytes = n.binaries[artifact["url"]]
+    tag = n.desktop["release_tag"]
+    old_url = artifact["evidence"]["url"]
+    old_bytes = n.routes[old_url]
+    assert any("E_DESKTOP_SIGNING" in e for e in desktop.verify_release(
+        n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream))
+
+    report["signing"]["codesign_details"] = correct_details
+    address_native_evidence(n)
+    assert artifact["evidence"]["url"] != old_url
+    assert n.routes[old_url] == old_bytes
+    assert n.binaries[artifact["url"]] == archive_bytes
+    assert n.desktop["release_tag"] == tag
+    assert {key: value for key, value in artifact.items() if key != "evidence"} == archive
+    assert old_url in {asset["browser_download_url"] for asset in n.api_release["assets"]}
+    assert "origin=" not in report["gatekeeper"]["output"]
+    assert desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream) == []
+
+
+def test_addressed_report_does_not_accept_private_prefix_concatenation(
+        native_zip_release, address_native_evidence):
+    n = native_zip_release
+    report = _real_spctl_form(n)
+    report["signing"]["codesign_details"] = report["signing"]["codesign_details"].replace(
+        "/fixture/RAPPVoice.app/", "/privateRAPPVoice.app/")
+    address_native_evidence(n)
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_SIGNING" in e for e in errors)
+    assert not n.stream_calls
+
+
+def test_addressed_report_still_verifies_actual_evidence_bytes(native_zip_release, address_native_evidence):
+    n = native_zip_release
+    address_native_evidence(n)
+    url = n.desktop["artifacts"][0]["evidence"]["url"]
+    n.routes[url] = b"X" + n.routes[url][1:]
+    errors = desktop.verify_release(n.manifest, fetcher=n.fetch, artifact_fetcher=n.stream)
+    assert any("E_DESKTOP_HASH_MISMATCH" in e for e in errors)
+    assert not n.stream_calls

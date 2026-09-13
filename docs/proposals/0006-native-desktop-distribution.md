@@ -80,6 +80,15 @@ notarytool container log is invented. Local Xcode-managed signing and
 notarization is supported without exporting Apple credentials to CI. The
 public same-commit Actions reference can be a build or verification run.
 
+Corrections append new evidence assets instead of overwriting published
+reports. In addition to the legacy names, the contract accepts
+`<archive>.evidence.<full64sha256>.json` for ZIPs and
+`<id>-<version>-<arch>.evidence.<full64sha256>.json` for DMGs. The suffix
+must equal the SHA-256 of the exact evidence bytes. Native archives/tags
+need not change merely to correct reports, but metadata still goes through
+the receiver and normal version/review rules. No malformed app path or
+invented origin is accepted as part of this correction mechanism.
+
 ## Submission and approval
 
 All future submissions use the existing **`[RAPP]` issue receiver and

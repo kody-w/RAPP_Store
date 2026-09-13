@@ -73,17 +73,20 @@ def artifact_filename(entry, arch, artifact_format="dmg"):
     return f"{entry['id']}-{entry['version']}-{arch}.{artifact_format}"
 
 
-def evidence_filename(entry, arch, artifact_format="dmg"):
+def evidence_filename(entry, arch, artifact_format="dmg", *, sha256=None):
     filename = artifact_filename(entry, arch, artifact_format)
     # Preserve existing DMG references while allowing both formats per arch.
-    return (filename[:-4] if artifact_format == "dmg" else filename) + ".evidence.json"
+    stem = filename[:-4] if artifact_format == "dmg" else filename
+    digest = f".{sha256}" if sha256 is not None else ""
+    return stem + ".evidence" + digest + ".json"
 
 
 def _reference_errors(value, expected_url, cap, label):
     errors = []
     if not isinstance(value, dict):
         return [f"E_DESKTOP_REFERENCE: {label} must be an object"]
-    if value.get("url") != expected_url:
+    expected_urls = expected_url if isinstance(expected_url, tuple) else (expected_url,)
+    if value.get("url") not in expected_urls:
         errors.append(f"E_DESKTOP_URL: {label}.url must be the exact same-repo versioned release asset URL")
     size = value.get("bytes")
     if type(size) is not int or not 0 < size <= cap:
@@ -176,9 +179,13 @@ def validate_metadata(entry, *, repo=None, previous=None):
         evidence = artifact["evidence"]
         if not _exact_fields(evidence, REFERENCE_FIELDS):
             errors.append("E_DESKTOP_EVIDENCE: evidence requires exactly url, bytes, sha256")
-        evidence_url = release_url(source["repo"], desktop["release_tag"],
-                                   evidence_filename(entry, arch, artifact_format))
-        errors.extend(_reference_errors(evidence, evidence_url, MAX_EVIDENCE_BYTES, f"{arch}.evidence"))
+        evidence_urls = [release_url(source["repo"], desktop["release_tag"],
+                                      evidence_filename(entry, arch, artifact_format))]
+        if isinstance(evidence, dict) and _matches(SHA256_RE, evidence.get("sha256")):
+            evidence_urls.append(release_url(
+                source["repo"], desktop["release_tag"],
+                evidence_filename(entry, arch, artifact_format, sha256=evidence["sha256"])))
+        errors.extend(_reference_errors(evidence, tuple(evidence_urls), MAX_EVIDENCE_BYTES, f"{arch}.evidence"))
     return errors
 
 

@@ -266,6 +266,13 @@ native apps are `rapp_crispy`, `rapp_rewind`, `rapp_shot`, `rapp_voice`.
    No ZIP submission hash, notarytool container log or ZIP staple is required
    or permitted. ZIP evidence filenames end in `.zip.evidence.json`; legacy
    DMG evidence filenames remain `<id>-<version>-<arch>.evidence.json`.
+   For corrections, never overwrite published evidence. Serialize the
+   corrected genuine report, hash those exact bytes, and publish a new
+   `.zip.evidence.<full64sha256>.json` (ZIP) or
+   `<id>-<version>-<arch>.evidence.<full64sha256>.json` (DMG). The suffix must
+   equal `evidence.sha256`. Keep native archive bytes/tags unchanged and
+   resubmit the new metadata through the receiver; existing version and
+   staged-review requirements still apply.
 4. Run local/federation preflight with `scripts/lib_rapp.py`. Real preflight
    downloads and hashes release assets (bounded separately from legacy
    integration caps). Tests must inject metadata and chunk fetchers rather

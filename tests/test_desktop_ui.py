@@ -197,3 +197,26 @@ def test_storefront_can_offer_zip_and_dmg_for_each_architecture(native_zip_relea
     assert "Apple silicon (arm64) · ZIP" in result["text"]
     assert "Apple silicon (arm64) · DMG" in result["text"]
     assert len([link for link in result["links"] if link["href"].endswith((".zip", ".dmg"))]) == 4
+
+
+@pytest.mark.parametrize("fixture_name", ["native_release", "native_zip_release"])
+def test_storefront_preserves_content_addressed_evidence_links(request, fixture_name, address_native_evidence):
+    n = request.getfixturevalue(fixture_name)
+    address_native_evidence(n)
+    result = render(n.entry())
+    assert result["desktop"]
+    hrefs = [link["href"] for link in result["links"]]
+    for artifact in n.desktop["artifacts"]:
+        assert artifact["evidence"]["url"] in hrefs
+        assert artifact["url"] in hrefs
+
+
+def test_storefront_rejects_evidence_filename_hash_disagreement(native_zip_release, address_native_evidence):
+    n = native_zip_release
+    address_native_evidence(n)
+    entry = n.entry()
+    evidence = entry["desktop"]["artifacts"][0]["evidence"]
+    evidence["url"] = evidence["url"].replace(evidence["sha256"], "0" * 64)
+    result = render(entry)
+    assert not result["desktop"]
+    assert "No native installer is offered" in result["text"]

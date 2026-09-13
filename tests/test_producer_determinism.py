@@ -179,3 +179,16 @@ def test_zip_native_projection_is_deterministic_and_metadata_only(tmp_path, nati
     assert sorted(str(p.relative_to(api)) for p in api.rglob("*") if p.is_file()) == [
         "index.json", "rapplication/my_thing.json",
     ]
+
+
+def test_addressed_evidence_projection_remains_deterministic(
+        tmp_path, native_zip_release, address_native_evidence):
+    n = native_zip_release
+    address_native_evidence(n)
+    api = tmp_path / "api" / "v1"
+    catalog = {"rapplications": [n.entry()]}
+    producer.refresh_native_discovery(catalog, api, ["my_thing"])
+    before = _tree_digest(api)
+    assert producer.refresh_native_discovery(catalog, api, ["my_thing"]) == []
+    assert _tree_digest(api) == before
+    assert json.loads((api / "rapplication" / "my_thing.json").read_text())["desktop"] == n.desktop

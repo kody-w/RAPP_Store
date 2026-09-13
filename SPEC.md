@@ -735,7 +735,7 @@ Each `artifacts[]` object has exactly:
 | `url` | Exactly `https://github.com/<source.repo>/releases/download/<release_tag>/<id>-<version>-<arch>.<format>`. |
 | `bytes` | Exact positive integer size of the final downloadable archive, at most 1,073,741,824 bytes (1 GiB). Booleans/floats are not integers here. |
 | `sha256` | SHA-256 of those final bytes: 64 lowercase hex characters. |
-| `evidence` | Exactly `{url, bytes, sha256}` for the public evidence JSON. URL uses the same repo/tag. DMGs retain filename `<id>-<version>-<arch>.evidence.json`; ZIPs use `<id>-<version>-<arch>.zip.evidence.json`, allowing both formats for one architecture without collisions. Exact positive byte count is at most 262,144 (256 KiB); SHA-256 is 64 lowercase hex. |
+| `evidence` | Exactly `{url, bytes, sha256}` for the public evidence JSON. URL uses the same repo/tag. DMGs accept `<id>-<version>-<arch>.evidence.json` or `<id>-<version>-<arch>.evidence.<sha256>.json`; ZIPs accept `<id>-<version>-<arch>.zip.evidence.json` or `<id>-<version>-<arch>.zip.evidence.<sha256>.json`. If present, the full 64-lowercase-hex filename suffix MUST equal `evidence.sha256`. Exact positive byte count is at most 262,144 (256 KiB); SHA-256 hashes the exact evidence file bytes. |
 
 No URL credentials, HTTP/file/custom schemes, alternate owner/repository,
 mutable `latest` URLs, percent-encoded aliases, traversal, query strings,
@@ -747,6 +747,17 @@ The singleton's literal `__manifest__.version` must equal the native manifest
 version. On update, version must beat the **current** catalog and the publisher,
 existing federation repository and native bundle ID must remain unchanged.
 An existing native entry cannot silently remove `desktop`.
+
+**Immutable evidence corrections:** never overwrite a published evidence
+asset. If a report needs correction, regenerate the genuine report, serialize
+its final bytes, calculate that file's SHA-256, and upload a **new**
+content-addressed evidence filename in the same release. Update the source
+manifest's evidence URL/bytes/hash through a new metadata commit and the
+`[RAPP]` receiver/approval flow; do not rewrite old reports, the native archive,
+or its tag. The suffix is the evidence digest, not the archive digest or a
+hash of normalized/re-serialized JSON. This does not relax existing catalog
+version rules, staged-entry review, signing checks or exact app-path binding.
+Malformed paths remain invalid even when the file has a valid digest name.
 
 ### 14.2 Evidence report (publisher-supplied, inspectable)
 
