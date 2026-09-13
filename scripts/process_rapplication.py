@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import re
 import shutil
@@ -57,9 +58,16 @@ def extract_payload(body: str) -> dict:
     if not m:
         raise ProcessError("E_NO_PAYLOAD: issue body has no ```json``` block")
     try:
-        return json.loads(m.group(1))
+        payload = json.loads(m.group(1))
     except json.JSONDecodeError as e:
         raise ProcessError(f"E_BAD_PAYLOAD_JSON: {e}")
+    if not isinstance(payload, dict):
+        raise ProcessError("E_BAD_PAYLOAD_JSON: payload must be an object")
+    return payload
+
+
+def submission_fingerprint(payload: dict) -> str:
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def extract_bundle(body: str) -> bytes:
@@ -100,6 +108,8 @@ def process(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
     submitter = "@" + issue.get("user", {}).get("login", "")
     body = issue.get("body") or ""
     title = issue.get("title", "")
+    if not title.startswith("[RAPP]"):
+        return False, _md_error(issue_number, ["E_ISSUE_FRONT_DOOR: submissions require a [RAPP] issue"])
 
     catalog = load_catalog(catalog_path)
 
@@ -115,6 +125,8 @@ def process(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
         except ProcessError as e:
             return False, _md_error(issue_number, [str(e)])
         rapp_id = payload.get("id", "unknown")
+        if not isinstance(rapp_id, str) or not lib_rapp.ID_RE.fullmatch(rapp_id):
+            return False, _md_error(issue_number, ["E_BAD_ID: bundle payload id must be snake_case"])
         extract_to = staging_dir / "_extract" / rapp_id
         if extract_to.exists():
             shutil.rmtree(extract_to)
@@ -124,6 +136,9 @@ def process(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
                                         extract_to=extract_to)
         if not result.ok:
             return False, _md_error(issue_number, result.errors)
+        mismatch = _payload_mismatch(payload, result.manifest)
+        if mismatch:
+            return False, _md_error(issue_number, mismatch)
 
         rapp_id = result.manifest["id"]
         target = staging_dir / rapp_id
@@ -149,6 +164,8 @@ def process(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
 
     if submission_type == "federation":
         source = payload.get("source") or {}
+        if not isinstance(source, dict):
+            return False, _md_error(issue_number, ["E_BAD_SOURCE: federation source must be an object"])
         repo, ref, path = source.get("repo"), source.get("ref", "main"), source.get("path", "")
         if not repo:
             return False, _md_error(issue_number, ["E_BAD_SOURCE: federation source.repo missing"])
@@ -158,6 +175,9 @@ def process(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
             existing_catalog=catalog)
         if not result.ok:
             return False, _md_error(issue_number, result.errors)
+        mismatch = _payload_mismatch(payload, result.manifest)
+        if mismatch:
+            return False, _md_error(issue_number, mismatch)
         write_pending(staging_dir, {
             "issue": issue_number,
             "submitter": submitter,
@@ -165,12 +185,19 @@ def process(event: dict, staging_dir: Path, catalog_path: Path) -> tuple[bool, s
             "id": result.manifest["id"],
             "version": result.manifest["version"],
             "entry": result.index_entry,
+            "submission_sha256": submission_fingerprint(payload),
         })
         return True, _md_ok_federation(issue_number, result)
 
     return False, _md_error(issue_number, [
         f"E_UNKNOWN_SUBMISSION_TYPE: {submission_type!r} "
         f"(expected 'bundle' or 'federation')"])
+
+
+def _payload_mismatch(payload, manifest):
+    return [f"E_PAYLOAD_MISMATCH: issue {key} differs from validated manifest"
+            for key in ("id", "version", "publisher")
+            if payload.get(key) != manifest[key]]
 
 
 def _md_error(issue_n, errors):
@@ -201,7 +228,7 @@ def _md_ok_bundle(issue_n, result, entry):
 def _md_ok_federation(issue_n, result):
     m = result.manifest
     src = result.index_entry.get("source", {})
-    return (f"## ✅ Submission validated (federation mode)\n\n"
+    report = (f"## ✅ Submission validated (federation mode)\n\n"
             f"- **id:** `{m['id']}`\n"
             f"- **version:** `{m['version']}`\n"
             f"- **publisher:** `{m['publisher']}`\n"
@@ -211,6 +238,13 @@ def _md_ok_federation(issue_n, result):
             f"- **singleton_sha256:** `{result.integrity.get('singleton_sha256','')[:16]}…`\n\n"
             f"On approval, the catalog entry will be added with the URL above. "
             f"Nothing is copied into `kody-w/rapp_store`.\n")
+    if "desktop" in m:
+        report += ("\nNative release artifact bytes, evidence digests, tag/build commit and "
+                   "successful public build-run references were checked. Maintainers must "
+                   "review the actual macOS signing/notarization reports before approval. "
+                   "These are publisher reports, not independent Apple authentication or "
+                   "RAPP/1 trust. Approval rechecks the current catalog and exact staged pins.\n")
+    return report
 
 
 def main(argv=None):

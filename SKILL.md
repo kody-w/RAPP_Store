@@ -1,17 +1,18 @@
 ---
 name: rapp-store
-description: Use this skill to author, validate, and submit rapplications (single-file agent + UI bundles) to kody-w/RAPP_Store. Covers the catalog mechanics, the SPEC §6 validation rules, both submission modes (bundle and federation), and the brainstem-installable publishing agent.
+description: Use this skill to author, validate, and submit rapplications (single-file agent + UI bundles, with optional public native macOS distribution) to kody-w/RAPP_Store through the [RAPP] issue receiver and approval flow.
 ---
 
 # RAPP store — author & publish guide
 
-This file is the operating manual for any AI working with the RAPP store. It explains what a rapplication is, how the catalog works, and the four ways to submit one. Read end-to-end before authoring.
+This file is the operating manual for any AI working with the RAPP store. It explains what a rapplication is, how the catalog works, and the issue-based submission front door. Read end-to-end before authoring.
 
 ## What this repo is
 
 `kody-w/RAPP_Store` is the **content layer** of the RAPP platform — a public catalog of "rapplications". The execution engine (the brainstem) lives in `kody-w/RAPP`; trust/identity metadata is in the RAR registry. This repo ships **only content** — agents, services, UIs, and the catalog (`index.json`) that points at them.
 
-There is no build system, package manager, or test runner at the repo root. Each rapplication is independent; the consumer brainstem is what executes them.
+The store is static, with stdlib validation/projection scripts and a pytest
+suite under `tests/`. It does not execute applications or host a runtime.
 
 ## What a rapplication is
 
@@ -89,11 +90,15 @@ Every entry has:
 - `singleton_url` — fetchable raw URL of the agent .py
 - `singleton_sha256`, `singleton_lines`, `singleton_bytes` — integrity, recomputed on every promotion
 - `ui_url` — fetchable raw URL of the UI
-- Optional `service_url`, `available_versions`, `source` (federation block)
+- Optional `service_url`, `available_versions`, `source` (federation block),
+  `desktop` (validated native distribution, SPEC §14)
 
-**Anytime you change a singleton or service file, you must update `index.json`**: bump the version, recompute `singleton_sha256` / `singleton_lines` / `singleton_bytes`, bump `manifest.version`. The catalog is the contract.
+**Anytime you change a singleton or service file, a catalog update is required**:
+bump `manifest.version` and resubmit through `[RAPP]`; the receiver recomputes
+integrity and approval updates `index.json`. Do not bypass this by hand-editing
+live entries.
 
-## Submission paths (four ways)
+## Submission front door (three ways to create the same `[RAPP]` issue)
 
 ### 1. Web UI — `submit.html`
 
@@ -146,9 +151,12 @@ Use this whenever the user wants to publish or contribute *anything* to the RAPP
 
 `.github/ISSUE_TEMPLATE/submit-rapplication.yml` is a structured form. Equivalent to the web UI but native to GitHub.
 
-### 4. Direct PR (bundle mode only)
+### Direct catalog edits are not a submission path
 
-Drop a `<id>/` directory into the repo and edit `index.json` by hand. Maintainer-only path; bypasses the receiver workflow.
+All future submissions require the receiver and approval flow above.
+Uploading a release or opening a direct catalog PR does not submit a
+rapplication. Plumbing changes may be reviewed separately; do not invent
+live entries, evidence, hashes, release URLs or generated eggs/hatchers.
 
 ## Submission body format
 
@@ -211,7 +219,10 @@ A maintainer reviews the comment on the issue and adds the `approved` label. Tha
 
 1. `scripts/promote_rapplication.py` reads `staging/_pending.json` for the issue.
 2. Bundle: moves `staging/<id>/` → `<id>/` at repo root, recomputes integrity from on-disk files, merges entry into `index.json`, bumps `index.json.generated_at`.
-3. Federation: re-validates the source repo (in case `main` moved), re-resolves `commit_sha`, merges entry into `index.json`.
+3. Federation: re-validates against the **current catalog**, re-resolves
+   `commit_sha`, and merges the entry. For native distribution, the source,
+   issue payload and metadata must equal their staged pins; drift requires
+   resubmission. Only that native ID's v1 discovery/detail metadata is refreshed.
 4. Promotion committed, issue closed, `promoted` label applied.
 
 ## Bundle vs federation tradeoffs
@@ -222,6 +233,93 @@ A maintainer reviews the comment on the issue and adds the `approved` label. Tha
 | Updates require | new submission | bump `manifest.version` in your repo, resubmit |
 | Bundle size cap | 5 MB | n/a (your repo) |
 | Best for | one-shot rapps, tightly-coupled bundles | actively-developed rapps, your own repo as source of truth |
+
+## Native macOS releases (optional SPEC §14 extension)
+
+Use the existing federation ID and source repository. The initial Fable5
+native apps are `rapp_crispy`, `rapp_rewind`, `rapp_shot`, `rapp_voice`.
+**RAPP Tools is infrastructure, not a fifth store listing.**
+
+1. Read [Proposal 0006](./docs/proposals/0006-native-desktop-distribution.md),
+   [SPEC §14](./SPEC.md#14-optional-native-desktop-distribution), and the
+   exact [desktop](./schemas/desktop.schema.json) /
+   [evidence](./schemas/desktop-evidence.schema.json) schemas.
+2. Produce genuine architecture-specific DMGs or ZIPs containing a
+   signed/stapled/notarized `.app` in the existing source repo's
+   `v<version>` GitHub Release. Capture actual
+   codesign, notarytool, Gatekeeper and stapler reports from the released
+   build as applicable, and record a successful public build/verification
+   Actions run for its full commit. Signing/notarization can remain local
+   and Xcode-managed; that run does not require exported Apple credentials.
+   Never fill missing evidence with `signed: true`, `notarized: true`,
+   placeholder logs, invented trust or an ad-hoc signing receipt.
+3. After release/build completion, add the complete optional `desktop`
+   object to the source manifest. Required: schema, macOS platform,
+   minimum OS, stable bundle ID, full native-build source, release tag,
+   architecture-specific archive and evidence URLs/exact bytes/SHA256,
+   prerequisites, privacy, setup and truthful secondary agent integration.
+   The metadata commit may follow the native-build commit. Apple's
+   notarytool log for DMG distribution hashes the pre-staple upload, not
+   necessarily the final DMG. ZIP distribution uses
+   `notarization: {method: "stapled-app", app_path, bundle_id, version, minimum_os}`
+   and genuine codesign/Gatekeeper/stapler reports naming the enclosed app.
+   No ZIP submission hash, notarytool container log or ZIP staple is required
+   or permitted. ZIP evidence filenames end in `.zip.evidence.json`; legacy
+   DMG evidence filenames remain `<id>-<version>-<arch>.evidence.json`.
+   For corrections, never overwrite published evidence. Serialize the
+   corrected genuine report, hash those exact bytes, and publish a new
+   `.zip.evidence.<full64sha256>.json` (ZIP) or
+   `<id>-<version>-<arch>.evidence.<full64sha256>.json` (DMG). The suffix must
+   equal `evidence.sha256`. Keep native archive bytes/tags unchanged and
+   resubmit the new metadata through the receiver; existing version and
+   staged-review requirements still apply.
+4. Run local/federation preflight with `scripts/lib_rapp.py`. Real preflight
+   downloads and hashes release assets (bounded separately from legacy
+   integration caps). Tests must inject metadata and chunk fetchers rather
+   than downloading binaries.
+5. Submit a `[RAPP]` **federation** issue using the body shape below, the
+   existing ID, a strictly higher manifest version and preferably the full
+   **manifest** commit as `source.ref`. Native bytes never go in the issue,
+   a store bundle, `apps/`, or `api/`.
+6. Owner/reviewer inspects/reproduces macOS reports and approves. Promotion
+   rechecks current catalog versions, stable source/publisher/bundle ID,
+   exact staging and release byte pins. Changed submissions require review
+   again. No global egg/hatcher producer is needed.
+
+For example, the **submission envelope shape**, not live release data, is:
+
+```json
+{
+  "submission_type": "federation",
+  "id": "rapp_shot",
+  "version": "<actual strictly newer MAJOR.MINOR.PATCH>",
+  "publisher": "@kody-w",
+  "source": {
+    "repo": "kody-w/rapp-shot",
+    "ref": "<full commit containing complete release metadata>",
+    "path": "rapp_shot"
+  }
+}
+```
+
+Put it in the issue's fenced `json` block with title
+`[RAPP] @kody-w/rapp_shot v<actual-version>`. Replace placeholders only with
+observed release evidence; the example is deliberately not submit-ready.
+Do not put `desktop` assertions in the issue to override the source manifest.
+
+The storefront offers native architecture choices, disclosures and setup,
+including plain Finder unzip → Applications steps for ZIPs, then optional
+agent/UI integration. Up to four unique `(arch, format)` pairs can be
+listed (`arm64`/`x86_64` × `dmg`/`zip`). Dropping the singleton into `agents/`
+**does not install the native application**. Publisher reports are not
+independent Apple authentication or RAPP/1 acceptance. Any actual
+constitutional change remains owner-approval gated; do not amend it as
+part of a release.
+
+An explicit metadata-only maintenance refresh is available **after approval**:
+`python3 scripts/build_pokedex_api.py --native-only --ids <approved-native-id>`.
+It writes only that v1 detail/listing and preserves unrelated generated files;
+it cannot create a live catalog entry, egg, hatcher, identity or native binary.
 
 ## Common validation errors
 

@@ -33,6 +33,8 @@ Output (written to api/v1/):
 
 from __future__ import annotations
 
+import argparse
+import copy
 import hashlib
 import json
 import re
@@ -318,7 +320,119 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
 
 # ── Main build ─────────────────────────────────────────────────────────────
 
-def main():
+def _build_native_entry(entry):
+    """Project reviewed federation metadata, never invent an organism or archive."""
+    import lib_desktop
+
+    source = entry.get("source")
+    if (not isinstance(source, dict) or source.get("type") != "federation"
+            or not isinstance(source.get("repo"), str)
+            or not lib_desktop.REPO_RE.fullmatch(source["repo"])
+            or not isinstance(source.get("commit_sha"), str)
+            or not lib_desktop.COMMIT_RE.fullmatch(source["commit_sha"])):
+        raise ValueError("E_DESKTOP_DISCOVERY_SOURCE: native discovery requires commit-pinned federation")
+    errors = lib_desktop.validate_metadata(entry, repo=source.get("repo"))
+    if "desktop" not in entry or errors:
+        raise ValueError("E_DESKTOP_DISCOVERY: " + "; ".join(errors or ["desktop metadata missing"]))
+    fields = (
+        "id", "name", "version", "publisher", "category", "tags", "summary",
+        "tagline", "description", "quality_tier", "license", "homepage",
+        "desktop", "source", "singleton_filename", "singleton_url",
+        "singleton_sha256", "singleton_bytes", "singleton_lines",
+        "ui_url", "ui_sha256", "ui_bytes", "service_url", "service_sha256",
+    )
+    projected = {key: copy.deepcopy(entry[key]) for key in fields if key in entry}
+    projected.update({
+        "schema": SCHEMA_API_RAPP,
+        "kind": "rapplication",
+        "distribution": "desktop",
+        "has_skin": bool(entry.get("ui_url")),
+        "self_url": f"{RAW_PREFIX}/api/v1/rapplication/{entry['id']}.json",
+        "github_url": f"https://github.com/{source['repo']}/tree/{source['commit_sha']}",
+    })
+    return projected
+
+
+def native_discovery_updates(catalog, api_dir, ids):
+    """Return only scoped v1 JSON changes; no network, clocks, eggs or hatchers."""
+    api_dir = Path(api_dir)
+    requested = sorted(set(ids))
+    if not requested:
+        raise ValueError("E_DESKTOP_DISCOVERY_IDS: explicit native IDs are required")
+    native_entries = {}
+    for rapp_id in requested:
+        matches = [e for e in catalog.get("rapplications", []) if e.get("id") == rapp_id]
+        if len(matches) != 1:
+            raise ValueError(f"E_DESKTOP_DISCOVERY_ID: expected exactly one catalog entry for {rapp_id!r}")
+        native_entries[rapp_id] = _build_native_entry(matches[0])
+    index_path = api_dir / "index.json"
+    if index_path.is_file():
+        index = json.loads(index_path.read_text())
+        if index.get("schema") != SCHEMA_API_INDEX or not isinstance(index.get("rapplications"), list):
+            raise ValueError("E_DESKTOP_DISCOVERY_INDEX: unsupported existing v1 index")
+    else:
+        index = {
+            "schema": SCHEMA_API_INDEX,
+            "name": "RAPP_Store Pokédex API",
+            "version": "1.0.0",
+            "self_url": f"{RAW_PREFIX}/api/v1/index.json",
+            "rapplications": [],
+        }
+    rows = list(index["rapplications"])
+    updates = {}
+    for rapp_id, entry in native_entries.items():
+        row = {key: copy.deepcopy(entry[key]) for key in (
+            "id", "name", "kind", "publisher", "category", "version",
+            "has_skin", "distribution", "desktop",
+        ) if key in entry}
+        row["url"] = entry["self_url"]
+        positions = [i for i, old in enumerate(rows) if old.get("id") == rapp_id]
+        if len(positions) > 1:
+            raise ValueError("E_DESKTOP_DISCOVERY_DUPLICATE: duplicate existing v1 ID")
+        if positions:
+            rows[positions[0]] = row
+        else:
+            rows.append(row)
+        updates[api_dir / "rapplication" / f"{rapp_id}.json"] = (
+            json.dumps(entry, indent=2) + "\n"
+        ).encode()
+    index["rapplications"] = rows
+    index["count"] = len(rows)
+    updates[index_path] = (json.dumps(index, indent=2) + "\n").encode()
+    return updates
+
+
+def write_native_discovery(updates):
+    changed = []
+    for path, data in updates.items():
+        if path.is_file() and path.read_bytes() == data:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        changed.append(path)
+    return changed
+
+
+def refresh_native_discovery(catalog, api_dir, ids):
+    return write_native_discovery(native_discovery_updates(catalog, api_dir, ids))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--native-only", action="store_true",
+                        help="Only project specified native IDs from the approved catalog; no legacy producers")
+    parser.add_argument("--ids", nargs="+", help="Explicit native catalog IDs for scoped refresh")
+    parser.add_argument("--catalog", type=Path, default=_REPO / "index.json")
+    args = parser.parse_args(argv)
+    if args.native_only:
+        if not args.ids:
+            parser.error("--native-only requires --ids")
+        catalog = json.loads(args.catalog.read_text())
+        changed = refresh_native_discovery(catalog, _API, args.ids)
+        print(f"Native metadata-only refresh: {len(changed)} v1 JSON file(s) changed")
+        return
+    if args.ids:
+        parser.error("--ids requires --native-only (refusing an accidental full rebuild)")
     if not _APPS.is_dir():
         print(f"err: apps/ not found at {_APPS}", file=sys.stderr)
         sys.exit(1)
@@ -349,6 +463,10 @@ def main():
             rapp_id = manifest.get("id")
             if not rapp_id:
                 print(f"  ! skipping {app_dir.relative_to(_REPO)}: no id", file=sys.stderr)
+                continue
+            if "desktop" in manifest:
+                print(f"  ! {rapp_id}: native releases are projected only from approved federation metadata",
+                      file=sys.stderr)
                 continue
 
             entry = _build_entry(app_dir, manifest)
@@ -420,6 +538,11 @@ def main():
         ],
     }
     (_API / "index.json").write_text(json.dumps(index, indent=2) + "\n")
+    if args.catalog.is_file():
+        catalog = json.loads(args.catalog.read_text())
+        native_ids = [e["id"] for e in catalog.get("rapplications", []) if "desktop" in e]
+        if native_ids:
+            refresh_native_discovery(catalog, _API, native_ids)
 
     print()
     try:

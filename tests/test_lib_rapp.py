@@ -1,5 +1,6 @@
 """Tests for scripts/lib_rapp.py — the canonical SPEC.md validator."""
 import io
+import copy
 import json
 import zipfile
 from pathlib import Path
@@ -482,3 +483,200 @@ class TestBundling:
         result = lib_rapp.validate_zip(blob, extract_to=tmp_path / "extracted")
         assert result.ok, result.errors
         assert result.manifest["id"] == "my_thing"
+
+
+class TestMetadataPassThrough:
+    def test_extra_metadata_survives_without_overriding_receiver_fields(self, make_rapp_dir):
+        rapp = make_rapp_dir(
+            runtime="twin", tool={"name": "fixture"}, homepage="https://example.com",
+            custom_metadata={"nested": [1, 2]}, singleton_sha256="spoof",
+            singleton_url="https://example.com/not-the-agent.py",
+            source={"repo": "spoof/repo"}, ui_sha256="spoof", quality_tier="official",
+        )
+        result = lib_rapp.validate_dir(rapp)
+        assert result.ok, result.errors
+        entry = lib_rapp.build_index_entry(result.manifest, result.integrity, "my_thing")
+        assert entry["runtime"] == "twin"
+        assert entry["tool"] == {"name": "fixture"}
+        assert entry["homepage"] == "https://example.com"
+        assert entry["custom_metadata"] == {"nested": [1, 2]}
+        assert entry["singleton_sha256"] == result.integrity["singleton_sha256"]
+        assert entry["ui_sha256"] == result.integrity["ui_sha256"]
+        assert entry["ui_bytes"] == result.integrity["ui_bytes"]
+        assert entry["singleton_url"].startswith(lib_rapp.CATALOG_RAW_BASE)
+        assert "source" not in entry
+        assert entry["quality_tier"] == "community"
+        entry["custom_metadata"]["nested"].append(3)
+        assert result.manifest["custom_metadata"] == {"nested": [1, 2]}
+
+
+class TestNativeFederation:
+    @staticmethod
+    def validate(release, **kwargs):
+        return lib_rapp.validate_federation(
+            release.repo, path="my_thing", fetcher=release.fetch,
+            artifact_fetcher=release.stream, **kwargs)
+
+    def test_native_release_is_verified_and_preserved(self, native_release):
+        n = native_release
+        result = self.validate(n, expected_publisher="@alice")
+        assert result.ok, result.errors
+        assert result.index_entry["desktop"] == n.desktop
+        assert result.index_entry["source"]["commit_sha"] == n.commit
+        assert result.index_entry["source"]["ref"] == "main"
+        assert f"/{n.commit}/" in result.index_entry["singleton_url"]
+        assert f"/{n.commit}/" in result.index_entry["ui_url"]
+        assert result.index_entry["ui_sha256"]
+        assert len(n.stream_calls) == 2
+        assert not {"rappid", "parent_rappid", "egg_url", "hatcher_url"} & result.index_entry.keys()
+
+    def test_local_preflight_uses_same_evidence_verifier(self, native_release):
+        n = native_release
+        result = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert result.ok, result.errors
+        assert result.index_entry["desktop"] == n.desktop
+        assert len(n.stream_calls) == 2
+
+    def test_native_bundle_submission_rejected_without_fetching(self, native_release, tmp_path, monkeypatch):
+        monkeypatch.setattr(lib_rapp.lib_desktop, "verify_release",
+                            lambda *a, **kw: pytest.fail("native bundles must not fetch"))
+        result = lib_rapp.validate_zip(lib_rapp.bundle_dir(native_release.rapp_dir),
+                                       extract_to=tmp_path / "extracted-native")
+        assert not result.ok
+        assert any("E_DESKTOP_FEDERATION_ONLY" in e for e in result.errors)
+
+    def test_local_index_desktop_disagreement_rejected(self, native_release):
+        n = native_release
+        path = n.rapp_dir / "index_entry.json"
+        entry = json.loads(path.read_text())
+        entry["desktop"] = {"platform": "windows"}
+        path.write_text(json.dumps(entry))
+        result = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert any("E_DESKTOP_INDEX_MISMATCH" in e for e in result.errors)
+        assert not n.stream_calls
+
+    @pytest.mark.parametrize("version", ["0.1.0", "0.2.0", "1.0.0"])
+    def test_native_version_must_beat_current_catalog(self, native_release, version):
+        n = native_release
+        result = self.validate(n, existing_catalog={"rapplications": [{"id": "my_thing", "version": version}]})
+        assert any("E_VERSION_NOT_BUMPED" in e for e in result.errors)
+        assert not n.stream_calls
+
+    @pytest.mark.parametrize("field,value,code", [
+        ("bundle_id", "dev.other.mything", "E_DESKTOP_BUNDLE_ID"),
+        ("repo", "other/native-app", "E_DESKTOP_REPO"),
+        ("publisher", "@other", "E_DESKTOP_PUBLISHER"),
+    ])
+    def test_native_identity_cannot_drift(self, native_release, field, value, code):
+        n = native_release
+        prior = copy.deepcopy(n.entry())
+        prior["version"] = "0.0.9"
+        if field == "repo":
+            prior["source"]["repo"] = value
+        elif field == "publisher":
+            prior["publisher"] = value
+        else:
+            prior["desktop"][field] = value
+        result = self.validate(n, existing_catalog={"rapplications": [prior]})
+        assert any(code in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_native_metadata_cannot_be_removed_by_update(self, native_release):
+        n = native_release
+        prior = n.entry()
+        prior["version"] = "0.0.9"
+        del n.manifest["desktop"]
+        n.refresh()
+        result = self.validate(n, existing_catalog={"rapplications": [prior]})
+        assert any("E_DESKTOP_REQUIRED" in e for e in result.errors)
+
+    @pytest.mark.parametrize("commit", [None, "abc123", "Z" * 40])
+    def test_native_manifest_commit_pin_is_not_best_effort(self, native_release, commit):
+        n = native_release
+        n.routes[f"https://api.github.com/repos/{n.repo}/commits/main"] = json.dumps({"sha": commit}).encode()
+        result = self.validate(n)
+        assert any("E_DESKTOP_SOURCE_PIN" in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_native_manifest_moving_during_validation_rejected(self, native_release):
+        n = native_release
+        n.routes[f"https://raw.githubusercontent.com/{n.repo}/{n.commit}/my_thing/manifest.json"] += b" "
+        result = self.validate(n)
+        assert any("E_DESKTOP_STALE_SOURCE" in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_expected_manifest_commit_is_enforced(self, native_release):
+        result = self.validate(native_release, expected_commit_sha="f" * 40)
+        assert any("E_DESKTOP_STALE_SOURCE" in e for e in result.errors)
+
+    def test_singleton_and_native_version_must_match(self, native_release):
+        n = native_release
+        path = n.rapp_dir / n.manifest["agent"]
+        path.write_text(path.read_text().replace('"version": "0.1.0"', '"version": "0.0.1"'))
+        n.refresh()
+        result = self.validate(n)
+        assert any("E_DESKTOP_AGENT_VERSION" in e for e in result.errors)
+        assert not n.stream_calls
+
+    @pytest.mark.parametrize("kind,limit,code", [
+        ("agent", "MAX_SINGLETON_BYTES", "E_SINGLETON_TOO_LARGE"),
+        ("ui", "MAX_UI_BYTES", "E_UI_TOO_LARGE"),
+    ])
+    def test_native_does_not_raise_integration_caps(self, native_release, monkeypatch, kind, limit, code):
+        n = native_release
+        monkeypatch.setattr(lib_rapp, limit, 8)
+        result = self.validate(n)
+        assert any(code in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_local_native_integration_still_has_bundle_cap(self, native_release, monkeypatch):
+        n = native_release
+        monkeypatch.setattr(lib_rapp, "MAX_BUNDLE_BYTES", 100)
+        result = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert any("E_BUNDLE_TOO_LARGE" in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_native_manifest_rejects_ambiguous_duplicate_keys(self, native_release):
+        n = native_release
+        url = f"https://raw.githubusercontent.com/{n.repo}/main/my_thing/manifest.json"
+        n.routes[url] = n.routes[url].replace(b'"version": "0.1.0"', b'"version": "0.0.9", "version": "0.1.0"')
+        result = self.validate(n)
+        assert any("E_DESKTOP_JSON" in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_native_agent_symlink_cannot_escape_local_bundle(self, native_release, tmp_path):
+        n = native_release
+        agent = n.rapp_dir / n.manifest["agent"]
+        outside = tmp_path / "outside_agent.py"
+        outside.write_bytes(agent.read_bytes())
+        agent.unlink()
+        agent.symlink_to(outside)
+        result = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert any("E_PATH_TRAVERSAL" in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_local_native_missing_ui_fails_before_release_downloads(self, native_release):
+        n = native_release
+        manifest = copy.deepcopy(n.manifest)
+        del manifest["ui"]
+        (n.rapp_dir / "manifest.json").write_text(json.dumps(manifest))
+        result = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert any("E_NO_UI" in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_local_native_nonobject_index_entry_rejected(self, native_release):
+        n = native_release
+        (n.rapp_dir / "index_entry.json").write_text("[]")
+        result = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert any("E_BAD_INDEX_ENTRY_JSON" in e for e in result.errors)
+        assert not n.stream_calls
+
+    def test_zip_native_local_and_federation_validation_preserve_app_evidence(self, native_zip_release):
+        n = native_zip_release
+        local = lib_rapp.validate_dir(n.rapp_dir, fetcher=n.fetch, artifact_fetcher=n.stream)
+        assert local.ok, local.errors
+        result = self.validate(n)
+        assert result.ok, result.errors
+        assert result.index_entry["desktop"] == n.desktop
+        assert local.index_entry["desktop"] == n.desktop
+        assert all(a["format"] == "zip" for a in result.index_entry["desktop"]["artifacts"])

@@ -15,6 +15,7 @@ fields beyond the required set — the catalog tolerates extra keys.
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import io
 import json
@@ -25,6 +26,9 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
+
+import lib_desktop
 
 
 # ── Constants ─────────────────────────────────────────────────────────────
@@ -212,12 +216,15 @@ def validate_zip(zip_bytes: bytes, *,
 
     return validate_dir(rapp_dir,
                         expected_publisher=expected_publisher,
-                        existing_catalog=existing_catalog)
+                        existing_catalog=existing_catalog,
+                        submission_type="bundle")
 
 
 def validate_dir(rapp_dir: Path, *,
                  expected_publisher: str | None = None,
-                 existing_catalog: dict | None = None) -> ValidationResult:
+                 existing_catalog: dict | None = None,
+                 fetcher=None, artifact_fetcher=None,
+                 submission_type: str = "local") -> ValidationResult:
     """Validate an extracted rapplication directory."""
     rapp_dir = Path(rapp_dir)
     errors: list[str] = []
@@ -233,8 +240,15 @@ def validate_dir(rapp_dir: Path, *,
                                 errors=[f"E_BAD_MANIFEST_JSON: {e}"])
 
     errors.extend(_validate_manifest(manifest))
+    if isinstance(manifest, dict) and "desktop" in manifest and submission_type == "bundle":
+        errors.append("E_DESKTOP_FEDERATION_ONLY: native releases must use the [RAPP] federation receiver")
     if errors:
         return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest, errors=errors)
+    if "desktop" in manifest:
+        try:
+            lib_desktop.load_json_object(manifest_path.read_bytes())
+        except lib_desktop.DesktopError as exc:
+            return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest, errors=[str(exc)])
 
     rapp_id = manifest["id"]
 
@@ -253,11 +267,12 @@ def validate_dir(rapp_dir: Path, *,
             errors.append(f"E_PUBLISHER_MISMATCH: manifest.publisher '{publisher}' != "
                           f"submitter '{expected_publisher}'")
 
+    prev = _find_catalog_entry(existing_catalog or {}, rapp_id)
     if existing_catalog is not None:
-        prev = _find_catalog_entry(existing_catalog, rapp_id)
         if prev and not _semver_gt(manifest["version"], prev.get("version", "0.0.0")):
             errors.append(f"E_VERSION_NOT_BUMPED: manifest.version '{manifest['version']}' "
                           f"must be > existing '{prev.get('version')}'")
+    errors.extend(lib_desktop.validate_metadata(manifest, previous=prev))
 
     agent_rel = manifest.get("agent")
     service_rel = manifest.get("service")
@@ -268,6 +283,15 @@ def validate_dir(rapp_dir: Path, *,
     # Skip filesystem-existence and AST checks; rely on the *_url + *_sha256
     # attestations validated separately.
     gated = is_gated(manifest)
+    if not gated:
+        for relative in (agent_rel, service_rel, ui_rel):
+            if relative:
+                try:
+                    (rapp_dir / relative).resolve().relative_to(rapp_dir.resolve())
+                except ValueError:
+                    errors.append("E_PATH_TRAVERSAL: declared integration file escapes the bundle root")
+        if errors:
+            return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest, errors=errors)
 
     singleton_path: Path | None = None
     if agent_rel and not gated:
@@ -301,6 +325,13 @@ def validate_dir(rapp_dir: Path, *,
     if index_entry_path.is_file():
         try:
             index_entry = json.loads(index_entry_path.read_text())
+            if not isinstance(index_entry, dict):
+                errors.append("E_BAD_INDEX_ENTRY_JSON: index_entry must be an object")
+                index_entry = {}
+            elif "desktop" in manifest:
+                lib_desktop.load_json_object(index_entry_path.read_bytes())
+        except lib_desktop.DesktopError as exc:
+            errors.append(str(exc))
         except json.JSONDecodeError as e:
             errors.append(f"E_BAD_INDEX_ENTRY_JSON: {e}")
     else:
@@ -321,6 +352,18 @@ def validate_dir(rapp_dir: Path, *,
 
     if not (rapp_dir / "README.md").is_file():
         errors.append("E_NO_README: missing README.md")
+
+    if "desktop" in manifest:
+        if index_entry.get("desktop", manifest["desktop"]) != manifest["desktop"]:
+            errors.append("E_DESKTOP_INDEX_MISMATCH: manifest and index_entry desktop metadata differ")
+        if sum(p.stat().st_size for p in rapp_dir.rglob("*") if p.is_file()) > MAX_BUNDLE_BYTES:
+            errors.append("E_BUNDLE_TOO_LARGE: local integration bundle exceeds 5 MiB; native archives belong in GitHub Releases")
+        if singleton_path and singleton_path.is_file():
+            errors.extend(_validate_native_agent_version(singleton_path.read_bytes(), manifest["version"]))
+        if not errors:
+            errors.extend(lib_desktop.verify_release(manifest, fetcher=fetcher,
+                                                      artifact_fetcher=artifact_fetcher))
+            index_entry["desktop"] = copy.deepcopy(manifest["desktop"])
 
     integrity = compute_integrity(rapp_dir, manifest) if (singleton_path and not gated) else {}
 
@@ -390,9 +433,14 @@ def downgrade_tier_for_submission(quality_tier: str | None) -> str:
 def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str, Any]:
     """Construct the canonical catalog entry, overwriting integrity + URLs.
 
-    Submitter-supplied `index_entry.json` is the merge base; the receiver
-    overrides URLs, sha256, lines, bytes from the actual files."""
-    entry: dict[str, Any] = {
+    Extra manifest metadata passes through. Receiver-owned install fields,
+    provenance and quality tiers cannot be overridden by metadata."""
+    reserved = {"schema", "agent", "service", "ui", "source"}
+    entry = {
+        key: copy.deepcopy(value) for key, value in manifest.items()
+        if key not in reserved and not key.startswith(("singleton_", "service_", "ui_"))
+    }
+    entry.update({
         "id": rapp_id,
         "name": manifest["name"],
         "version": manifest["version"],
@@ -402,11 +450,7 @@ def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str
         "license": manifest.get("license", "BSD-style"),
         "publisher": manifest["publisher"],
         "quality_tier": downgrade_tier_for_submission(manifest.get("quality_tier")),
-    }
-    for opt in ("tagline", "manifest_name", "produced_by", "metrics",
-                "optional_dependencies", "spec_post"):
-        if opt in manifest:
-            entry[opt] = manifest[opt]
+    })
 
     # Per Proposal 0002, rapps live under apps/@<publisher>/<id>/ in the
     # catalog. The publisher comes from the manifest. URLs reflect the new
@@ -438,6 +482,12 @@ def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str
         entry["ui_filename"] = Path(ui_rel).name
         entry["ui_url"] = f"{CATALOG_RAW_BASE}/{base_path}/{ui_rel}"
 
+    for prefix in ("singleton", "service", "ui"):
+        if manifest.get({"singleton": "agent", "service": "service", "ui": "ui"}[prefix]):
+            for suffix in ("sha256", "lines", "bytes"):
+                key = f"{prefix}_{suffix}"
+                if key in integrity:
+                    entry[key] = integrity[key]
     return entry
 
 
@@ -461,7 +511,8 @@ def merge_index_entry(catalog: dict, entry: dict) -> dict:
 def validate_federation(repo: str, ref: str = "main", path: str = "", *,
                         expected_publisher: str | None = None,
                         existing_catalog: dict | None = None,
-                        fetcher=None) -> ValidationResult:
+                        fetcher=None, artifact_fetcher=None,
+                        expected_commit_sha: str | None = None) -> ValidationResult:
     """Validate a federated rapplication served from a public GitHub repo.
 
     Fetches manifest.json + the singleton (and optional ui/service) via
@@ -471,16 +522,21 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
 
     `repo` is "<owner>/<name>". `ref` is a branch, tag, or commit SHA. `path`
     is the rapp directory inside the repo (empty if the repo root IS the
-    rapp). `fetcher` is an optional callable (url) -> bytes for testing;
-    defaults to urllib.
+    rapp).     `fetcher` is an optional callable (url) -> bytes for metadata/testing;
+    defaults to bounded anonymous HTTPS. `artifact_fetcher(url)` yields
+    <=64 KiB byte chunks for native DMG/ZIP verification, separately from the
+    metadata and legacy integration caps.
 
-    All HTTP is anonymous — public GitHub raw + public commits API only.
-    Rate limiting may apply; the receiver retries with backoff."""
+    Native manifests and integration files are commit-pinned; release/tag/
+    Actions/evidence references and native byte pins fail closed. No tokens
+    are used and no native binaries are persisted."""
     fetch = fetcher or _default_fetcher()
     errors: list[str] = []
 
-    if not re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", repo):
+    if not isinstance(repo, str) or not lib_desktop.REPO_RE.fullmatch(repo):
         return ValidationResult(ok=False, errors=[f"E_BAD_REPO: '{repo}' must be '<owner>/<name>'"])
+    if not _safe_repo_path(ref, allow_empty=False) or not _safe_repo_path(path, allow_empty=True):
+        return ValidationResult(ok=False, errors=["E_BAD_SOURCE_PATH: ref/path must be safe relative GitHub paths"])
 
     rel_path = path.strip("/")
     raw_base = f"https://raw.githubusercontent.com/{repo}/{ref}"
@@ -502,6 +558,30 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
         return ValidationResult(ok=False, manifest=manifest, errors=errors)
 
     rapp_id = manifest["id"]
+    native = "desktop" in manifest
+    commit_sha = None
+    if native:
+        try:
+            lib_desktop.load_json_object(manifest_blob)
+            commit_blob = fetch(f"https://api.github.com/repos/{repo}/commits/{quote(ref, safe='')}")
+            commit_sha = lib_desktop.load_json_object(commit_blob).get("sha")
+            if not isinstance(commit_sha, str) or not lib_desktop.COMMIT_RE.fullmatch(commit_sha):
+                raise ValueError("missing full commit")
+            if expected_commit_sha is not None and commit_sha != expected_commit_sha:
+                return ValidationResult(ok=False, manifest=manifest,
+                                        errors=["E_DESKTOP_STALE_SOURCE: source moved since staging; resubmit for review"])
+            pinned_base = f"https://raw.githubusercontent.com/{repo}/{commit_sha}"
+            if rel_path:
+                pinned_base += f"/{rel_path}"
+            if fetch(f"{pinned_base}/manifest.json") != manifest_blob:
+                return ValidationResult(ok=False, manifest=manifest,
+                                        errors=["E_DESKTOP_STALE_SOURCE: manifest changed during commit resolution"])
+            raw_base = pinned_base
+        except lib_desktop.DesktopError as exc:
+            return ValidationResult(ok=False, manifest=manifest, errors=[str(exc)])
+        except (FetchError, ValueError, AttributeError, UnicodeDecodeError):
+            return ValidationResult(ok=False, manifest=manifest,
+                                    errors=["E_DESKTOP_SOURCE_PIN: native manifest requires a resolvable immutable commit"])
     if rapp_id in RESERVED_IDS:
         errors.append(f"E_RESERVED_ID: '{rapp_id}' is reserved by the platform")
 
@@ -514,11 +594,14 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
             errors.append(f"E_PUBLISHER_MISMATCH: manifest.publisher '{publisher}' != "
                           f"submitter '{expected_publisher}'")
 
+    prev = _find_catalog_entry(existing_catalog or {}, rapp_id)
     if existing_catalog is not None:
-        prev = _find_catalog_entry(existing_catalog, rapp_id)
         if prev and not _semver_gt(manifest["version"], prev.get("version", "0.0.0")):
             errors.append(f"E_VERSION_NOT_BUMPED: manifest.version '{manifest['version']}' "
                           f"must be > existing '{prev.get('version')}'")
+    errors.extend(lib_desktop.validate_metadata(manifest, repo=repo, previous=prev))
+    if errors:
+        return ValidationResult(ok=False, manifest=manifest, errors=errors)
 
     integrity: dict[str, Any] = {}
     agent_rel = manifest.get("agent")
@@ -535,6 +618,8 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
             if len(singleton_blob) > MAX_SINGLETON_BYTES:
                 errors.append(f"E_SINGLETON_TOO_LARGE: {len(singleton_blob)} bytes")
             errors.extend(_validate_singleton_bytes(singleton_blob))
+            if native:
+                errors.extend(_validate_native_agent_version(singleton_blob, manifest["version"]))
             integrity.update({
                 "singleton_sha256": hashlib.sha256(singleton_blob).hexdigest(),
                 "singleton_bytes": len(singleton_blob),
@@ -569,14 +654,16 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
             "submit to kody-w/RAR instead via the [AGENT] issue flow."
         )
 
-    commit_sha: str | None = None
-    try:
-        commit_blob = fetch(f"https://api.github.com/repos/{repo}/commits/{ref}")
-        commit_sha = json.loads(commit_blob.decode("utf-8")).get("sha")
-    except FetchError:
-        pass  # commit-sha pinning is best-effort; entry is still valid without it
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        pass
+    if native:
+        if not errors:
+            errors.extend(lib_desktop.verify_release(manifest, fetcher=fetch,
+                                                      artifact_fetcher=artifact_fetcher))
+    else:
+        try:
+            commit_blob = fetch(f"https://api.github.com/repos/{repo}/commits/{quote(ref, safe='')}")
+            commit_sha = json.loads(commit_blob.decode("utf-8")).get("sha")
+        except (FetchError, json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            pass  # legacy federation retains best-effort commit pinning
 
     if errors:
         return ValidationResult(ok=False, manifest=manifest,
@@ -591,7 +678,8 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
 
 def _rewrite_for_federation(entry: dict, manifest: dict, repo: str,
                             ref: str, rel_path: str, commit_sha: str | None) -> dict:
-    raw_base = f"https://raw.githubusercontent.com/{repo}/{ref}"
+    download_ref = commit_sha if "desktop" in manifest else ref
+    raw_base = f"https://raw.githubusercontent.com/{repo}/{download_ref}"
     if rel_path:
         raw_base = f"{raw_base}/{rel_path}"
     if manifest.get("agent"):
@@ -628,25 +716,25 @@ def parse_repo_url(url: str) -> tuple[str, str, str]:
 
 def _validate_singleton_bytes(blob: bytes) -> list[str]:
     """Same as _validate_singleton but takes bytes (no filesystem path)."""
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
-        f.write(blob)
-        tmp = Path(f.name)
-    try:
-        return _validate_singleton(tmp)
-    finally:
-        tmp.unlink(missing_ok=True)
+    return _validate_singleton_source(blob.decode("utf-8", errors="replace"), "singleton")
 
 
 def _validate_service_bytes(blob: bytes) -> list[str]:
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
-        f.write(blob)
-        tmp = Path(f.name)
+    return _validate_service_source(blob.decode("utf-8", errors="replace"))
+
+
+def _validate_native_agent_version(blob: bytes, version: str) -> list[str]:
     try:
-        return _validate_service(tmp)
-    finally:
-        tmp.unlink(missing_ok=True)
+        tree = ast.parse(blob.decode("utf-8"))
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "__manifest__" for target in node.targets
+            ):
+                if ast.literal_eval(node.value).get("version") == version:
+                    return []
+    except (SyntaxError, ValueError, AttributeError, UnicodeDecodeError):
+        pass
+    return ["E_DESKTOP_AGENT_VERSION: singleton __manifest__.version must match the native manifest version"]
 
 
 class FetchError(Exception):
@@ -654,21 +742,13 @@ class FetchError(Exception):
 
 
 def _default_fetcher():
-    import urllib.request
-    import urllib.error
-
     def fetch(url: str) -> bytes:
         try:
-            req = urllib.request.Request(url, headers={
-                "User-Agent": "rapp-store-validator/1.0",
-                "Accept": "*/*",
-            })
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                return resp.read()
-        except urllib.error.HTTPError as e:
-            raise FetchError(f"HTTP {e.code} for {url}") from e
-        except urllib.error.URLError as e:
-            raise FetchError(f"network error for {url}: {e}") from e
+            cap = (lib_desktop.MAX_EVIDENCE_BYTES if url.endswith(".evidence.json")
+                   else lib_desktop.MAX_METADATA_BYTES)
+            return lib_desktop.anonymous_bytes(url, max_bytes=cap)
+        except lib_desktop.DesktopError as exc:
+            raise FetchError(str(exc)) from exc
     return fetch
 
 
@@ -724,7 +804,15 @@ def _unwrap_bundle_root(extract_to: Path) -> Path | None:
     return None
 
 
+def _safe_repo_path(value, *, allow_empty):
+    return (isinstance(value, str) and (allow_empty and value == "" or
+            bool(re.fullmatch(r"[A-Za-z0-9_.@-]+(?:/[A-Za-z0-9_.@-]+)*", value))
+            and not any(part in (".", "..") for part in value.split("/"))))
+
+
 def _validate_manifest(m: dict) -> list[str]:
+    if not isinstance(m, dict):
+        return ["E_BAD_MANIFEST_JSON: manifest must be an object"]
     errs: list[str] = []
     if m.get("schema") != SCHEMA_MANIFEST:
         errs.append(f"E_MANIFEST_SCHEMA: schema must be '{SCHEMA_MANIFEST}', got '{m.get('schema')}'")
@@ -763,15 +851,22 @@ def _validate_manifest(m: dict) -> list[str]:
 
     if not m.get("agent") and not m.get("service"):
         errs.append("E_NO_ENTRYPOINT: manifest must declare agent and/or service")
+    if "desktop" in m and not m.get("agent"):
+        errs.append("E_DESKTOP_AGENT: native distribution supplements a singleton and UI; it does not replace them")
+    if "desktop" in m and not m.get("ui"):
+        errs.append("E_NO_UI: native distribution still requires the agent integration UI")
+    for key in ("agent", "service", "ui"):
+        if m.get(key) and not _safe_repo_path(m[key], allow_empty=False):
+            errs.append(f"E_PATH_TRAVERSAL: manifest.{key} must be a safe relative path")
 
     qt = m.get("quality_tier")
-    if qt is not None and qt not in ACCEPTED_QUALITY_TIERS:
+    if qt is not None and (not isinstance(qt, str) or qt not in ACCEPTED_QUALITY_TIERS):
         errs.append(f"E_BAD_QUALITY_TIER: quality_tier must be one of {sorted(ACCEPTED_QUALITY_TIERS)}")
 
     # SPEC §2 — access field. Optional; defaults to 'public' when absent.
     access = m.get("access")
     if access is not None:
-        if access not in ACCEPTED_ACCESS_LEVELS:
+        if not isinstance(access, str) or access not in ACCEPTED_ACCESS_LEVELS:
             errs.append(
                 f"E_BAD_ACCESS: access must be one of {sorted(ACCEPTED_ACCESS_LEVELS)}, got {access!r}"
             )
@@ -785,12 +880,17 @@ def _validate_manifest(m: dict) -> list[str]:
                     f"set quality_tier='private', got {qt!r}"
                 )
 
+    if not errs:
+        errs.extend(lib_desktop.validate_metadata(m))
     return errs
 
 
 def _validate_singleton(path: Path) -> list[str]:
+    return _validate_singleton_source(path.read_text(encoding="utf-8", errors="replace"), path.name)
+
+
+def _validate_singleton_source(src: str, label: str) -> list[str]:
     errs: list[str] = []
-    src = path.read_text(encoding="utf-8", errors="replace")
 
     # A file that legitimately defines the placeholder list (e.g. a publishing
     # agent that mirrors this validator) can opt out of the placeholder check
@@ -798,10 +898,10 @@ def _validate_singleton(path: Path) -> list[str]:
     if "rapp-validator: allow-template-placeholders" not in src:
         for ph in TEMPLATE_PLACEHOLDERS:
             if ph in src:
-                errs.append(f"E_TEMPLATE_PLACEHOLDER: unresolved '{ph}' in {path.name}")
+                errs.append(f"E_TEMPLATE_PLACEHOLDER: unresolved '{ph}' in {label}")
 
     if not any(imp in src for imp in ACCEPTED_BASIC_AGENT_IMPORTS):
-        errs.append(f"E_NO_BASIC_AGENT_IMPORT: {path.name} must import BasicAgent")
+        errs.append(f"E_NO_BASIC_AGENT_IMPORT: {label} must import BasicAgent")
 
     try:
         tree = ast.parse(src)
@@ -849,8 +949,11 @@ def _validate_singleton(path: Path) -> list[str]:
 
 
 def _validate_service(path: Path) -> list[str]:
+    return _validate_service_source(path.read_text(encoding="utf-8", errors="replace"))
+
+
+def _validate_service_source(src: str) -> list[str]:
     errs: list[str] = []
-    src = path.read_text(encoding="utf-8", errors="replace")
     try:
         tree = ast.parse(src)
     except SyntaxError as e:
@@ -888,8 +991,13 @@ def _find_catalog_entry(catalog: dict, rapp_id: str) -> dict | None:
 
 
 def _semver_gt(a: str, b: str) -> bool:
+    if not isinstance(a, str) or not isinstance(b, str):
+        return False
     ma = SEMVER_RE.match(a)
     mb = SEMVER_RE.match(b)
     if not ma or not mb:
         return False
-    return tuple(int(x) for x in ma.groups()) > tuple(int(x) for x in mb.groups())
+    try:
+        return tuple(int(x) for x in ma.groups()) > tuple(int(x) for x in mb.groups())
+    except ValueError:
+        return False
