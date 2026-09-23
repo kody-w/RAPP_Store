@@ -35,7 +35,7 @@ jobs:
           node-version: '24'
 
       - name: Check out isolated exact Grail loader fixture
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: microsoft/aibast-agents-library
           ref: c60521e2cacbcbfa585a118c1275093d7bb15b74
