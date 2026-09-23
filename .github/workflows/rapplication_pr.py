@@ -33,6 +33,15 @@ class CandidateError(Exception):
     pass
 
 
+class CompletionUnrecorded(CandidateError):
+    """After a confirmed owner merge: report what is true, record no completion."""
+
+
+REFUSALS = (CandidateError, promoter.PromoteError, receiver.ProcessError, ValueError, OSError)
+UNRECORDED = {"E_VALIDATOR_UNAVAILABLE": "validator App unavailable",
+              "E_REQUIRED_CHECK": "required check not satisfied at the exact head"}
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
@@ -344,13 +353,8 @@ def require_checks(client, meta, number):
         raise CandidateError("E_REQUIRED_CHECK: Zoo v2 current-main lacks exact validator App success")
 
 
-def complete(client, number):
-    pr = client.api(f"pulls/{number}")
-    if not pr.get("merged") or pr.get("merged_by", {}).get("login") != client.repository.split("/")[0]:
-        raise CandidateError("E_OWNER_MERGE: only a confirmed repository-owner merge can publish")
-    meta, issue = verify_candidate(client, pr, merged=True)
-    require_checks(client, meta, number)
-    merge = pr.get("merge_commit_sha", "")
+def verify_merge(client, meta, merge):
+    """Return whether the verified merge changed the catalog on main."""
     if not SHA.fullmatch(merge):
         raise CandidateError("E_MERGE: missing merge commit")
     client.git("fetch", "--no-tags", "origin", "main", merge)
@@ -360,17 +364,54 @@ def complete(client, number):
             or client.git("rev-parse", merge + "^{tree}") != meta["tree"]
             or client.git("merge-base", "--is-ancestor", merge, "origin/main", check=False).returncode):
         raise CandidateError("E_STALE_MERGE: merge is not the exact checked tree on its reviewed base")
-    if meta["phase"] == "stage":
-        body = (f"Reviewed staging merged in #{number}. The catalog is unchanged. "
-                "A maintainer can now add `approved` to prepare the separate promotion PR.")
-        client.api(f"issues/{meta['issue']}/comments", "POST", {"body": body})
-    elif issue.get("state") != "closed":
-        client.api(f"issues/{meta['issue']}/comments", "POST", {
-            "body": f"Promotion published by the repository owner's merge of checked PR #{number} "
-                    f"at `{meta['head']}`. Catalog publication, not RAPP/1 authenticated acceptance.",
-        })
-        client.api(f"issues/{meta['issue']}/labels", "POST", {"labels": ["promoted"]})
-        client.api(f"issues/{meta['issue']}", "PATCH", {"state": "closed"})
+    return "index.json" in client.git("diff", "--name-only", "-z", meta["base"], merge).split("\0")
+
+
+def unrecorded(fact, exc):
+    code = str(exc).partition(":")[0]
+    return f"{fact}; completion not recorded ({UNRECORDED.get(code, code)}).\n\n{exc}"
+
+
+def complete(client, number):
+    pr = client.api(f"pulls/{number}")
+    if not pr.get("merged") or pr.get("merged_by", {}).get("login") != client.repository.split("/")[0]:
+        raise CandidateError("E_OWNER_MERGE: only a confirmed repository-owner merge can publish")
+    # The owner's merge may already have changed main: no refusal below may say "not published".
+    merge = pr.get("merge_commit_sha", "")
+    try:
+        meta, issue = verify_candidate(client, pr, merged=True)
+        catalog_changed = verify_merge(client, meta, merge)
+    except REFUSALS as exc:
+        raise CompletionUnrecorded(
+            f"The repository owner merged #{number}, but it is not verified as the checked candidate on its "
+            f"reviewed base. Publication is unconfirmed; completion not recorded.\n\n{exc}") from exc
+    fact = (f"Merged at `{merge}` by the repository owner's merge of #{number}; the catalog on main "
+            + ("changed" if catalog_changed else "is unchanged"))
+    try:
+        require_checks(client, meta, number)
+    except REFUSALS as exc:
+        report = unrecorded(fact, exc)
+        try:
+            client.api(f"issues/{meta['issue']}/comments", "POST", {
+                "body": report + "\n\nNo `promoted` label was added, and this issue stays open.",
+            })
+        except REFUSALS as failed:
+            report += f"\n\nThe issue comment was not posted: {failed}"
+        raise CompletionUnrecorded(report) from exc
+    try:
+        if meta["phase"] == "stage":
+            body = (f"Reviewed staging merged in #{number}. The catalog is unchanged. "
+                    "A maintainer can now add `approved` to prepare the separate promotion PR.")
+            client.api(f"issues/{meta['issue']}/comments", "POST", {"body": body})
+        elif issue.get("state") != "closed":
+            client.api(f"issues/{meta['issue']}/comments", "POST", {
+                "body": f"Promotion published by the repository owner's merge of checked PR #{number} "
+                        f"at `{meta['head']}`. Catalog publication, not RAPP/1 authenticated acceptance.",
+            })
+            client.api(f"issues/{meta['issue']}/labels", "POST", {"labels": ["promoted"]})
+            client.api(f"issues/{meta['issue']}", "PATCH", {"state": "closed"})
+    except REFUSALS as exc:
+        raise CompletionUnrecorded(unrecorded(fact, exc)) from exc
     return meta
 
 
@@ -414,7 +455,10 @@ def main(argv=None):
                 raise CandidateError("E_STALE_BASE: dispatch no longer matches the candidate")
             print("Exact issue/head/base binding verified; approval is not publication.")
         return 0
-    except (CandidateError, promoter.PromoteError, receiver.ProcessError, ValueError, OSError) as exc:
+    except CompletionUnrecorded as exc:
+        print(f"## Completion not recorded\n\n{exc}", file=sys.stderr)
+        return 1
+    except REFUSALS as exc:
         print(f"## Candidate not published\n\n{exc}", file=sys.stderr)
         return 1
 

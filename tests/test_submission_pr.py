@@ -347,10 +347,19 @@ def test_completion_refuses_every_unconfirmed_promotion(client, make_rapp_dir, m
     elif mutation == "wrong-dispatch-base":
         client.validator_runs[-1]["head_sha"] = "f" * 40
     before = len(client.api_calls)
-    with pytest.raises(prflow.CandidateError):
+    with pytest.raises(prflow.CandidateError) as refused:
         prflow.complete(client, pr["number"])
     assert client.issues[32]["state"] == "open"
-    assert not any(method in ("POST", "PATCH") for _, method, _ in client.api_calls[before:])
+    assert "promoted" not in {x["name"] for x in client.issues[32]["labels"]}
+    assert "not published" not in str(refused.value)
+    writes = [(path, method) for path, method, _ in client.api_calls[before:] if method != "GET"]
+    if mutation in ("unmerged", "different-owner", "head", "issue", "merge-base", "merge-tree"):
+        assert writes == []
+        assert "Merged at" not in str(refused.value)
+    else:
+        # A verified owner merge already changed main: say so once, record nothing.
+        assert writes == [("issues/32/comments", "POST")]
+        assert "; the catalog on main changed; completion not recorded (" in str(refused.value)
 
 
 def test_later_failed_check_cannot_be_hidden_by_earlier_success(client, make_rapp_dir):
@@ -361,6 +370,109 @@ def test_later_failed_check_cannot_be_hidden_by_earlier_success(client, make_rap
     client.owner_merge(pr)
     with pytest.raises(prflow.CandidateError, match="E_REQUIRED_CHECK"):
         prflow.complete(client, pr["number"])
+
+
+def validator_app_unavailable(client, pr):
+    """The standing unavailable-App condition: no App status, a failed dispatch, no committed audit."""
+    head = pr["head"]["sha"]
+    client.statuses[head] = []
+    for run in client.validator_runs:
+        if run["display_title"].endswith(head):
+            run["conclusion"] = "failure"
+    (client.root / ".github/zoo-v2-protection-audit.json").unlink()
+
+
+def run_complete(client, monkeypatch, capsys, number):
+    monkeypatch.setattr(prflow, "Client", lambda root, repository: client)
+    before = len(client.api_calls)
+    code = prflow.main(["complete", "--pr-number", str(number), "--repository", client.repository])
+    output = capsys.readouterr()
+    return code, output.out + output.err, [c for c in client.api_calls[before:] if c[1] != "GET"]
+
+
+def test_unavailable_app_after_owner_merge_reports_the_merge_never_not_published(
+        client, make_rapp_dir, monkeypatch, capsys):
+    event = event_for(client, _bundle_payload(make_rapp_dir(), "alice"))
+    pr = ready_promotion(client, event)
+    merge = client.owner_merge(pr)["merge_commit_sha"]
+    validator_app_unavailable(client, pr)
+    assert len(json.loads(git(client.remote, "show", "main:index.json"))["rapplications"]) == 1
+    code, output, writes = run_complete(client, monkeypatch, capsys, pr["number"])
+    fact = (f"Merged at `{merge}` by the repository owner's merge of #{pr['number']}; the catalog on main "
+            "changed; completion not recorded (validator App unavailable).")
+    assert code == 1
+    assert "not published" not in output.lower()
+    assert fact in output and "E_VALIDATOR_UNAVAILABLE" in output
+    assert [(path, method) for path, method, _ in writes] == [("issues/32/comments", "POST")]
+    body = writes[0][2]["body"]
+    assert fact in body and "E_VALIDATOR_UNAVAILABLE" in body and "not published" not in body.lower()
+    assert client.issues[32]["state"] == "open"
+    assert "promoted" not in {x["name"] for x in client.issues[32]["labels"]}
+
+
+def test_unavailable_app_after_staging_merge_reports_an_unchanged_catalog(
+        client, make_rapp_dir, monkeypatch, capsys):
+    event = event_for(client, _bundle_payload(make_rapp_dir(), "alice"))
+    assert prflow.prepare(client.root, event, "stage")[0]
+    pr = prflow.open_pr(client, event, "stage")
+    client.passing_checks(pr)
+    merge = client.owner_merge(pr)["merge_commit_sha"]
+    validator_app_unavailable(client, pr)
+    code, output, writes = run_complete(client, monkeypatch, capsys, pr["number"])
+    assert code == 1 and "not published" not in output.lower()
+    assert (f"Merged at `{merge}` by the repository owner's merge of #{pr['number']}; the catalog on main "
+            "is unchanged; completion not recorded (validator App unavailable).") in output
+    assert [(path, method) for path, method, _ in writes] == [("issues/32/comments", "POST")]
+    assert json.loads(git(client.remote, "show", "main:index.json"))["rapplications"] == []
+    assert client.issues[32]["state"] == "open" and not client.issues[32]["labels"]
+
+
+@pytest.mark.parametrize("mutation,refusal", [
+    ("unmerged", "E_OWNER_MERGE"), ("different-owner", "E_OWNER_MERGE"), ("head", "E_CANDIDATE"),
+    ("merge-base", "E_STALE_MERGE"), ("merge-tree", "E_STALE_MERGE"),
+])
+def test_unavailable_app_never_reports_an_unverified_merge(
+        client, make_rapp_dir, monkeypatch, capsys, mutation, refusal):
+    event = event_for(client, _bundle_payload(make_rapp_dir(), "alice"))
+    pr = ready_promotion(client, event)
+    if mutation != "unmerged":
+        pr = client.owner_merge(pr, different_base=mutation == "merge-base",
+                                different_tree=mutation == "merge-tree")
+    validator_app_unavailable(client, pr)
+    if mutation == "different-owner":
+        pr["merged_by"]["login"] = "someone-else"
+    elif mutation == "head":
+        pr["head"]["sha"] = "f" * 40
+    code, output, writes = run_complete(client, monkeypatch, capsys, pr["number"])
+    assert code == 1 and refusal in output
+    # The merge tree is verified before the validator App is consulted.
+    assert "E_VALIDATOR_UNAVAILABLE" not in output
+    assert "Merged at" not in output and "catalog on main changed" not in output
+    assert ("not published" in output.lower()) == (mutation in ("unmerged", "different-owner"))
+    assert writes == []
+    assert client.issues[32]["state"] == "open"
+    assert "promoted" not in {x["name"] for x in client.issues[32]["labels"]}
+
+
+@pytest.mark.parametrize("failure", ["unavailable-app-comment", "label"])
+def test_recording_failure_after_verified_owner_merge_never_says_not_published(
+        client, make_rapp_dir, monkeypatch, capsys, failure):
+    event = event_for(client, _bundle_payload(make_rapp_dir(), "alice"))
+    pr = ready_promotion(client, event)
+    merge = client.owner_merge(pr)["merge_commit_sha"]
+    if failure == "unavailable-app-comment":
+        validator_app_unavailable(client, pr)
+        client.failure = ("issues/32/comments", "POST")
+    else:
+        client.failure = ("issues/32/labels", "POST")
+    code, output, writes = run_complete(client, monkeypatch, capsys, pr["number"])
+    assert code == 1
+    assert "not published" not in output.lower()
+    assert f"Merged at `{merge}`" in output and "the catalog on main changed; completion not recorded (" in output
+    assert "E_GITHUB_API" in output
+    assert ("issues/32", "PATCH") not in [(path, method) for path, method, _ in writes]
+    assert client.issues[32]["state"] == "open"
+    assert "promoted" not in {x["name"] for x in client.issues[32]["labels"]}
 
 
 def test_issue_edit_retires_old_candidate_and_staged_payload_cannot_be_reapproved(client, make_rapp_dir):

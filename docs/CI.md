@@ -16,7 +16,7 @@ these workflows does **not** make an unprotected branch protected.
 | `Submission binding` | Store validation; read-only GitHub metadata | An issue-generated PR still matches its issue, exact head and current-main base, and changes only its submission paths; ordinary PRs do not receive publication authority |
 | `Zoo v2 current-main` | Dedicated validator **GitHub App commit status**, not the Actions job named `current-main` | Trusted-main tooling classified and validated the inert candidate against current main, with the audited App identity |
 
-All four are required for automated submission-completion reporting. A missing,
+All four are required before completion is recorded. A missing,
 pending, skipped, failed or wrong-actor result is not success. A green Store suite,
 Pages lane or unrelated scanner cannot replace the App-bound context. Require
 up-to-date branches and owner review in addition to checks. No workflow enables
@@ -91,9 +91,18 @@ unchanged. Both community and official publishers use the same path:
    match `apps/@publisher/id/` catalog URLs. Previous distributables and version
    snapshots are preserved; native binaries remain in their publisher's release.
 4. Review all four checks and the exact base/head. Only the repository owner
-   merges. The trusted-main completion workflow verifies the actual merge tree,
-   reviewed parent, current issue, successful exact-head checks and dedicated
-   App status before adding `promoted` and closing the issue.
+   merges, and that merge is what changes the public catalog on main. The
+   trusted-main completion workflow first verifies the current issue binding and
+   that the actual merge is the exact checked tree on its reviewed parent. Only
+   then does it check the successful exact-head checks and dedicated App status,
+   and it adds `promoted` and closes the issue only if all of them pass.
+   Otherwise it reports what is true, with the refusal code, in the job log and
+   in one issue comment, for example “merged at `<sha>`; the catalog on main
+   changed; completion not recorded (validator App unavailable)”. It adds no label,
+   leaves the issue open and fails the job. While the validator App is
+   unavailable, this is the steady state: publication happens at the owner's
+   merge, and completion stays unrecorded. An unmerged, non-owner or unverified
+   merge writes nothing and never reports publication.
 
 Staging is **public**, not an internal-release or sanitization channel. Complete
 applications unsupported by this main-branch validator are rejected, not routed
@@ -116,8 +125,9 @@ therefore explicitly dispatches:
   Candidate files remain inert in this credential-bearing job.
 
 Dispatch success means queued, **not checked**. If branch push, PR creation or
-either dispatch fails, reporting stays “not published.” Missing App authority
-continues to block completion. Repository settings must allow Actions to create
+either dispatch fails, reporting stays “not published”: nothing has merged.
+Missing App authority blocks **recorded** completion, never the truthful report
+after the owner's merge (step 4). Repository settings must allow Actions to create
 PRs; a denial is an explicit failure, never a reason to push main.
 
 ## Pages lint and measured budgets
