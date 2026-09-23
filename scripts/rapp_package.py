@@ -623,7 +623,7 @@ def _validate_local_docker(m):
             "hard_spend_cap": None,
             "other_paid_providers": "disabled",
         }
-        or type(intelligence["concurrency"]) is not int
+        or type(intelligence["concurrency"]) not in (int, float)
         or intelligence["cloud_inference"] is not True
     ):
         raise PackageError(

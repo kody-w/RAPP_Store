@@ -394,6 +394,67 @@ def test_static_contract_package_and_inspection_need_no_device(
     } == before
 
 
+@pytest.mark.parametrize("concurrency", [2, 2.0])
+def test_fixed_concurrency_uses_json_numeric_equality(app, concurrency):
+    app[0]["local_docker"]["intelligence"]["concurrency"] = concurrency
+    package.require_supported(app[0])
+    package.verify_closure(*app)
+    blob = cartridge(*app)
+    assert package.read_package(blob, package.digest(blob)) == app
+
+
+@pytest.mark.parametrize("concurrency", [True, False, "2", 2.5, None])
+def test_fixed_concurrency_does_not_coerce_booleans_or_other_values(app, concurrency):
+    app[0]["local_docker"]["intelligence"]["concurrency"] = concurrency
+    with pytest.raises(
+        package.PackageError, match="unqualified local intelligence policy"
+    ):
+        package.require_supported(app[0])
+
+
+def test_loader_byte_counts_remain_strict_even_for_integral_json_floats(app):
+    manifest, files = app
+    loader = manifest["local_docker"]["loader"]
+    old_prefix = loader["support"]
+    lock = json.loads(files[old_prefix + "SCOTTY_CAPABILITY_LOCK.json"])
+    lock["files"][0]["bytes"] = float(lock["files"][0]["bytes"])
+    encoded = package.canonical_json(lock)
+    revision = package.digest(encoded)
+    new_prefix = "singleton/scotty_support_" + revision + "/"
+    updated = {
+        new_prefix + name[len(old_prefix) :]
+        if name.startswith(old_prefix)
+        else name: contents
+        for name, contents in files.items()
+    }
+    updated[new_prefix + "SCOTTY_CAPABILITY_LOCK.json"] = encoded
+    descriptor = json.loads(updated[loader["descriptor"]])
+    descriptor["support_sha256"] = revision
+    updated[loader["descriptor"]] = package.canonical_json(descriptor)
+    loader["support"] = new_prefix
+    repin(manifest, updated)
+    with pytest.raises(package.PackageError, match="E_LOADER_CLOSURE"):
+        package.verify_closure(manifest, updated)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("license", {}),
+        ("license", []),
+        ("quality_tier", None),
+        ("homepage", None),
+        ("metrics", []),
+        ("tool", "true"),
+        ("surfaces", ["chat", True]),
+    ],
+)
+def test_v2_optional_metadata_keeps_its_declared_types(app, field, value):
+    app[0][field] = value
+    with pytest.raises(package.PackageError):
+        package.require_supported(app[0])
+
+
 def test_complete_flat_layout_and_receipt_written_last(app, host, monkeypatch):
     events = []
     publish, rename, unlink = (
