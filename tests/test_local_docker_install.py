@@ -8,12 +8,13 @@ import io
 import json
 import os
 import shutil
+import socket
 import stat
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 import rapp_package as package
@@ -747,24 +748,74 @@ def test_resume_requires_the_same_verified_receipt_binding(app, host):
     calls = []
     key = (str(host), app[0]["publisher"], app[0]["id"])
     wrong = {**binding, "namespace": "rapp-dock-tg"}
+    target = package._binding_target(binding)
+
+    def resume():
+        calls.append(target)
+        return {
+            "schema": "rapp-dock-installation-fence/1",
+            "target": target,
+            "durable": False,
+            "admission_paused": False,
+            "status": "reactivated",
+        }
+
     entry = {
         "home": Path(binding["home"]),
         "binding": wrong,
-        "resume": lambda **kwargs: calls.append(kwargs),
+        "resume": resume,
     }
     package._fences()[key] = entry
     try:
-        assert package._resume_after_install(host, app[0]) == "restart-Grail-required"
+        assert package._resume_after_install(host, app[0]) == "retained-paused"
         assert calls == [] and key in package._fences()
         entry["binding"] = binding
         assert (
             package._resume_after_install(host, app[0])
             == "resumed-after-preserving-reinstall"
         )
-        assert calls == [{"home": Path(binding["home"])}]
+        assert calls == [target]
         assert key not in package._fences()
     finally:
         package._fences().pop(key, None)
+
+
+@pytest.mark.parametrize("selected", ["filesystem", "owner"])
+def test_unsafe_runtime_root_refuses_before_source_writes(
+    app, host, monkeypatch, selected
+):
+    monkeypatch.setenv(
+        "RAPP_DOCK_HOME", "/" if selected == "filesystem" else str(Path.home())
+    )
+    with pytest.raises(package.PackageError, match="E_LIFECYCLE_BINDING"):
+        install(app, host)
+    assert not (host / ".brainstem_data").exists()
+
+
+def test_failed_reactivation_retains_retry_intent_after_receipt_commit(
+    app, host, monkeypatch
+):
+    install(app, host)
+    monkeypatch.setattr(package, "_stop_local_docker", stopped_fixture)
+    assert uninstall(app, host)["status"] == "detached"
+    key = (str(host), app[0]["publisher"], app[0]["id"])
+    entry = package._fences()[key]
+    resume = entry["resume"]
+    entry["resume"] = lambda: (_ for _ in ()).throw(
+        OSError("synthetic durable resume failure")
+    )
+    result = install(app, host)
+    assert result["runtime_resume"] == "retained-paused" and result["admission_paused"]
+    assert (
+        json.loads((app_home(host) / "installed.json").read_text())["status"]
+        == "installed"
+    )
+    assert (
+        json.loads((app_home(host) / "pending.json").read_text())["reactivate"] is True
+    )
+    entry["resume"] = resume
+    assert install(app, host)["runtime_resume"] == "resumed-after-preserving-reinstall"
+    assert not (app_home(host) / "pending.json").exists()
 
 
 @pytest.mark.parametrize("stage", ["support", "descriptor", "entrypoint", "receipt"])
@@ -2036,6 +2087,22 @@ const cases = JSON.parse(fs.readFileSync(0, 'utf8'));
 
 
 def stopped_fixture(*args, **kwargs):
+    if args:
+        root, home, manifest = args[:3]
+        binding = json.loads((home / "installed.json").read_text())[
+            "local_docker_binding"
+        ]
+        package._fences()[(str(root), manifest["publisher"], manifest["id"])] = {
+            "home": Path(binding["home"]),
+            "binding": binding,
+            "resume": lambda: {
+                "schema": "rapp-dock-installation-fence/1",
+                "target": package._binding_target(binding),
+                "status": "reactivated",
+                "durable": False,
+                "admission_paused": False,
+            },
+        }
     return {
         "schema": "rapp-preserving-stop/1",
         "stopped": True,
@@ -2045,6 +2112,161 @@ def stopped_fixture(*args, **kwargs):
         "retained": list(package.RETAINED),
         "operation_id": "synthetic-stop",
     }
+
+
+def test_real_controller_preserves_targeted_durable_detach_and_reactivation(
+    host, monkeypatch
+):
+    public_root = os.environ.get("RAPP_DOCK_PUBLIC_TEMPLATE_ROOT")
+    controller_root = os.environ.get("RAPP_DOCK_CONTROLLER_TEST_ROOT")
+    if not public_root or not controller_root:
+        pytest.skip(
+            "set public-template and controller-test roots for real controller qualification"
+        )
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("real controller fixture attempted an external effect")
+
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    public_files = package.application_files(Path(public_root))
+    layout = package._json(public_files["generated/source-layout.json"])
+    source_prefix = layout["loader"]["support"].rstrip("/") + "/"
+    support = {
+        name[len(source_prefix) :]: contents
+        for name, contents in public_files.items()
+        if name.startswith(source_prefix)
+        and name != source_prefix + "SCOTTY_CAPABILITY_LOCK.json"
+    }
+    for name in ("local_dock.py", "scotty_contract.py"):
+        support[name] = (Path(controller_root) / name).read_bytes()
+    support["agents/scotty_agent.py"] = b"from local_dock import LocalDock\n" + AGENT
+    candidate = local_application(real_bootstrap_fixture())
+    candidate[1]["components.lock.json"] = public_files["components.lock.json"]
+    rebind_support(candidate, support)
+    monkeypatch.setenv("RAPP_DOCK_DOCKER", "/fixture/never-executed-docker")
+    result = install(candidate, host)
+    assert result["status"] == "installed" and result["runtime_resume"] == "not-needed"
+    home = app_home(host)
+    receipt = package._receipt(home / "installed.json")
+    binding = receipt["local_docker_binding"]
+    blob = cartridge(*candidate)
+    sha = package.digest(blob)
+    bootstrap = home / "releases" / sha / "files" / candidate[0]["agent"]
+    module = ModuleType("s2_real_controller_installed_fixture")
+    module.__file__, module.__package__ = str(bootstrap), ""
+    exec(  # noqa: S102 - verified fixture bootstrap, with all external effects denied.
+        compile(candidate[1][candidate[0]["agent"]], str(bootstrap), "exec"),
+        module.__dict__,
+    )
+    controller_type = module._entry().LocalDock
+    controller = sys.modules[controller_type.__module__]
+    assert Path(controller.__file__).read_bytes() == support["local_dock.py"]
+    calls = []
+    running = {"value": True}
+    container_id = "a" * 64
+    project = binding["namespace"] + "-scrapling"
+
+    def fake_docker(args, **kwargs):
+        calls.append(list(args))
+        if args[:2] == ["--context", "desktop-linux"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    "unix://" + binding["owner_home"] + "/fixture.sock"
+                ).encode(),
+                b"",
+            )
+        assert args[:2] == [
+            "--host",
+            "unix://" + binding["owner_home"] + "/fixture.sock",
+        ]
+        selected = args[2:]
+        if selected[0] == "ps":
+            query = selected[selected.index("--filter") + 1]
+            rows = []
+            if query == "label=com.docker.compose.project" or query.endswith(
+                "=" + project
+            ):
+                rows.append(
+                    {
+                        "ID": container_id,
+                        "State": "running" if running["value"] else "exited",
+                        "Status": "running" if running["value"] else "Exited (0)",
+                        "Labels": {
+                            "com.docker.compose.project": project,
+                            "com.docker.compose.service": "scrapling",
+                        },
+                    }
+                )
+            if query == "label=com.docker.compose.project":
+                rows.append(
+                    {
+                        "ID": "b" * 64,
+                        "State": "running",
+                        "Status": "running",
+                        "Labels": {
+                            "com.docker.compose.project": "rapp-dock-tg-scrapling",
+                            "com.docker.compose.service": "scrapling",
+                        },
+                    }
+                )
+            return subprocess.CompletedProcess(args, 0, json.dumps(rows).encode(), b"")
+        if selected[0] == "stop":
+            assert selected == ["stop", "--time", "30", container_id]
+            running["value"] = False
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        if selected[:2] == ["network", "ls"]:
+            return subprocess.CompletedProcess(args, 0, b"[]", b"")
+        if selected[:2] == ["network", "inspect"] or selected[0] == "inspect":
+            return subprocess.CompletedProcess(args, 1, b"", b"synthetic not found")
+        raise AssertionError("Unexpected fake Docker operation: " + repr(selected))
+
+    monkeypatch.setattr(
+        controller, "docker_cli", lambda override=None: "/fixture/never-executed-docker"
+    )
+    monkeypatch.setattr(controller, "run_docker", fake_docker)
+    dock = controller_type.for_installation(
+        home=Path(binding["home"]),
+        namespace=binding["namespace"],
+        port_base=binding["port_base"],
+    )
+    other_home = host.parent / "unrelated-controller-home"
+    other = controller_type.for_installation(
+        home=other_home, namespace="rapp-dock-tg", port_base=18600
+    )
+    other.pause_for_detach()
+    other.quiesce(timeout=0)
+    sentinel = Path(binding["home"]) / "owned-output.bin"
+    sentinel.write_bytes(b"synthetic owner output")
+    detached = uninstall(candidate, host)
+    assert detached["status"] == "detached", detached
+    assert not running["value"] and any(call[2:3] == ["stop"] for call in calls)
+    assert dock.detach_status()["durable"] and dock.detach_status()["quiesced"]
+    assert other.detach_status()["durable"] and other.runtime.quiescing
+    assert sentinel.read_bytes() == b"synthetic owner output"
+    assert not (host / "agents/scotty_agent.py").exists()
+    # Lose the installer-only in-memory fence: reactivation must use its durable
+    # transaction intent and exact verified receipt, not a global resume.
+    package._fences().pop(
+        (str(host), candidate[0]["publisher"], candidate[0]["id"]), None
+    )
+    before = len(calls)
+    reinstalled = install(candidate, host)
+    assert reinstalled["runtime_resume"] == "resumed-after-preserving-reinstall", (
+        reinstalled
+    )
+    assert len(calls) == before
+    assert dock.detach_status()["durable"] is False
+    assert other.detach_status()["durable"] and other.runtime.quiescing
+    assert sentinel.read_bytes() == b"synthetic owner output"
+    assert not any(
+        "--volumes" in call or "prune" in call or call[2:4] == ["volume", "rm"]
+        for call in calls
+    )
+    dock.quiesce(timeout=2)
 
 
 def uninstall(app, host):

@@ -2578,6 +2578,10 @@ def _validate_binding(value):
             raise PackageError(
                 "E_LIFECYCLE_BINDING: runtime roots must be canonical absolute paths"
             )
+    if value["home"] in (Path(value["home"]).anchor, value["owner_home"]):
+        raise PackageError(
+            "E_LIFECYCLE_BINDING: runtime custody cannot be a filesystem or owner-home root"
+        )
 
 
 def _current_binding():
@@ -2814,6 +2818,7 @@ def _pending(home):
             "sources",
             "directories",
             "hatcher",
+            "reactivate",
         ),
     )
     if (
@@ -2822,12 +2827,15 @@ def _pending(home):
         or not _sha(value["receipt_sha256"])
         or value["previous_receipt_sha256"] is not None
         and not _sha(value["previous_receipt_sha256"])
+        or type(value["reactivate"]) is not bool
     ):
         raise PackageError("E_RECOVERY_REQUIRED: invalid pending installation record")
     return value
 
 
-def _transaction(m, sha, sources, receipt, previous_raw, *, operation, hatcher):
+def _transaction(
+    m, sha, sources, receipt, previous_raw, *, operation, hatcher, reactivate=False
+):
     value = {
         "schema": "rapp-install-pending/1",
         "operation": operation,
@@ -2841,6 +2849,7 @@ def _transaction(m, sha, sources, receipt, previous_raw, *, operation, hatcher):
         "sources": {name: digest(blob) for name, blob in sorted(sources.items())},
         "directories": _source_directories(sources),
         "hatcher": hatcher,
+        "reactivate": reactivate,
     }
     if len(canonical_json(value)) > MAX_RECORD_BYTES:
         raise PackageError(
@@ -3212,6 +3221,15 @@ def install_package(blob, expected_sha256, root, *, retire_hatcher=None):
             previous_raw,
             operation="install",
             hatcher=retire_hatcher,
+            reactivate=bool(
+                _local(m)
+                and (
+                    previous
+                    and previous.get("status") == "detached"
+                    or pending
+                    and pending.get("reactivate")
+                )
+            ),
         )
         _check_pending(pending, plan, previous_raw)
         _check_hatcher(root, retire_hatcher, pending, home, previous)
@@ -3281,8 +3299,9 @@ def install_package(blob, expected_sha256, root, *, retire_hatcher=None):
             new_record,
             expected=digest(current) if current is not None else None,
         )
-        _unlink_owned(home / "pending.json", digest(canonical_json(pending)))
-    resumed = _resume_after_install(root, m)
+        resumed = _resume_after_install(root, m, reactivate=pending["reactivate"])
+        if resumed != "retained-paused":
+            _unlink_owned(home / "pending.json", digest(canonical_json(pending)))
     return {
         "status": "installed",
         "id": m["id"],
@@ -3293,6 +3312,7 @@ def install_package(blob, expected_sha256, root, *, retire_hatcher=None):
         "job_verified": False,
         "retired_hatcher": retire_hatcher["name"] if retire_hatcher else None,
         "runtime_resume": resumed,
+        "admission_paused": resumed in ("retained-paused", "paused-by-other-control"),
         "note": "Complete source installed; images, authentication, app readiness and jobs are not qualified by installation.",
     }
 
@@ -3309,24 +3329,105 @@ def _fences():
     return registry.entries
 
 
-def _resume_after_install(root, m):
+def _binding_target(binding):
+    return {key: binding[key] for key in ("home", "namespace", "port_base")}
+
+
+def _bound_controller(home, m, files, sha, binding):
+    import types
+
+    _require_binding(binding)
+    loader = m["local_docker"]["loader"]
+    release = home / "releases" / sha / "files"
+    entrypoint = release / loader["entrypoint"]
+    module = types.ModuleType("_rapp_store_lifecycle_" + sha)
+    module.__file__ = str(entrypoint)
+    module.__package__ = ""
+    exec(  # noqa: S102 - explicit lifecycle uses verified installed source.
+        compile(files[loader["entrypoint"]], str(entrypoint), "exec"),
+        module.__dict__,
+    )
+    implementation = module._entry()
+    controller_type = implementation.LocalDock
+    controller_module = sys.modules[controller_type.__module__]
+    if _absolute(controller_module.__file__) != _absolute(
+        release / loader["support"] / "local_dock.py"
+    ):
+        raise PackageError("E_LIFECYCLE: controller is outside verified scoped support")
+    if not callable(getattr(controller_type, "for_installation", None)):
+        raise PackageError(
+            "E_LIFECYCLE_ABI: receipt-bound controller lifecycle is unavailable"
+        )
+    _require_binding(binding)
+    dock = controller_type.for_installation(
+        **{**_binding_target(binding), "home": Path(binding["home"])}
+    )
+    _require_binding(binding)
+    if (
+        str(_absolute(dock.home)) != binding["home"]
+        or str(_absolute(dock.owner_home)) != binding["owner_home"]
+        or dock.namespace != binding["namespace"]
+        or dock.port_base != binding["port_base"]
+        or any(
+            not callable(getattr(dock, name, None))
+            for name in (
+                "pause_for_detach",
+                "detach_status",
+                "resume_after_installation",
+            )
+        )
+    ):
+        raise PackageError(
+            "E_LIFECYCLE_SCOPE: controller does not implement the exact bound lifecycle"
+        )
+    return dock
+
+
+def _resume_after_install(root, m, *, reactivate=False):
     registry = sys.modules.get("_rapp_store_detach_fences")
     key = (str(root), m["publisher"], m["id"])
     entry = registry.entries.get(key) if registry is not None else None
-    if entry is None:
+    if entry is None and not reactivate:
         return "not-needed"
     try:
         receipt = _owned_receipt(root, _home(root, m), m)
         binding = _require_binding(
             receipt.get("local_docker_binding") if receipt else None
         )
-        if binding != entry["binding"] or str(entry["home"]) != binding["home"]:
-            return "restart-Grail-required"
-        entry["resume"](home=Path(binding["home"]))
+        if entry is not None:
+            if binding != entry["binding"] or str(entry["home"]) != binding["home"]:
+                return "retained-paused"
+            result = entry["resume"]()
+        else:
+            home = _home(root, m)
+            blob = _read_regular(
+                home / "releases" / receipt["package_sha256"] / "application.egg",
+                limit=MAX_PACKAGE_BYTES,
+            )
+            installed, files = read_package(blob, receipt["package_sha256"])
+            dock = _bound_controller(
+                home, installed, files, receipt["package_sha256"], binding
+            )
+            result = dock.resume_after_installation()
+        if (
+            not isinstance(result, dict)
+            or result.get("schema") != "rapp-dock-installation-fence/1"
+            or result.get("target") != _binding_target(binding)
+            or result.get("durable") is not False
+            or result.get("status")
+            not in ("reactivated", "not-detached", "paused-by-other-control")
+            or type(result.get("admission_paused")) is not bool
+        ):
+            return "retained-paused"
     except Exception:  # noqa: BLE001 - a controller failure must not roll back installed source.
-        return "restart-Grail-required"
-    registry.entries.pop(key, None)
-    return "resumed-after-preserving-reinstall"
+        return "retained-paused"
+    if registry is not None:
+        registry.entries.pop(key, None)
+    return (
+        "paused-by-other-control"
+        if result["admission_paused"]
+        else "resumed-after-preserving-reinstall"
+    )
 
 
 def _stop_local_docker(root, home, m, files, sha):
@@ -3337,49 +3438,25 @@ def _stop_local_docker(root, home, m, files, sha):
     No executable lifecycle path is accepted from package metadata.
     """
     import time
-    import types
 
-    loader = m["local_docker"]["loader"]
-    release = home / "releases" / sha / "files"
-    entrypoint = release / loader["entrypoint"]
-    module = types.ModuleType("_rapp_store_detach_" + sha)
-    module.__file__ = str(entrypoint)
-    module.__package__ = ""
     try:
         installed = _receipt(home / "installed.json")
         binding = _require_binding(
             installed.get("local_docker_binding") if installed else None
         )
-        exec(  # noqa: S102 - explicit uninstall executes only the verified installed bootstrap.
-            compile(files[loader["entrypoint"]], str(entrypoint), "exec"),
-            module.__dict__,
-        )
-        implementation = module._entry()
-        controller_type = implementation.LocalDock
-        controller_module = sys.modules[controller_type.__module__]
-        expected_source = release / loader["support"] / "local_dock.py"
-        if _absolute(controller_module.__file__) != _absolute(expected_source):
-            raise PackageError(
-                "E_LIFECYCLE: controller is not from the verified scoped support"
-            )
-        _require_binding(binding)
-        dock = controller_type.shared(home=Path(binding["home"]))
-        _require_binding(binding)
+        dock = _bound_controller(home, m, files, sha, binding)
+        fence = dock.pause_for_detach()
         if (
-            str(_absolute(dock.home)) != binding["home"]
-            or str(_absolute(dock.owner_home)) != binding["owner_home"]
-            or dock.namespace != binding["namespace"]
-            or dock.port_base != binding["port_base"]
+            not isinstance(fence, dict)
+            or fence.get("schema") != "rapp-dock-installation-fence/1"
+            or fence.get("target") != _binding_target(binding)
+            or fence.get("durable") is not True
+            or fence.get("admission_paused") is not True
         ):
-            raise PackageError(
-                "E_LIFECYCLE_SCOPE: controller target differs from installation custody"
-            )
-        fence = controller_module.quiesce(timeout=0, home=Path(binding["home"]))
-        if not isinstance(fence, dict) or fence.get("admission_paused") is not True:
             raise PackageError("E_DRAIN_STOP: controller did not pause admission")
         _fences()[(str(root), m["publisher"], m["id"])] = {
             "home": dock.home,
-            "resume": controller_module.resume,
+            "resume": dock.resume_after_installation,
             "binding": dict(binding),
         }
         record = dock.lifecycle("stop", None, wait_seconds=10)
@@ -3404,6 +3481,7 @@ def _stop_local_docker(root, home, m, files, sha):
             or record.get("kind") != "lifecycle"
             or record.get("name") != "stop"
             or record.get("application") is not None
+            or record.get("namespace") != binding["namespace"]
             or result.get("stopped") is not True
             or result.get("data_deleted") is not False
             or result.get("unrelated_projects_changed") != []
@@ -3415,9 +3493,12 @@ def _stop_local_docker(root, home, m, files, sha):
                 "E_DRAIN_STOP: preserving stop was incomplete; all sources and layers retained"
             )
         _require_binding(binding)
-        fence = controller_module.quiesce(timeout=30, home=Path(binding["home"]))
+        fence = dock.detach_status(timeout=30)
         if (
             not isinstance(fence, dict)
+            or fence.get("schema") != "rapp-dock-installation-fence/1"
+            or fence.get("target") != _binding_target(binding)
+            or fence.get("durable") is not True
             or fence.get("quiesced") is not True
             or fence.get("admission_paused") is not True
             or fence.get("active_operations") != []
