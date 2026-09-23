@@ -100,6 +100,25 @@ the qualified Store delegate and entire runtime closure, and receives a new
 manifest version and candidate evidence. The live runtime's bootstrap is not
 edited by this authoring example.
 
+To bind a **separately reviewed public distribution** to this Store contract,
+use a new output directory:
+
+```bash
+python3 -B samples/dock_scotty/tools/assemble_candidate.py \
+  --payload <public-distribution-directory> \
+  --output <project-relative-directory>/dock_scotty \
+  --publisher @your-handle
+```
+
+The assembler reads source and declarations, never imports supplied code or
+runs Docker. It preserves the complete `rapp-dock-components/1` lock rather
+than inventing missing archive sizes/digests. Static installer/closure checks
+must pass before output writes. Derived OpenShorts Dockerfiles, nested public
+dependency locks and their source pins remain mandatory. It emits **pending**
+candidate evidence, not runtime qualification. Never pass a coordinator
+directory, owner validation tree, receipt collection or installed application
+as input.
+
 ## Readiness is a vector
 
 | Fact | This public template |

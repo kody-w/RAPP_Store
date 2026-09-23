@@ -1047,6 +1047,33 @@ refuse before installation or bundle extraction writes. Static preflight
 does not invoke Docker, inspect credentials or infer device health.
 Explicit installation/use performs the separate device preflight.
 
+The component reference accepts two **closed data formats**, not two runtime
+lanes: the generic `rapp-local-components/1` declaration used by the authoring
+fixture, and the actual `rapp-dock-components/1` public materializer lock.
+The latter is preserved losslessly and must match the runtime's scoped
+`deploy/local/components.lock.json` byte-for-byte. Applications reference
+existing component IDs; image environment names are unique. Registry/base
+images are digest-pinned public references. Recipe/helper files resolve inside
+the declared support tree and must match both the application lock and their
+own byte/digest pins.
+
+Public input sets and their wheel/system/model/npm dependency manifests are
+dereferenced and type-checked, including SHA-512/integrity agreement for npm.
+Unknown fields/kinds, unapproved origins, missing pins and contradictory
+counts refuse. Exact dependency lengths may be absent only where the existing
+materializer enforces its declared 2 GiB per-input bound and records the actual
+length after digest verification; absence is not proof of a completed fetch.
+Derived OpenShorts build recipes are also distributed as locked
+`generated/dockerfiles/<component-id>.Dockerfile` files matching the declared
+recipe hash and base-image list. Store validation does not import or execute
+the supplied materializer to derive them.
+
+`blocked-build` cannot qualify installation. Recorded network/transport
+blockers stay explicit and may coexist with an experimental code-only canary;
+cached image observations never establish public replay or fresh-device
+qualification. No fake archive digest or size is synthesized merely to
+translate one data format into the other.
+
 The installer verifies the exact Grail baseline and installs the complete
 bootstrap, descriptor and hash-scoped support layout. It checks ownership,
 collisions and existing receipts before writes, writes the receipt last and

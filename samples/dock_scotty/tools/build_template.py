@@ -15,7 +15,7 @@ GRAIL = {
 AUTHORED = (
     "README.md", "source/scotty_agent.py", "source/scotty_implementation.py",
     "generated/host-profiles.json", "generated/state-lifecycle.json",
-    "generated/job-contracts.json", "tools/build_template.py",
+    "generated/job-contracts.json", "tools/build_template.py", "tools/assemble_candidate.py",
 )
 
 

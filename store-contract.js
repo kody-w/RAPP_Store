@@ -238,7 +238,132 @@
     return result;
   }
 
-  function validateReferences(manifest, files) {
+  async function validateMaterializer(manifest, files, lock) {
+    const errors = [];
+    const prefix = manifest.local_docker.loader.support;
+    const definitions = documents['local-docker.schema.json'].$defs;
+    const internal = prefix + 'deploy/local/components.lock.json';
+    const publicHosts = new Set([
+      'github.com', 'codeload.github.com', 'objects.githubusercontent.com',
+      'release-assets.githubusercontent.com', 'raw.githubusercontent.com',
+      'files.pythonhosted.org', 'registry.npmjs.org', 'deb.debian.org',
+      'huggingface.co', 'cdn-lfs.huggingface.co', 'cdn-lfs-us-1.huggingface.co',
+      'cas-bridge.xethub.hf.co', 'download-r2.pytorch.org',
+    ]);
+    const text = bytes => new TextDecoder('utf-8', {fatal: true}).decode(bytes);
+    const sha256 = async bytes => Array.from(new Uint8Array(
+      await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('');
+    const canonical = value => new TextEncoder().encode(canonicalKey(value).replace(/[^\x00-\x7f]/g,
+      character => '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0')) + '\n');
+    if (!files[internal] || manifest.files[internal] !== manifest.files[manifest.local_docker.component_lock]) {
+      errors.push('E_COMPONENTS: Root materializer lock must match the scoped runtime lock.');
+    }
+    function publicUrl(value) {
+      try {
+        const url = new URL(value);
+        if (url.protocol !== 'https:' || !publicHosts.has(url.hostname) || url.username || url.password
+            || url.port && url.port !== '443' || url.hash || /[\u0000-\u001f]/.test(value)) throw new Error();
+      } catch { errors.push('E_COMPONENTS: Unsupported public artifact origin.'); }
+    }
+    function registry(reference) {
+      const repository = reference.split('@')[0], first = repository.split('/')[0];
+      if (repository.includes('/') && (first.includes('.') || first.includes(':') || first === 'localhost')
+          && !['ghcr.io', 'docker.io', 'registry-1.docker.io'].includes(first)) errors.push('E_COMPONENTS: Non-public registry.');
+    }
+    function lockedFiles(items) {
+      const selected = new Map();
+      for (const item of items) {
+        const name = prefix + item.path;
+        if (!files[name] || files[name].byteLength !== item.bytes || manifest.files[name] !== item.sha256
+            || selected.has(item.target)) errors.push('E_CLOSURE: Missing, changed or colliding recipe input.');
+        selected.set(item.target, name);
+      }
+      return selected;
+    }
+    for (const artifact of Object.values(lock.artifacts)) publicUrl(artifact.url);
+    const groups = new Map();
+    for (const [id, group] of Object.entries(lock.input_sets)) {
+      publicUrl(group.source.url);
+      const selected = lockedFiles(group.files);
+      groups.set(id, {group, selected, digest: await sha256(canonical(group))});
+      for (const dependency of group.dependencies) {
+        const name = selected.get(dependency.manifest);
+        if (!name || !files[name]) { errors.push('E_CLOSURE: Missing dependency manifest.'); continue; }
+        try {
+          if (files[name].byteLength > 4 * 1024 * 1024) throw new Error('Dependency metadata exceeds 4 MiB.');
+          const document = parseJSON(files[name]);
+          const invalid = schemaErrors(document, definitions.dependencyDocument, 'local-docker.schema.json', name);
+          errors.push(...invalid);
+          if (invalid.length) continue;
+          if (document.artifact_count != null && document.artifact_count !== document.artifacts.length) {
+            errors.push('E_COMPONENTS: Dependency artifact count differs.');
+          }
+          for (const artifact of document.artifacts) {
+            publicUrl(artifact.url);
+            if (dependency.kind === 'npm') {
+              if (!/^[0-9a-f]{128}$(?![\s\S])/.test(artifact.sha512_hex || '')) {
+                errors.push('E_COMPONENTS: NPM dependencies require SHA-512 pins.');
+              } else {
+                const encoded = btoa(artifact.sha512_hex.match(/../g).map(pair =>
+                  String.fromCharCode(parseInt(pair, 16))).join(''));
+                if (artifact.integrity !== 'sha512-' + encoded) errors.push('E_COMPONENTS: Inconsistent NPM integrity.');
+              }
+            } else if (!SHA256.test(artifact.sha256 || '')
+                || !safePath(artifact[dependency.kind === 'models' ? 'path' : 'filename'])) {
+              errors.push('E_COMPONENTS: Dependency digest/path is missing.');
+            }
+          }
+        } catch (error) { errors.push('E_COMPONENTS: Invalid dependency declaration: ' + error.message); }
+      }
+    }
+    const environments = new Set();
+    for (const [id, component] of Object.entries(lock.components)) {
+      if (environments.has(component.env)) errors.push('E_COMPONENTS: Duplicate image environment.');
+      environments.add(component.env);
+      if (!lock.profile.guest_platforms.includes(component.platform)) errors.push('E_COMPONENTS: Guest architecture is not declared.');
+      if (component.kind === 'registry') registry(component.reference);
+      if (component.recipe?.bases) component.recipe.bases.forEach(registry);
+      if (component.kind === 'dockerfile') {
+        const selected = lockedFiles(component.recipe.files);
+        const dockerfile = selected.get('Dockerfile');
+        if (!dockerfile || !files[dockerfile]) errors.push('E_CLOSURE: A locked Dockerfile is required.');
+        else {
+          const contents = text(files[dockerfile]);
+          const bases = Array.from(contents.matchAll(/^FROM\s+([^\s]+)/gim), match => match[1]);
+          if (!equal(bases, component.recipe.bases) || /^\s*ADD\s|^\s*#\s*syntax=/im.test(contents)) {
+            errors.push('E_COMPONENTS: Dockerfile base or remote input differs from its declaration.');
+          }
+        }
+        const targets = new Set(selected.keys());
+        for (const artifact of component.recipe.artifacts) {
+          if (!Object.hasOwn(lock.artifacts, artifact.artifact) || targets.has(artifact.target)) {
+            errors.push('E_COMPONENTS: Missing or colliding recipe artifact.');
+          }
+          targets.add(artifact.target);
+        }
+      }
+      if (component.kind === 'openshorts-offline') {
+        const selected = groups.get(component.recipe.input_set);
+        if (!selected || selected.digest !== component.recipe.input_set_sha256) errors.push('E_COMPONENTS: Input-set digest differs.');
+        const derived = 'generated/dockerfiles/' + id + '.Dockerfile';
+        if (!files[derived] || manifest.files[derived] !== component.recipe.dockerfile_sha256) {
+          errors.push('E_CLOSURE: Missing or changed derived public Dockerfile.');
+        } else {
+          const contents = text(files[derived]);
+          const bases = Array.from(contents.matchAll(/^FROM\s+([^\s]+)/gim), match => match[1]);
+          if (!equal(bases, component.recipe.bases) || /^\s*ADD\s|^\s*#\s*syntax=/im.test(contents)) {
+            errors.push('E_COMPONENTS: Derived Dockerfile base or remote input differs.');
+          }
+        }
+      }
+    }
+    for (const services of Object.values(lock.applications)) {
+      if (Object.values(services).some(id => !Object.hasOwn(lock.components, id))) errors.push('E_COMPONENTS: Unknown application component.');
+    }
+    return errors;
+  }
+
+  async function validateReferences(manifest, files) {
     const manifestErrors = validate(manifest);
     if (manifestErrors.length) return manifestErrors;
     if (!manifest.local_docker) return [];
@@ -291,9 +416,11 @@
         }
       } catch (error) { errors.push('E_LOADER: Invalid support inventory: ' + error.message); }
     }
-    const components = values.componentLock.components;
-    const componentIds = new Set(components.map(component => component.id));
-    if (componentIds.size !== components.length) errors.push('E_COMPONENTS: Duplicate component identity.');
+    const materializer = values.componentLock.schema === 'rapp-dock-components/1';
+    const components = materializer ? [] : values.componentLock.components;
+    const componentIds = new Set(materializer ? Object.keys(values.componentLock.applications) : components.map(component => component.id));
+    if (!materializer && componentIds.size !== components.length) errors.push('E_COMPONENTS: Duplicate component identity.');
+    if (materializer) errors.push(...await validateMaterializer(manifest, files, values.componentLock));
     const sourceSafe = source => {
       try {
         const url = new URL(source.url);
@@ -413,7 +540,7 @@
       if (hash !== manifest.files[name]) errors.push('E_FILE_DIGEST: ' + name);
       files[name] = bytes;
     }
-    if (!errors.length) errors.push(...validateReferences(manifest, files));
+    if (!errors.length) errors.push(...await validateReferences(manifest, files));
     return errors;
   }
 

@@ -9,7 +9,7 @@
   "category": "platform",
   "dependencies": [],
   "files": {
-    "README.md": "63941a64d14d92a17d7bf4bf92e2d3330716087f020ddd4c143292b25e890c13",
+    "README.md": "07448606765ce9ded1c02d86c7fd2b7be7f03aacca80a6b1f66674e2f97a0d7a",
     "components.lock.json": "53a35a19ff195a3d073d324b04dbddcdf9c7760ad4b2e6f8851d1953d6b64bd2",
     "generated/host-profiles.json": "4283c9e318176ab597a09af77340b1d0b749f5ff71f5455e427203b62becf170",
     "generated/job-contracts.json": "53ac157f044630b4765cc0d292a80dd2fa6fec251d9d29804dcc6f4d48a20f02",
@@ -21,7 +21,8 @@
     "singleton/scotty_support_364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21/agents/scotty_agent.py": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5",
     "source/scotty_agent.py": "a15aba07b4532b3b1dc866b2d0c6a60efdc9fc175c2ebb2c4528b20eea87aadc",
     "source/scotty_implementation.py": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5",
-    "tools/build_template.py": "d3c7bf4c27b6ae4d66106d6bccfe6fe4c59dad0a259b519afa73b4637ed7555a"
+    "tools/assemble_candidate.py": "ad07663bb4c0910a5e5fc970f94c731fa154f2070ebf6155e9a0533bb6838cc4",
+    "tools/build_template.py": "1a11fdcae76bb7368492358609fdabbbb859c911b4c3ca4a892f138fdfaa5b2b"
   },
   "id": "dock_scotty",
   "license": "LicenseRef-Template-Review-Required",

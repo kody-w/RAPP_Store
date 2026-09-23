@@ -51,16 +51,16 @@ const data = JSON.parse(fs.readFileSync(0, 'utf8'));
 const contract = require(data.contract);
 const base = Object.fromEntries(Object.entries(data.files || {}).map(([key, value]) =>
   [key, Buffer.from(value, 'base64')]));
-const result = data.cases.map(item => {
+const result = Promise.all(data.cases.map(async item => {
   try {
     if (data.kind === 'manifest') return contract.validate(item.manifest).length ? 'reject' : 'accept';
     const manifest = structuredClone(data.manifest);
     manifest.files[item.file] = item.sha256;
     const files = {...base, [item.file]: Buffer.from(item.body, 'base64')};
-    return contract.validateReferences(manifest, files).length ? 'reject' : 'accept';
+    return (await contract.validateReferences(manifest, files)).length ? 'reject' : 'accept';
   } catch (error) { return 'unexpected:' + error.name; }
-});
-console.log(JSON.stringify(result));
+}));
+result.then(value => console.log(JSON.stringify(value))).catch(error => { console.error(error); process.exitCode = 1; });
 """
     result = subprocess.run([node, "-e", script], input=json.dumps({
         "contract": str(ROOT / "store-contract.js"), **request,
