@@ -1146,6 +1146,32 @@ def _compact_json(value):
     ).encode()
 
 
+def _verify_dockerfile(contents, expected_bases):
+    if not isinstance(contents, bytes) or len(contents) > MAX_SUPPORT_FILE_BYTES:
+        raise PackageError("E_COMPONENTS: missing or oversized locked Dockerfile")
+    try:
+        text = contents.decode("utf-8")
+    except UnicodeError as exc:
+        raise PackageError("E_COMPONENTS: invalid Dockerfile encoding") from exc
+    bases = []
+    for line in text.splitlines():
+        words = line.split()
+        if line[:4].upper() == "FROM" and len(words) > 1 and words[0].upper() == "FROM":
+            bases.append(words[1])
+        stripped = line.lstrip(" \t")
+        if (
+            words
+            and words[0].upper() == "ADD"
+            or stripped.startswith("#")
+            and stripped[1:].lstrip(" \t").lower().startswith("syntax=")
+        ):
+            raise PackageError("E_COMPONENTS: unlocked Dockerfile input")
+    if bases != expected_bases:
+        raise PackageError(
+            "E_COMPONENTS: Dockerfile base sequence differs from its lock"
+        )
+
+
 def _native_dependencies(blob, kind):
     document = _json(blob)
     optional = {
@@ -1345,7 +1371,7 @@ def _component_lock(value, files, prefix):
             _native_dependencies(selected[dependency["manifest"]], dependency["kind"])
         groups[name] = selected
     environments = set()
-    for component in value["components"].values():
+    for component_id, component in value["components"].items():
         _object(
             component,
             (
@@ -1424,27 +1450,7 @@ def _component_lock(value, files, prefix):
             _list(recipe["bases"], "build base images", 1, 64)
             for reference in recipe["bases"]:
                 _registry_reference(reference)
-            try:
-                text = selected["Dockerfile"].decode("utf-8")
-            except UnicodeError as exc:
-                raise PackageError("E_COMPONENTS: invalid Dockerfile encoding") from exc
-            bases = []
-            forbidden = False
-            for line in text.splitlines():
-                words = line.split()
-                if (
-                    line[:4].upper() == "FROM"
-                    and len(words) > 1
-                    and words[0].upper() == "FROM"
-                ):
-                    bases.append(words[1])
-                stripped = line.lstrip(" \t")
-                forbidden |= bool(words and words[0].upper() == "ADD")
-                forbidden |= stripped.startswith("#") and stripped[1:].lstrip(
-                    " \t"
-                ).lower().startswith("syntax=")
-            if bases != recipe["bases"] or forbidden:
-                raise PackageError("E_COMPONENTS: unlocked Dockerfile input")
+            _verify_dockerfile(selected["Dockerfile"], recipe["bases"])
             _list(recipe["artifacts"], "recipe artifacts", 0, 64)
             targets = {target.casefold() for target in selected}
             for artifact in recipe["artifacts"]:
@@ -1497,9 +1503,15 @@ def _component_lock(value, files, prefix):
                     raise PackageError(
                         "E_COMPONENTS: changed OpenShorts backend Dockerfile"
                     )
-            # Frontend/renderer are deterministic transformations of these pinned
-            # inputs. The verified materializer rechecks their generated digests
-            # at explicit build time; admission never executes publisher code.
+            generated = "generated/dockerfiles/" + component_id + ".Dockerfile"
+            if (
+                generated not in files
+                or digest(files[generated]) != recipe["dockerfile_sha256"]
+            ):
+                raise PackageError(
+                    "E_COMPONENTS: missing or changed locked derived Dockerfile bridge"
+                )
+            _verify_dockerfile(files[generated], recipe["bases"])
     for app, services in value["applications"].items():
         if (
             app not in LOCAL_APPS

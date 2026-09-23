@@ -1410,6 +1410,88 @@ def test_native_dependency_lengths_may_be_absent_but_digest_is_required(kind):
         package._native_dependencies(package.canonical_json({"artifacts": [row]}), kind)
 
 
+def offline_component(app):
+    base = "python@sha256:" + "0" * 64
+    contents = ("FROM " + base + "\nRUN true\n").encode()
+    path = "deploy/local/fixture/backend.Dockerfile"
+    rebind_support(app, {path: contents})
+    group = {
+        "source": {
+            "url": "https://github.com/example/fixture.tar.gz",
+            "sha256": "1" * 64,
+            "bytes": 1,
+            "license": "Synthetic fixture; never fetched.",
+        },
+        "files": [
+            {
+                "path": path,
+                "target": "qualification/Dockerfile.backend-offline",
+                "bytes": len(contents),
+                "sha256": package.digest(contents),
+            }
+        ],
+        "dependencies": [],
+    }
+
+    def change(value):
+        value["input_sets"]["fixture"] = group
+        value["components"]["openshorts-backend"] = {
+            "kind": "openshorts-offline",
+            "platform": "linux/amd64",
+            "env": "RAPP_DOCK_IMAGE_OPENSHORTS_BACKEND",
+            "reference": None,
+            "recipe": {
+                "role": "backend",
+                "input_set": "fixture",
+                "input_set_sha256": package.digest(package._compact_json(group)),
+                "dockerfile_sha256": package.digest(contents),
+                "bases": [base],
+            },
+            "observed_image_ids": [],
+            "source": "Synthetic test source.",
+            "license": "Synthetic test data.",
+            "blockers": [],
+        }
+        value["applications"]["openshorts"] = {"backend": "openshorts-backend"}
+
+    change_document(app, "components.lock.json", change)
+    bridge = "generated/dockerfiles/openshorts-backend.Dockerfile"
+    app[1][bridge] = contents
+    repin(*app)
+    return bridge, contents
+
+
+def test_offline_recipe_requires_the_exact_outer_derived_dockerfile(app):
+    bridge, _ = offline_component(app)
+    package.verify_closure(*app)
+    del app[1][bridge]
+    repin(*app)
+    with pytest.raises(package.PackageError, match="derived Dockerfile bridge"):
+        package.verify_closure(*app)
+
+
+def test_rehashed_outer_bridge_cannot_change_its_native_recipe_commitment(app):
+    bridge, contents = offline_component(app)
+    app[1][bridge] = contents + b"# altered outer file\n"
+    repin(*app)
+    with pytest.raises(package.PackageError, match="derived Dockerfile bridge"):
+        package.verify_closure(*app)
+
+
+def test_derived_dockerfile_bases_are_checked_without_running_transforms(app):
+    bridge, _ = offline_component(app)
+    change_document(
+        app,
+        "components.lock.json",
+        lambda value: value["components"]["openshorts-backend"]["recipe"].update(
+            bases=["python@sha256:" + "f" * 64]
+        ),
+    )
+    assert bridge in app[1]
+    with pytest.raises(package.PackageError, match="base sequence differs"):
+        package.verify_closure(*app)
+
+
 def test_real_public_native_component_lock_is_inertly_verifiable():
     value = os.environ.get("RAPP_DOCK_PUBLIC_TEMPLATE_ROOT")
     if not value:
@@ -2146,6 +2228,13 @@ def test_real_controller_preserves_targeted_durable_detach_and_reactivation(
     support["agents/scotty_agent.py"] = b"from local_dock import LocalDock\n" + AGENT
     candidate = local_application(real_bootstrap_fixture())
     candidate[1]["components.lock.json"] = public_files["components.lock.json"]
+    candidate[1].update(
+        {
+            name: contents
+            for name, contents in public_files.items()
+            if name.startswith("generated/dockerfiles/")
+        }
+    )
     rebind_support(candidate, support)
     monkeypatch.setenv("RAPP_DOCK_DOCKER", "/fixture/never-executed-docker")
     result = install(candidate, host)
