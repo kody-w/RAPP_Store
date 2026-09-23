@@ -43,7 +43,15 @@ Use this first-card language without dropping the qualifications:
 **“Local application execution; Copilot cloud inference; tested on Apple
 Silicon with some amd64 guests under emulation.”** The tested development
 profile is not a minimum requirement or fresh-candidate installation proof.
-Fresh install and Dify/OpenShorts recreation remain pending.
+Fresh-machine install remains pending. On the tested reference profile,
+Dify full recreation is qualified with all 15 roles read-only/explicit
+custody and preserved data/credentials plus a fresh answer. OpenShorts
+recreation is qualified for drained completed state, with read-only renderer,
+authenticated ingress, preserved clip hashes and a fresh render; in-flight
+renderer memory is not recoverable. Its public cold rebuild remains blocked
+on npm/PyPI retrieval. These reference facts must not be relabeled as
+qualification of the synthetic template or another source candidate.
+Presenton native generation remains opt-in; Dify's native plugin is absent.
 
 Authoring order:
 

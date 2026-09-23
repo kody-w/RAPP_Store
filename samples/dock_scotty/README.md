@@ -141,6 +141,27 @@ versions do not rewrite that bootstrap.
 | Provider prerequisites | Adopter Copilot auth required; other paid providers disabled |
 | Acceptance-suite revision | Unassigned/pending for this candidate |
 
+### Qualified reference-profile recreation (separate from this candidate)
+
+The sanitized [reference-readiness vector](generated/reference-readiness.json)
+records the owner's updated qualification on the tested Apple Silicon profile.
+It contains no owner paths, identifiers, credentials or job artifacts.
+
+| Reference fact | Qualification and scope |
+|---|---|
+| Dify full recreation | **Qualified**: all 15 roles read-only with explicit custody; down/recreate preserved datasets, documents, indexing and credentials; a fresh answer succeeded afterward |
+| OpenShorts full recreation | **Qualified for drained completed state**: read-only renderer, authenticated ingress, completed clip hashes preserved, and a fresh render after recreation |
+| OpenShorts in-flight renderer memory | **Not recoverable**; completed-state qualification does not imply in-flight resumption |
+| Fresh-machine installation | **Pending** |
+| OpenShorts public cold rebuild | **Blocked on npm/PyPI retrieval**, independent of reference-runtime recreation |
+| Presenton native generation | **Opt-in**; the default remains gateway-authored/Presenton-exported |
+| Dify native plugin | **Not installed**; the default remains gateway-grounded |
+
+These reference facts are also carried as non-authoritative manifest
+`metrics.reference_readiness`, not as a pass for this synthetic payload.
+The candidate-specific readiness fields above remain pending until that
+candidate is exercised. No old or private receipt is rewritten or relabeled.
+
 Warm restart, full down/recreate, fresh install and preserving reinstall are
 different tests. A fresh namespace on one Mac does not establish a second
 device or Intel compatibility. An old observation is not current health.
@@ -182,9 +203,11 @@ blindly replay jobs.
 Start/use is bounded and local. Stop preserves state. Detach/uninstall drains
 or stops owned work, removes only owned hash-matching source and **retains app
 data, existing identities, credentials and unqualified writable layers**.
-No volume deletion, daemon prune or broad cleanup. Dify/OpenShorts stay
-stop/retain until exact-topology recreation is proven; OpenShorts' in-memory
-job map is not durable merely because clip files survive.
+No volume deletion, daemon prune or broad cleanup. The tested reference
+topologies now have the scoped recreation qualifications above; a different
+or newly installed candidate stays stop/retain until its own topology is
+qualified. OpenShorts' in-flight renderer memory is not made recoverable
+merely because completed clip files survive.
 
 Successful and failed jobs produce canonical **RAPP/1** provenance:
 `memory.tool-call` frames in **session receipt eggs**. A **rapplication

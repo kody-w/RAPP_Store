@@ -203,7 +203,7 @@ def assembler_fixture(sample, tmp_path):
     manifest, files = materializer_fixture(sample)
     for name in ("README.md", manifest["local_docker"]["requirements_file"],
                  manifest["local_docker"]["jobs_file"], manifest["local_docker"]["state_lifecycle_file"],
-                 manifest["local_docker"]["readiness"]["live_results"]):
+                 manifest["local_docker"]["readiness"]["live_results"], "generated/reference-readiness.json"):
         files.pop(name)
     descriptor = json.loads(files["singleton/scotty_revision.json"])
     files["generated/source-layout.json"] = canonical({

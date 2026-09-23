@@ -23,7 +23,17 @@ That is the development reference profile, not proof of a fresh installation
 of this public candidate or a minimum machine specification. The **unlisted,
 experimental authoring sample uses synthetic fixtures**; it is not a runnable
 release, catalog listing, featured badge, or preinstalled app. Fresh install
-and Dify/OpenShorts full recreation remain pending.
+and candidate-specific execution remain pending.
+
+**Reference-profile recreation is qualified:** Dify's full 15-role,
+read-only/custody-bound down/recreate preserved data and credentials and
+produced a fresh answer. OpenShorts is qualified for **drained completed
+state**, with authenticated ingress, a read-only renderer, preserved clip
+hashes and a fresh render; in-flight renderer memory is not recoverable.
+These sanitized reference facts do not certify the synthetic template or a
+new machine. Fresh-machine install remains pending; OpenShorts public cold
+rebuild is blocked on npm/PyPI retrieval. Presenton native generation remains
+opt-in and Dify's native plugin is not installed.
 
 | Journey | Shipped development mode |
 |---|---|

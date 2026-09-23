@@ -1113,6 +1113,18 @@ restart and full recreation are separate facts. Fresh install and Dify/
 OpenShorts recreation remain pending in this sample. Missing evidence stays
 pending/unknown; synthetic evidence never certifies runtime outcomes.
 
+The separately scoped, sanitized `metrics.reference_readiness` disclosure
+records updated **reference-profile**, not candidate, facts. Dify full
+recreation is qualified on the tested Apple Silicon profile: all 15 roles
+read-only with explicit custody, preserved datasets/documents/indexing/
+credentials, and a fresh answer afterward. OpenShorts recreation is qualified
+for drained completed state: read-only renderer, authenticated ingress,
+preserved completed clip hashes and a fresh render. In-flight renderer memory
+is not recoverable. Fresh-machine installation remains pending; public
+OpenShorts cold rebuild remains blocked on npm/PyPI retrieval. This optional
+reported-metrics disclosure never changes installation gates or grants a
+synthetic/new candidate a runtime pass.
+
 The shipped development modes are native Scrapling collection;
 gateway-authored, Presenton-exported editable PPTX/PDF; actual OpenSEO
 projects with paid data disabled; Dify economy retrieval with gateway-grounded

@@ -431,8 +431,12 @@
       manage SEO projects, answer from documents and render captioned shorts.</p>
     <p>Local application execution; Copilot cloud inference; tested on Apple Silicon with some amd64 guests under emulation.</p>
     <p class="note">Development reference profile, not a fresh-install claim or minimum specification.
-      Synthetic authoring sample, not an installable release. Fresh install and Dify/OpenShorts recreation are pending.
+      Synthetic authoring sample, not an installable release. Fresh-machine installation remains pending.
       Copilot uses your entitlement/credits; other paid providers are disabled.</p>
+    <p class="note">On the tested reference profile, Dify full recreation is qualified (15 read-only roles,
+      explicit custody, preserved data/credentials, fresh answer). OpenShorts recreation is qualified for drained
+      completed state (read-only renderer, authenticated ingress, preserved clips, fresh render), not in-flight memory.
+      OpenShorts public cold rebuild remains blocked on npm/PyPI retrieval. These facts do not qualify this template.</p>
     <a class="btn" href="https://github.com/kody-w/RAPP_Store/blob/main/samples/dock_scotty/README.md">Explore the template</a>
   </div>
 </section>
@@ -1040,6 +1044,7 @@ function appendApplicationContract(body, r) {
   const errors = contract ? contract.validate(manifest) : ['Complete contract validator is unavailable.'];
   const local = manifest && manifest.local_docker;
   const ready = local && local.readiness;
+  const reference = manifest?.metrics?.reference_readiness;
   const limited = (entries, describe) => entries.slice(0, 20).map(describe).join('; ')
     + (entries.length > 20 ? '; ' + (entries.length - 20) + ' more entries in the complete manifest' : '');
   const statuses = value => value && typeof value === 'object' && !Array.isArray(value)
@@ -1079,6 +1084,24 @@ function appendApplicationContract(body, r) {
         ? limited(ready.provider_blockers, String) : 'not supplied') }),
       el('p', { text: 'A tested Apple Silicon development profile with emulated amd64 guests '
         + 'does not prove fresh installation or whole-bundle Intel support.' }),
+    ]));
+  }
+  if (reference?.schema === 'rapp-reference-readiness/1' && reference.applies_to_this_candidate === false) {
+    body.appendChild(el('section', {}, [
+      el('h4', {text: 'Reported reference-profile qualification — not this candidate'}),
+      el('p', {text: String(reference.scope || 'Reference scope not supplied.')}),
+      el('p', {text: 'Dify full recreation: ' + String(reference.dify?.recreation || 'unknown')
+        + ' · ' + String(reference.dify?.read_only_roles ?? 'unknown') + ' read-only roles; explicit custody, '
+        + 'preserved datasets/documents/indexing/credentials and a fresh answer after recreation.'}),
+      el('p', {text: 'OpenShorts recreation: ' + String(reference.openshorts?.recreation || 'unknown')
+        + ' · ' + String(reference.openshorts?.scope || 'scope unknown')
+        + '; read-only renderer, authenticated ingress, preserved completed clips and a fresh render. '
+        + 'In-flight renderer memory: ' + String(reference.openshorts?.in_flight_renderer_memory || 'unknown') + '.'}),
+      el('p', {text: 'Fresh-machine installation: ' + String(reference.fresh_machine_install || 'unknown')
+        + ' · OpenShorts public cold rebuild: ' + String(reference.openshorts?.public_cold_rebuild || 'unknown') + '.'}),
+      el('p', {text: 'Presenton native generation: ' + String(reference.presenton_native_generation || 'unknown')
+        + ' · Dify native plugin: ' + String(reference.dify?.native_plugin || 'unknown') + '.'}),
+      el('p', {class: 'note', text: String(reference.qualification_note || 'Reference facts do not grant candidate readiness.')}),
     ]));
   }
   if (!errors.length && contract.canInstall(r._orig)) {

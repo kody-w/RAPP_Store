@@ -110,8 +110,35 @@ def test_template_is_unlisted_pending_and_never_runnable_in_browser(sample):
     assert "gateway-authored-presenton-exported" in rendered["text"]
     assert "Acceptance suite: pending" in rendered["text"]
     assert "Provider blockers:" in rendered["text"]
+    assert "Reported reference-profile qualification" in rendered["text"]
+    assert "Dify full recreation: qualified" in rendered["text"]
+    assert "15 read-only roles" in rendered["text"]
+    assert "drained completed state only" in rendered["text"]
+    assert "not-recoverable" in rendered["text"]
+    assert "blocked on npm/PyPI retrieval" in rendered["text"]
     assert not any("hatcher" in link.get("href", "") or "vbrainstem" in link.get("href", "")
                    for link in rendered["links"])
+
+
+def test_reference_qualification_is_sanitized_and_not_candidate_evidence(sample):
+    manifest, files = sample
+    reference = json.loads(files["generated/reference-readiness.json"])
+    assert manifest["metrics"]["reference_readiness"] == reference
+    assert reference["applies_to_this_candidate"] is False
+    assert reference["basis"] == "owner-reported sanitized qualification summary"
+    assert reference["dify"]["recreation"] == "qualified"
+    assert reference["dify"]["read_only_roles"] == 15
+    assert reference["dify"]["fresh_answer_after_recreation"] is True
+    assert reference["openshorts"]["recreation"] == "qualified"
+    assert reference["openshorts"]["scope"] == "drained completed state only"
+    assert reference["openshorts"]["in_flight_renderer_memory"] == "not-recoverable"
+    assert reference["fresh_machine_install"] == "pending"
+    assert reference["presenton_native_generation"] == "opt-in"
+    assert reference["dify"]["native_plugin"] == "not-installed"
+    readiness = manifest["local_docker"]["readiness"]
+    assert readiness["fresh_install"] == "pending"
+    assert readiness["recreation"]["dify"] == readiness["recreation"]["openshorts"] == "pending"
+    assert privacy_findings(files["generated/reference-readiness.json"], "reference-readiness.json") == []
 
 
 def test_exact_seven_job_ids_cover_five_journeys_and_diagnostic(sample):

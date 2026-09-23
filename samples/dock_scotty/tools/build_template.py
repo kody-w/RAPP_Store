@@ -15,7 +15,8 @@ GRAIL = {
 AUTHORED = (
     "README.md", "source/scotty_agent.py", "source/scotty_implementation.py",
     "generated/host-profiles.json", "generated/state-lifecycle.json",
-    "generated/job-contracts.json", "tools/build_template.py", "tools/assemble_candidate.py",
+    "generated/job-contracts.json", "generated/reference-readiness.json",
+    "tools/build_template.py", "tools/assemble_candidate.py",
 )
 
 
@@ -118,6 +119,9 @@ def build():
         "provenance": {
             "status": "development", "source": "synthetic-authoring-template",
             "deployed": False, "job_verified": False,
+        },
+        "metrics": {
+            "reference_readiness": json.loads(payload["generated/reference-readiness.json"]),
         },
         "local_docker": {
             "schema": "rapp-local-docker/1",

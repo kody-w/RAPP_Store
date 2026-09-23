@@ -77,6 +77,13 @@ a successful fresh installation of the published candidate. The template is
 synthetic authoring material, not a runnable release or copied owner evidence.
 Its candidate is experimental, fresh installation remains pending, and Dify/
 OpenShorts recreation remains pending until candidate-specific proof exists.
+Separately, the tested Apple Silicon reference has qualified Dify full
+recreation and OpenShorts drained-completed-state recreation. The latter does
+not recover in-flight renderer memory. Sanitized reference summaries are
+labeled as such and cannot confer those results on the teaching fixture.
+Fresh-machine installation remains pending, OpenShorts public cold rebuild
+is blocked on npm/PyPI retrieval, Presenton native generation remains opt-in
+and the Dify native plugin is not installed.
 
 Copilot uses the adopter's own entitlement/usage. Other paid providers are
 disabled. Process/time/byte limits are not a monetary spend cap. Usage can be

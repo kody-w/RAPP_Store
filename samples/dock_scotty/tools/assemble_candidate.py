@@ -70,6 +70,7 @@ def candidate_files(payload_root, *, publisher="@example", version=None):
     for key in ("requirements_file", "jobs_file", "state_lifecycle_file"):
         name = local[key]
         put(name, (SAMPLE / name).read_bytes())
+    put("generated/reference-readiness.json", (SAMPLE / "generated/reference-readiness.json").read_bytes())
     jobs = json.loads(files[local["jobs_file"]])["jobs"]
     manifest["capabilities"] = [job["id"] for job in jobs] + ["rapp/1-receipts", "rapp/1-capsules"]
     evidence_name = "generated/candidate-evidence.json"
@@ -79,6 +80,7 @@ def candidate_files(payload_root, *, publisher="@example", version=None):
         "New exported source candidate; static package checks do not prove runtime outcomes.",
         "Fresh install, five journeys, preserving reinstall and recreation need candidate-specific acceptance.",
         "Cached image observations do not prove public-only rebuild or fresh-device qualification.",
+        "Reference-profile Dify full recreation and OpenShorts drained-completed-state recreation are qualified; this candidate still needs its own acceptance.",
     ]
     if lock.get("schema") == "rapp-dock-components/1":
         for component in lock["components"].values():
@@ -103,6 +105,14 @@ def candidate_files(payload_root, *, publisher="@example", version=None):
         "Fresh install, jobs, restart/recreation and preserving reinstall remain pending. Inspect "
         "generated/candidate-evidence.json and PUBLIC-INPUTS.md for public-input limitations. "
         "Cached images are not proof of public replay or current device health.\n\n"
+        "Separate reference-profile qualification: Dify full recreation preserved datasets/documents/indexing/"
+        "credentials with all 15 roles read-only and explicit custody, followed by a fresh answer. "
+        "OpenShorts recreation is qualified only for drained completed state: read-only renderer, "
+        "authenticated ingress, preserved clip hashes and a fresh render; in-flight renderer memory "
+        "is not recoverable. Fresh-machine installation remains pending and OpenShorts public cold "
+        "rebuild remains blocked on npm/PyPI retrieval. Presenton native generation is opt-in; "
+        "the Dify native plugin is not installed. See generated/reference-readiness.json; these "
+        "sanitized reference facts do not certify this newly assembled candidate.\n\n"
         "Canonical RAPP/1 receipts are unsigned structural evidence. Capsules carry selected outputs "
         "and producing source, not full state, images or credentials. Store installation cartridges "
         "are separate. Stop/detach preserves data and unqualified container layers.\n\n"
