@@ -2,6 +2,8 @@
 import json
 import gzip
 from pathlib import Path
+import re
+import shutil
 
 import pytest
 
@@ -81,7 +83,7 @@ def test_core_budget_counts_local_assets_and_cannot_be_baselined(tmp_path):
     result = pages.check(tmp_path, core_budget=1, baseline=["index.html:core-budget:startup"])
     assert not result["ok"]
     assert {r["path"] for r in result["local_core"]["resources"]} == {"index.html", "index.json", "app.js"}
-    assert any(f["code"] == "core-budget" for f in result["errors"])
+    assert {"core-budget", "baseline-invalid"} <= {f["code"] for f in result["errors"]}
 
 
 def test_resource_count_and_decoded_html_budgets(tmp_path):
@@ -98,6 +100,114 @@ def test_baseline_only_acknowledges_exact_existing_lint_not_new_debt(tmp_path):
     assert not result["ok"]
     assert [f["location"] for f in result["known_debt"]] == ["input#old"]
     assert [f["location"] for f in result["errors"]] == ["input#new"]
+
+
+def debt(*keys, **counts):
+    return {"format": pages.BASELINE_FORMAT, "debt": {**{key: 1 for key in keys}, **counts}}
+
+
+def test_reviewed_debt_survives_line_shifts_and_harmless_edits(tmp_path):
+    (tmp_path / "guide.md").write_text("# Guide\n")
+    site(tmp_path, '<input id="q"><div onclick="go()">Go</div><a href="./guide.md">Guide</a>')
+    before = pages.check(tmp_path)["errors"]
+    keys = ["index.html:control-label:input#q", "index.html:pointer-only:div[onclick='go()']",
+            "index.html:raw-markdown-link:a[href='./guide.md']"]
+    assert [f["key"] for f in before] == keys
+    site(tmp_path, "\n" * 40 + '<p>New copy above the old debt.</p>\n<input class="wide" id="q">'
+         '<div class="card"\n onclick="  go()">Go now</div><a target="_blank" href="./guide.md">The guide</a>')
+    shifted = pages.check(tmp_path, baseline=debt(*keys))
+    assert shifted["ok"], shifted["errors"]
+    assert [f["key"] for f in shifted["known_debt"]] == keys
+    assert all(new["line"] > old["line"] for old, new in zip(before, shifted["known_debt"]))
+    assert not shifted["improved"]
+
+
+def test_new_debt_fails_even_when_it_repeats_reviewed_debt(tmp_path):
+    (tmp_path / "guide.md").write_text("# Guide\n")
+    site(tmp_path, '<a href="./guide.md">One</a>\n<a href="./guide.md">Two</a>\n<input name="fresh">')
+    key = "index.html:raw-markdown-link:a[href='./guide.md']"
+    fresh = "index.html:control-label:input[name='fresh']"
+    elsewhere = key.replace("index.html", "submit.html")
+    result = pages.check(tmp_path, baseline=debt(key))
+    assert not result["ok"]
+    assert [f["key"] for f in result["known_debt"]] == [key]
+    errors = {f["key"]: f for f in result["errors"]}
+    assert set(errors) == {key, fresh}
+    assert "acknowledges only 1" in errors[key]["message"] and errors[key]["line"] == 2
+    exact = pages.check(tmp_path, baseline=debt(**{key: 2}))
+    assert [f["key"] for f in exact["errors"]] == [fresh]
+    moved = pages.check(tmp_path, baseline=debt(**{elsewhere: 2}))
+    assert sorted(f["key"] for f in moved["errors"]) == sorted([key, key, fresh])
+    assert [i["key"] for i in moved["improved"]] == [elsewhere]
+
+
+def test_removed_debt_is_reported_as_improved_without_failing(tmp_path):
+    (tmp_path / "guide.md").write_text("# Guide\n")
+    site(tmp_path, '<input id="kept"><a href="./guide.md">Guide</a>')
+    link = "index.html:raw-markdown-link:a[href='./guide.md']"
+    result = pages.check(tmp_path, baseline=debt(
+        "index.html:control-label:input#kept", "index.html:pointer-only:div#fixed", **{link: 3}))
+    assert result["ok"], result["errors"]
+    assert len(result["known_debt"]) == 2
+    assert [(i["key"], i["resolved"], i["reviewed"]) for i in result["improved"]] == [
+        ("index.html:pointer-only:div#fixed", 1, 1), (link, 2, 3)]
+    assert all("remove this baseline entry" in i["message"] for i in result["improved"])
+
+
+@pytest.mark.parametrize("baseline", [
+    ["index.html:control-label:input@1"],
+    debt("index.html:raw-markdown-link:a@1"),
+    ["index.html:link-missing:img[src='missing.png']"],
+    ["not-a-key"],
+    [7],
+    debt(**{"index.html:control-label:input#q": 0}),
+    debt(**{"index.html:control-label:input#q": True}),
+    {"format": "rapp-store-pages-debt/1", "debt": {"index.html:control-label:input#q": 1}},
+    "index.html:control-label:input#q",
+])
+def test_baseline_rejects_line_keys_unexemptable_rules_and_bad_counts(tmp_path, baseline):
+    site(tmp_path, '<input id="q">')
+    result = pages.check(tmp_path, baseline=baseline)
+    assert not result["ok"]
+    assert any(f["code"] == "baseline-invalid" for f in result["errors"])
+    assert not result["known_debt"]
+
+
+def test_selector_keys_are_line_free_and_bounded():
+    assert pages.selector("input", {"id": "pat-input", "name": "x"}) == "input#pat-input"
+    assert pages.selector("a", {"id": "odd id"}) == "a[id='odd id']"
+    assert pages.selector("div", {"onclick": "open('x')", "class": "c", "role": "button"}) == (
+        "div[role='button'][onclick='open(\\'x\\')']")
+    long = pages.selector("img", {"src": "data:image/png;base64," + "A" * 5000})
+    assert len(long) < 140 and "sha256:" in long
+    assert long != pages.selector("img", {"src": "data:image/png;base64," + "A" * 4999 + "B"})
+
+
+def copy_site(destination):
+    def skip(directory, names):
+        top = Path(directory).resolve() == ROOT
+        return {name for name in names if name == "__pycache__" or (top and name.startswith("."))}
+    shutil.copytree(ROOT, destination, ignore=skip)
+    return destination
+
+
+def test_committed_baseline_survives_front_door_line_shifts(tmp_path):
+    baseline = json.loads((ROOT / "docs/pages-check-baseline.json").read_text())
+    original = pages.check(ROOT, baseline=baseline)
+    site_copy = copy_site(tmp_path / "site")
+    assert pages.check(site_copy, baseline=baseline) == original
+    for name in ("index.html", "submit.html"):
+        page = site_copy / name
+        text = page.read_text(encoding="utf-8")
+        body = text.index(">", text.index("<body")) + 1
+        page.write_text(text[:body] + "\n<!-- shifted -->" * 19 + text[body:], encoding="utf-8")
+    shifted = pages.check(site_copy, baseline=baseline)
+    assert shifted["ok"], shifted["errors"]
+    assert not shifted["improved"]
+    assert [f["key"] for f in shifted["known_debt"]] == [f["key"] for f in original["known_debt"]]
+    lines = [(f.get("line"), g.get("line")) for f, g in zip(original["known_debt"], shifted["known_debt"])]
+    assert all(new == old + 19 for old, new in lines if old is not None)
+    assert sum(old is not None for old, _ in lines) >= 8
 
 
 def test_symlink_asset_cannot_escape_site_root(tmp_path):
@@ -122,13 +232,19 @@ def test_missing_structure_and_invalid_catalog_fail(tmp_path):
 def test_current_front_door_measurement_is_honest_and_nonmutating(capsys):
     before = {p: (ROOT / p).read_bytes() for p in ("index.html", "index.json", "api/v1/index.json")}
     baseline = ROOT / "docs/pages-check-baseline.json"
-    result = pages.check(ROOT, baseline=json.loads(baseline.read_text()))
+    reviewed = json.loads(baseline.read_text())
+    result = pages.check(ROOT, baseline=reviewed)
     assert result["ok"], result["errors"]
-    assert len(result["known_debt"]) == 10
-    assert not result["unused_baseline"]
-    assert result["local_core"]["gzip_bytes"] == sum(
-        len(gzip.compress(before[name], compresslevel=9, mtime=0)) for name in ("index.html", "index.json"))
-    assert len(result["local_core"]["resources"]) == 2
+    assert len(result["known_debt"]) == sum(reviewed["debt"].values()) == 10
+    assert not result["improved"]
+    assert not any(re.search(r"@\d+$", f["key"]) for f in result["known_debt"])
+    core = result["local_core"]["resources"]
+    assert {"index.html", "index.json"} <= {row["path"] for row in core}
+    for row in core:
+        data = (ROOT / row["path"]).read_bytes()
+        assert (row["bytes"], row["gzip_bytes"]) == (len(data), len(gzip.compress(data, compresslevel=9, mtime=0)))
+    assert result["local_core"]["gzip_bytes"] == sum(row["gzip_bytes"] for row in core) <= pages.CORE_BUDGET
+    assert len(core) <= 3
     assert any("RAR/main/registry.json" in url for url in result["external_startup_urls"])
     assert "NOT VERIFIED" in result["full_startup_budget"]
     assert pages.main(["--root", str(ROOT), "--baseline", str(baseline)]) == 0
