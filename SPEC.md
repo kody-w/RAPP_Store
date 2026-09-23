@@ -1070,6 +1070,9 @@ existing component IDs; image environment names are unique. Registry/base
 images are digest-pinned public references. Recipe/helper files resolve inside
 the declared support tree and must match both the application lock and their
 own byte/digest pins.
+Selecting the lock directly inside support does not require an outer copy,
+but an outer `components.lock.json`, when present, must still match the scoped
+runtime bytes; changing the selector cannot hide a contradictory copy.
 
 Public input sets and their wheel/system/model/npm dependency manifests are
 dereferenced and type-checked, including SHA-512/integrity agreement for npm.

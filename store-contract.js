@@ -276,6 +276,10 @@
     if (!files[internal] || manifest.files[internal] !== manifest.files[manifest.local_docker.component_lock]) {
       errors.push('E_COMPONENTS: Root materializer lock must match the scoped runtime lock.');
     }
+    if (Object.hasOwn(files, 'components.lock.json')
+        && manifest.files['components.lock.json'] !== manifest.files[internal]) {
+      errors.push('E_COMPONENTS: Optional root lock copy differs from the scoped runtime lock.');
+    }
     function publicUrl(value) {
       try {
         const url = new URL(value);

@@ -187,6 +187,31 @@ def test_root_copy_cannot_override_the_actual_runtime_lock(sample):
     assert py and js
 
 
+def test_inside_support_selection_does_not_hide_a_changed_optional_root_copy(sample):
+    manifest, files = materializer_fixture(sample)
+    manifest["local_docker"]["component_lock"] = (
+        manifest["local_docker"]["loader"]["support"] + "/deploy/local/components.lock.json"
+    )
+    root = json.loads(files["components.lock.json"])
+    root["profile"]["fresh_machine_acceptance"] = "passed"
+    files["components.lock.json"] = canonical(root)
+    manifest["files"]["components.lock.json"] = digest(files["components.lock.json"])
+    py, js = both_errors(manifest, files)
+    assert py and js
+
+
+def test_inside_support_selection_does_not_require_an_optional_root_copy(sample):
+    manifest, files = materializer_fixture(sample)
+    manifest["local_docker"]["component_lock"] = (
+        manifest["local_docker"]["loader"]["support"] + "/deploy/local/components.lock.json"
+    )
+    files.pop("components.lock.json")
+    manifest["files"].pop("components.lock.json")
+    py, js = both_errors(manifest, files)
+    assert not py, py
+    assert not js, js
+
+
 def test_candidate_assembler_refuses_coordinator_directory_before_inventory(tmp_path, monkeypatch):
     import rapp_package
 
