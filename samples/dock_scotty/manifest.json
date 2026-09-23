@@ -9,20 +9,21 @@
   "category": "platform",
   "dependencies": [],
   "files": {
-    "README.md": "2e82ca5d9f8d010a0aaff1d6f567b3dde8ff76038faef257adcc1da8a61c9f13",
-    "components.lock.json": "53a35a19ff195a3d073d324b04dbddcdf9c7760ad4b2e6f8851d1953d6b64bd2",
+    "README.md": "09538e7d83e6af1687b27d403a099edb63d291cc1711f52988df6c26d3cdaf33",
+    "components.lock.json": "a496c462155d23b7f43eaabfb5b5a70330a28036f5c17d7998861aebb89b3e81",
     "generated/host-profiles.json": "4283c9e318176ab597a09af77340b1d0b749f5ff71f5455e427203b62becf170",
     "generated/job-contracts.json": "53ac157f044630b4765cc0d292a80dd2fa6fec251d9d29804dcc6f4d48a20f02",
     "generated/state-lifecycle.json": "44a94ab6fef56c53ff3355d99d67072ee9b819a692f3338f2c6ad0615094bc16",
     "generated/synthetic-evidence.json": "1a17bf87f5c80d010758f75bc2ffeb883b1916736f1eef7857709d8b2ded0090",
-    "singleton/scotty_agent.py": "a15aba07b4532b3b1dc866b2d0c6a60efdc9fc175c2ebb2c4528b20eea87aadc",
-    "singleton/scotty_revision.json": "7112aed18e78762b90d4fdb5f981dc4cef91ccc92ed5f5e5e027be19c033811e",
-    "singleton/scotty_support_364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21/SCOTTY_CAPABILITY_LOCK.json": "364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21",
-    "singleton/scotty_support_364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21/agents/scotty_agent.py": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5",
-    "source/scotty_agent.py": "a15aba07b4532b3b1dc866b2d0c6a60efdc9fc175c2ebb2c4528b20eea87aadc",
+    "singleton/scotty_agent.py": "b0ecc07351ce497d0ab05c4fdecadc562cb38101a6146922b3e6b63fb1fe68d0",
+    "singleton/scotty_revision.json": "67b98f392080e276552b312697894fcb567935f2da02efd3ef7d4cb8873431a6",
+    "singleton/scotty_support_9477a3cef3ffe8b48be9b02fcd49a287bc53d2578cc951b4bd39da3e24c34c85/SCOTTY_CAPABILITY_LOCK.json": "9477a3cef3ffe8b48be9b02fcd49a287bc53d2578cc951b4bd39da3e24c34c85",
+    "singleton/scotty_support_9477a3cef3ffe8b48be9b02fcd49a287bc53d2578cc951b4bd39da3e24c34c85/agents/scotty_agent.py": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5",
+    "singleton/scotty_support_9477a3cef3ffe8b48be9b02fcd49a287bc53d2578cc951b4bd39da3e24c34c85/deploy/local/components.lock.json": "a496c462155d23b7f43eaabfb5b5a70330a28036f5c17d7998861aebb89b3e81",
+    "source/scotty_agent.py": "b0ecc07351ce497d0ab05c4fdecadc562cb38101a6146922b3e6b63fb1fe68d0",
     "source/scotty_implementation.py": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5",
     "tools/assemble_candidate.py": "a2c051ad801944c65395d31816f725a6e3fa0358183113c2ff73f636996ea0ed",
-    "tools/build_template.py": "1a11fdcae76bb7368492358609fdabbbb859c911b4c3ca4a892f138fdfaa5b2b"
+    "tools/build_template.py": "17f90d6324e34332197283cf5fafcef123366618090d76d88ddf20302038d5c2"
   },
   "id": "dock_scotty",
   "license": "LicenseRef-Template-Review-Required",
@@ -59,7 +60,7 @@
       "contract": "scotty-revision-loader/1",
       "descriptor": "singleton/scotty_revision.json",
       "entrypoint": "singleton/scotty_agent.py",
-      "support": "singleton/scotty_support_364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21/"
+      "support": "singleton/scotty_support_9477a3cef3ffe8b48be9b02fcd49a287bc53d2578cc951b4bd39da3e24c34c85/"
     },
     "readiness": {
       "acceptance_suite": {

@@ -416,45 +416,8 @@
         }
       } catch (error) { errors.push('E_LOADER: Invalid support inventory: ' + error.message); }
     }
-    const materializer = values.componentLock.schema === 'rapp-dock-components/1';
-    const components = materializer ? [] : values.componentLock.components;
-    const componentIds = new Set(materializer ? Object.keys(values.componentLock.applications) : components.map(component => component.id));
-    if (!materializer && componentIds.size !== components.length) errors.push('E_COMPONENTS: Duplicate component identity.');
-    if (materializer) errors.push(...await validateMaterializer(manifest, files, values.componentLock));
-    const sourceSafe = source => {
-      try {
-        const url = new URL(source.url);
-        return url.protocol === 'https:' && !url.username && !url.password && !/[\s@]/.test(source.url)
-          && !url.search && !url.hash && !url.port
-          && !/^(?:localhost|\[|[0-9]+(?:\.|$))/.test(url.hostname)
-          && !/\.(?:localhost|local|internal)$/.test(url.hostname);
-      } catch { return false; }
-    };
-    for (const component of components) {
-      for (const source of [component.source, ...component.inputs]) {
-        if (!sourceSafe(source)) errors.push('E_COMPONENTS: Source inputs require credential-free public HTTPS URLs.');
-        if (values.componentLock.mode === 'locked'
-            && (!source.revision || !source.bytes || !SHA256.test(source.sha256))) errors.push('E_COMPONENTS: Locked source inputs must have complete immutable pins.');
-      }
-      if (component.dependencies.some(id => !componentIds.has(id) || id === component.id)) errors.push('E_COMPONENTS: Unresolved component dependency.');
-      for (const image of component.images) {
-        if (image.build_recipe && !Object.hasOwn(manifest.files, image.build_recipe)) errors.push('E_CLOSURE: Unlocked image recipe.');
-        if (values.componentLock.mode === 'locked' && !image.reference && !image.build_recipe) errors.push('E_COMPONENTS: Missing image digest or locked build recipe.');
-      }
-      for (const name of component.licenses.files) if (!Object.hasOwn(manifest.files, name)) errors.push('E_CLOSURE: Unlocked license input.');
-    }
-    const visiting = new Set();
-    const visited = new Set();
-    const byId = new Map(components.map(component => [component.id, component]));
-    function visit(id) {
-      if (visiting.has(id)) return false;
-      if (visited.has(id) || !byId.has(id)) return true;
-      visiting.add(id);
-      if (!byId.get(id).dependencies.every(visit)) return false;
-      visiting.delete(id); visited.add(id);
-      return true;
-    }
-    if (!components.every(component => visit(component.id))) errors.push('E_COMPONENTS: Cyclic component dependencies.');
+    const componentIds = new Set(Object.keys(values.componentLock.applications));
+    errors.push(...await validateMaterializer(manifest, files, values.componentLock));
     const jobs = values.jobContracts.jobs;
     const jobIds = new Set(jobs.map(job => job.id));
     if (jobIds.size !== jobs.length) errors.push('E_JOBS: Duplicate job identity.');
@@ -503,7 +466,7 @@
         errors.push('E_STATE: Unqualified recreation must retain container layers.');
       }
     }
-    if (values.componentLock.mode === 'template' || values.evidence.synthetic) {
+    if (values.evidence.synthetic) {
       if (local.readiness.candidate !== 'experimental' || local.readiness.fresh_install !== 'pending'
           || manifest.provenance.deployed || manifest.provenance.job_verified
           || values.evidence.scope !== 'authoring-template' || values.evidence.candidate_digest !== null

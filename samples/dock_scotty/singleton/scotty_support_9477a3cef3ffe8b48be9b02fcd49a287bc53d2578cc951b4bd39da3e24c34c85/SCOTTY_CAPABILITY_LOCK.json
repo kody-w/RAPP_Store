@@ -4,6 +4,11 @@
       "bytes": 875,
       "path": "agents/scotty_agent.py",
       "sha256": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5"
+    },
+    {
+      "bytes": 3905,
+      "path": "deploy/local/components.lock.json",
+      "sha256": "a496c462155d23b7f43eaabfb5b5a70330a28036f5c17d7998861aebb89b3e81"
     }
   ],
   "grail_commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",

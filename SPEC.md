@@ -1047,10 +1047,11 @@ refuse before installation or bundle extraction writes. Static preflight
 does not invoke Docker, inspect credentials or infer device health.
 Explicit installation/use performs the separate device preflight.
 
-The component reference accepts two **closed data formats**, not two runtime
-lanes: the generic `rapp-local-components/1` declaration used by the authoring
-fixture, and the actual `rapp-dock-components/1` public materializer lock.
-The latter is preserved losslessly and must match the runtime's scoped
+The component reference uses the existing **`rapp-dock-components/1` public
+materializer lock**, not a parallel array projection or a second runtime
+lane. The synthetic authoring fixture uses that same format with explicit
+`blocked-build` entries, null recipes/references and nonempty blockers.
+The lock is preserved losslessly and must match the runtime's scoped
 `deploy/local/components.lock.json` byte-for-byte. Applications reference
 existing component IDs; image environment names are unique. Registry/base
 images are digest-pinned public references. Recipe/helper files resolve inside

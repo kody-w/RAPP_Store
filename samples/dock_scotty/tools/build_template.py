@@ -29,34 +29,35 @@ def digest(blob):
 
 def component_lock():
     declarations = (
-        ("intelligence", "https://github.com/github/copilot-cli", ["cli"], "linux/arm64", []),
-        ("presenton", "https://github.com/presenton/presenton", ["application"], "linux/arm64", ["intelligence"]),
-        ("scrapling", "https://github.com/D4Vinci/Scrapling", ["fetcher"], "linux/amd64", ["intelligence", "presenton"]),
-        ("open-seo", "https://github.com/every-app/open-seo", ["application"], "linux/arm64", []),
-        ("dify", "https://github.com/langgenius/dify", ["unqualified-full-stack"], "linux/amd64", ["intelligence"]),
-        ("openshorts", "https://github.com/mutonby/openshorts", ["backend", "frontend", "renderer"], "linux/amd64", ["intelligence"]),
+        ("intelligence", "https://github.com/github/copilot-cli", "linux/arm64"),
+        ("presenton", "https://github.com/presenton/presenton", "linux/arm64"),
+        ("scrapling", "https://github.com/D4Vinci/Scrapling", "linux/amd64"),
+        ("open-seo", "https://github.com/every-app/open-seo", "linux/arm64"),
+        ("dify", "https://github.com/langgenius/dify", "linux/amd64"),
+        ("openshorts", "https://github.com/mutonby/openshorts", "linux/amd64"),
     )
-    components = []
-    for name, url, roles, platform, dependencies in declarations:
-        images = [{
-            "role": role, "platform": platform, "reference": None,
-            "build_recipe": None, "observed_image_id": None,
-        } for role in roles]
-        if name == "scrapling":
-            images.append({
-                "role": "presenton-derived-ingress", "platform": "linux/arm64",
-                "reference": None, "build_recipe": None, "observed_image_id": None,
-            })
-        components.append({
-            "id": name,
-            "source": {"url": url, "revision": None, "bytes": None, "sha256": None},
-            "images": images, "inputs": [], "dependencies": dependencies,
-            "licenses": {
-                "status": "pending", "files": [],
-                "note": "Template only: qualify the complete source, dependency, model and license closure before distribution.",
-            },
-        })
-    return {"schema": "rapp-local-components/1", "mode": "template", "components": components}
+    components = {
+        name: {
+            "kind": "blocked-build", "platform": platform,
+            "env": "RAPP_DOCK_IMAGE_" + name.upper().replace("-", "_"),
+            "reference": None, "recipe": None, "observed_image_ids": [],
+            "source": url,
+            "license": "Template only; review the complete source, dependency, model and license closure.",
+            "blockers": ["Synthetic authoring fixture: no qualified image or complete public build recipe is supplied."],
+        } for name, url, platform in declarations
+    }
+    applications = {name: {"application": name} for name in components}
+    applications["scrapling"] = {"scrapling": "scrapling", "browser": "presenton", "egress": "scrapling"}
+    return {
+        "schema": "rapp-dock-components/1",
+        "profile": {
+            "host": "darwin/arm64", "docker_context": "desktop-linux",
+            "guest_platforms": ["linux/arm64", "linux/amd64"], "amd64_emulation_required": True,
+            "assurance": "locked-public-inputs-and-local-image-observations-not-signed-builds",
+            "fresh_machine_acceptance": "pending", "bit_identical_rebuilds_claimed": False,
+        },
+        "artifacts": {}, "input_sets": {}, "components": components, "applications": applications,
+    }
 
 
 def build():
@@ -75,23 +76,27 @@ def build():
             "No owner artifacts, receipts, capsules or credentials are included.",
         ],
     })
-    support = payload["source/scotty_implementation.py"]
+    support = {
+        "agents/scotty_agent.py": payload["source/scotty_implementation.py"],
+        "deploy/local/components.lock.json": payload["components.lock.json"],
+    }
     inventory = canonical({
         "schema": "scotty-capability-files/1",
         "grail_commit": GRAIL["commit"],
-        "files": [{"path": "agents/scotty_agent.py", "bytes": len(support), "sha256": digest(support)}],
+        "files": [{"path": name, "bytes": len(blob), "sha256": digest(blob)}
+                  for name, blob in sorted(support.items())],
     })
     revision = digest(inventory)
     prefix = "singleton/scotty_support_" + revision + "/"
     entrypoint = "singleton/scotty_agent.py"
     payload[entrypoint] = payload["source/scotty_agent.py"]
-    payload[prefix + "agents/scotty_agent.py"] = support
+    payload.update({prefix + name: blob for name, blob in support.items()})
     payload[prefix + "SCOTTY_CAPABILITY_LOCK.json"] = inventory
     payload["singleton/scotty_revision.json"] = canonical({
         "schema": "scotty-agent-revision/1", "loader_contract": "scotty-revision-loader/1",
         "entrypoint_sha256": digest(payload[entrypoint]), "support_sha256": revision,
     })
-    statuses = {component["id"]: "pending" for component in components["components"]}
+    statuses = {name: "pending" for name in components["applications"]}
     manifest = {
         "schema": "rapp-application/2.0",
         "id": "dock_scotty", "name": "RAPP Dock / Scotty authoring template",

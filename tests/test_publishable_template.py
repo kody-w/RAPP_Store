@@ -144,7 +144,7 @@ def test_public_materialization_declares_buildx_without_claiming_cold_replay(sam
 
 @pytest.mark.parametrize("declaration,change", [
     ("component_lock", lambda d: d.update(unknown_mandatory_requirement="privileged-engine/1")),
-    ("component_lock", lambda d: d["components"][0]["images"][0].update(docker_socket=True)),
+    ("component_lock", lambda d: d["components"]["intelligence"].update(docker_socket=True)),
     ("requirements_file", lambda d: d.update(hidden_host_policy={"root": True})),
     ("requirements_file", lambda d: d["profiles"][0]["reference_resources"].update(is_minimum=True)),
     ("jobs_file", lambda d: d["jobs"][0].update(shell_command="not-an-advertised-field")),

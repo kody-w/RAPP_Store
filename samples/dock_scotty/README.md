@@ -57,10 +57,13 @@ Candidate-specific installed-package tests must produce new evidence.
 `portable-agents/1`, `owned-files/1` and **`local-docker/1`**. Its
 `rapp-local-docker/1` block references:
 
-- [`components.lock.json`](components.lock.json): six components, declared
-  architectures/dependencies and public upstream locations. **Template mode
-  has null unavailable pins**, not fake release digests or fetchable image IDs.
-  Scrapling's ingress image dependency on Presenton is explicit.
+- [`components.lock.json`](components.lock.json): the implemented
+  `rapp-dock-components/1` format, with six explicitly **blocked-build**
+  components, null references/recipes and nonempty blockers—not fake release
+  digests or fetchable image IDs. The application/service map makes
+  Scrapling's browser dependency on Presenton explicit. A real export keeps
+  its complete image/artifact/input-set lock unchanged; no parallel catalog
+  or fabricated source revision is introduced.
 - [`generated/host-profiles.json`](generated/host-profiles.json): Python 3.11+,
   exact Grail, Git, Docker/Compose/Buildx, local daemon, Apple Silicon/amd64 emulation
   and adopter-owned Copilot authentication. The observed 16-CPU / 31.3-GiB

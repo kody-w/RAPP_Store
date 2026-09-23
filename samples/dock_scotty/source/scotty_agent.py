@@ -32,13 +32,18 @@ class ScottyAgent(BasicAgent):
         if hashlib.sha256(lock_bytes).hexdigest() != descriptor["support_sha256"]:
             raise ValueError("Template support inventory differs from its descriptor.")
         inventory = json.loads(lock_bytes)
-        if len(inventory["files"]) != 1 or inventory["files"][0]["path"] != "agents/scotty_agent.py":
+        expected = {"agents/scotty_agent.py", "deploy/local/components.lock.json"}
+        if len(inventory["files"]) != len(expected) or {item["path"] for item in inventory["files"]} != expected:
             raise ValueError("Unexpected template support layout.")
-        item = inventory["files"][0]
-        source = (support / item["path"]).read_bytes()
-        if len(source) != item["bytes"] or hashlib.sha256(source).hexdigest() != item["sha256"]:
-            raise ValueError("Template support source differs from its inventory.")
-        spec = importlib.util.spec_from_file_location("_synthetic_dock_template", support / item["path"])
+        verified = {}
+        for item in inventory["files"]:
+            blob = (support / item["path"]).read_bytes()
+            if len(blob) != item["bytes"] or hashlib.sha256(blob).hexdigest() != item["sha256"]:
+                raise ValueError("Template support source differs from its inventory.")
+            verified[item["path"]] = blob
+        source = verified["agents/scotty_agent.py"]
+        path = support / "agents/scotty_agent.py"
+        spec = importlib.util.spec_from_file_location("_synthetic_dock_template", path)
         module = importlib.util.module_from_spec(spec)
-        exec(compile(source, str(support / item["path"]), "exec"), module.__dict__)
+        exec(compile(source, str(path), "exec"), module.__dict__)
         return module.ScottyAgent().perform(**kwargs)
