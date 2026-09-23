@@ -38,7 +38,9 @@
           const catalog = await response.json();
           const entry = (catalog.rapplications || []).find(item => item.id === selected);
           if (!entry) throw new Error('No supported catalog entry was found; unlisted templates are not runnable.');
-          if (entry.application || entry.application_schema || entry.local_docker
+          if (entry.schema === 'rapp-application/2.0'
+              || ['application', 'application_schema', 'local_docker'].some(key =>
+                Object.prototype.hasOwnProperty.call(entry, key))
               || Object.prototype.hasOwnProperty.call(entry, 'requires')
                 && (!Array.isArray(entry.requires) || entry.requires.length)) {
             throw new Error('This complete application requires its verified local installation. '

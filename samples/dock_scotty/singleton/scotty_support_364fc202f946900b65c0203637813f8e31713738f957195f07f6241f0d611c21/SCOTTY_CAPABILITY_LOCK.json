@@ -1,0 +1,11 @@
+{
+  "files": [
+    {
+      "bytes": 875,
+      "path": "agents/scotty_agent.py",
+      "sha256": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5"
+    }
+  ],
+  "grail_commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
+  "schema": "scotty-capability-files/1"
+}

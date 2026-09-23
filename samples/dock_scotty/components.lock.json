@@ -1,0 +1,186 @@
+{
+  "components": [
+    {
+      "dependencies": [],
+      "id": "intelligence",
+      "images": [
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/arm64",
+          "reference": null,
+          "role": "cli"
+        }
+      ],
+      "inputs": [],
+      "licenses": {
+        "files": [],
+        "note": "Template only: qualify the complete source, dependency, model and license closure before distribution.",
+        "status": "pending"
+      },
+      "source": {
+        "bytes": null,
+        "revision": null,
+        "sha256": null,
+        "url": "https://github.com/github/copilot-cli"
+      }
+    },
+    {
+      "dependencies": [
+        "intelligence"
+      ],
+      "id": "presenton",
+      "images": [
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/arm64",
+          "reference": null,
+          "role": "application"
+        }
+      ],
+      "inputs": [],
+      "licenses": {
+        "files": [],
+        "note": "Template only: qualify the complete source, dependency, model and license closure before distribution.",
+        "status": "pending"
+      },
+      "source": {
+        "bytes": null,
+        "revision": null,
+        "sha256": null,
+        "url": "https://github.com/presenton/presenton"
+      }
+    },
+    {
+      "dependencies": [
+        "intelligence",
+        "presenton"
+      ],
+      "id": "scrapling",
+      "images": [
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/amd64",
+          "reference": null,
+          "role": "fetcher"
+        },
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/arm64",
+          "reference": null,
+          "role": "presenton-derived-ingress"
+        }
+      ],
+      "inputs": [],
+      "licenses": {
+        "files": [],
+        "note": "Template only: qualify the complete source, dependency, model and license closure before distribution.",
+        "status": "pending"
+      },
+      "source": {
+        "bytes": null,
+        "revision": null,
+        "sha256": null,
+        "url": "https://github.com/D4Vinci/Scrapling"
+      }
+    },
+    {
+      "dependencies": [],
+      "id": "open-seo",
+      "images": [
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/arm64",
+          "reference": null,
+          "role": "application"
+        }
+      ],
+      "inputs": [],
+      "licenses": {
+        "files": [],
+        "note": "Template only: qualify the complete source, dependency, model and license closure before distribution.",
+        "status": "pending"
+      },
+      "source": {
+        "bytes": null,
+        "revision": null,
+        "sha256": null,
+        "url": "https://github.com/every-app/open-seo"
+      }
+    },
+    {
+      "dependencies": [
+        "intelligence"
+      ],
+      "id": "dify",
+      "images": [
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/amd64",
+          "reference": null,
+          "role": "unqualified-full-stack"
+        }
+      ],
+      "inputs": [],
+      "licenses": {
+        "files": [],
+        "note": "Template only: qualify the complete source, dependency, model and license closure before distribution.",
+        "status": "pending"
+      },
+      "source": {
+        "bytes": null,
+        "revision": null,
+        "sha256": null,
+        "url": "https://github.com/langgenius/dify"
+      }
+    },
+    {
+      "dependencies": [
+        "intelligence"
+      ],
+      "id": "openshorts",
+      "images": [
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/amd64",
+          "reference": null,
+          "role": "backend"
+        },
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/amd64",
+          "reference": null,
+          "role": "frontend"
+        },
+        {
+          "build_recipe": null,
+          "observed_image_id": null,
+          "platform": "linux/amd64",
+          "reference": null,
+          "role": "renderer"
+        }
+      ],
+      "inputs": [],
+      "licenses": {
+        "files": [],
+        "note": "Template only: qualify the complete source, dependency, model and license closure before distribution.",
+        "status": "pending"
+      },
+      "source": {
+        "bytes": null,
+        "revision": null,
+        "sha256": null,
+        "url": "https://github.com/mutonby/openshorts"
+      }
+    }
+  ],
+  "mode": "template",
+  "schema": "rapp-local-components/1"
+}

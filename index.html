@@ -599,6 +599,9 @@ async function loadRapps() {
   try {
     const r = await fetch(SOURCES.rapp.url, { cache: 'no-store' });
     const cat = await r.json();
+    if (globalThis.RappStoreContract && (cat.rapplications || []).some(applicationDeclared)) {
+      await RappStoreContract.ready().catch(() => {});
+    }
     state.rapps.push(...(cat.rapplications || []).map(normalizeRapp));
     state.loaded.rapp = true;
   } catch (e) {
@@ -1036,6 +1039,11 @@ function appendApplicationContract(body, r) {
   const errors = contract ? contract.validate(manifest) : ['Complete contract validator is unavailable.'];
   const local = manifest && manifest.local_docker;
   const ready = local && local.readiness;
+  const limited = (entries, describe) => entries.slice(0, 20).map(describe).join('; ')
+    + (entries.length > 20 ? '; ' + (entries.length - 20) + ' more entries in the complete manifest' : '');
+  const statuses = value => value && typeof value === 'object' && !Array.isArray(value)
+    ? limited(Object.entries(value), ([name, status]) => name + ': ' + String(status))
+    : 'unknown';
   body.appendChild(el('section', {}, [
     el('h4', { text: 'Chat-operated application — complete package required' }),
     el('p', { text: 'Grail owns chat; the agent is an entrypoint, not the whole application. '
@@ -1054,8 +1062,20 @@ function appendApplicationContract(body, r) {
       el('h4', { text: 'Readiness — candidate facts, not your current machine’s health' }),
       el('p', { text: ready ? 'Candidate: ' + String(ready.candidate)
         + ' · fresh install: ' + String(ready.fresh_install) : 'Readiness not supplied.' }),
-      el('p', { text: ready?.recreation ? 'Recreation: ' + Object.entries(ready.recreation)
-        .map(([app, status]) => app + ': ' + String(status)).join('; ') : 'Recreation unqualified.' }),
+      el('p', { text: 'Package verification: ' + String(ready?.package_verification || 'unknown')
+        + ' · profile installations: ' + statuses(ready?.fresh_install_profiles) }),
+      el('p', { text: 'Job/mode verification: ' + (ready?.jobs && typeof ready.jobs === 'object'
+        ? limited(Object.entries(ready.jobs), ([job, claim]) =>
+          job + ' (' + String(claim?.mode || 'unknown mode') + '): ' + String(claim?.status || 'unknown'))
+        : 'unknown') }),
+      el('p', { text: 'Observed health: ' + String(ready?.current_health?.status || 'unknown')
+        + ' · observation time: ' + String(ready?.current_health?.observed_at || 'none') }),
+      el('p', { text: 'Restart: ' + statuses(ready?.restart) }),
+      el('p', { text: 'Recreation: ' + statuses(ready?.recreation) }),
+      el('p', { text: 'Acceptance suite: ' + String(ready?.acceptance_suite?.status || 'unknown')
+        + ' · revision: ' + String(ready?.acceptance_suite?.revision || 'unassigned') }),
+      el('p', { text: 'Provider blockers: ' + (Array.isArray(ready?.provider_blockers)
+        ? limited(ready.provider_blockers, String) : 'not supplied') }),
       el('p', { text: 'A tested Apple Silicon development profile with emulated amd64 guests '
         + 'does not prove fresh installation or whole-bundle Intel support.' }),
     ]));

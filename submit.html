@@ -250,6 +250,7 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
         <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:8px">The zip contains one folder with
           <code>manifest.json</code>, the entrypoint and <code>README.md</code>. Simple version-1 apps require
           <code>ui/</code>; complete version-2 apps require every locked file and referenced declaration.
+          Complete apps must use the federation tab: source-ZIP promotion is not yet qualified for preserving their layout.
           See <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md</a>.
           Max 5&nbsp;MB compressed; complete source expands to at most 20&nbsp;MiB.</p>
       </div>
@@ -419,7 +420,8 @@ function validateManifest(m, owner) {
   const errs = [], warns = [];
   if (!m || typeof m !== 'object' || Array.isArray(m)) return {errs: ['Manifest must be an object.'], warns};
   const complete = m.schema === 'rapp-application/2.0';
-  if (complete || 'local_docker' in m || 'requires' in m) {
+  if (complete || 'local_docker' in m || 'requires' in m
+      && (!Array.isArray(m.requires) || m.requires.length)) {
     if (!globalThis.RappStoreContract) errs.push('Complete contract validator is unavailable; refusing feature downgrade.');
     else errs.push(...RappStoreContract.validate(m));
   } else if (m.schema !== 'rapp-application/1.0') errs.push('Unsupported application schema.');
@@ -484,6 +486,7 @@ async function loadBundle(file) {
     const mtxt = await manifestEntry.entry.async('string');
     const m = globalThis.RappStoreContract ? RappStoreContract.parseJSON(mtxt) : JSON.parse(mtxt);
     bundle.manifest = m;
+    if (m?.schema === 'rapp-application/2.0' && globalThis.RappStoreContract) await RappStoreContract.ready();
     const result = validateManifest(m, ghUser?.login);
     if (!result.errs.length && m.schema === 'rapp-application/2.0') {
       const prefix = manifestEntry.path.slice(0, -'manifest.json'.length);
@@ -500,6 +503,7 @@ async function loadBundle(file) {
         if (!member) throw new Error('Missing locked file: ' + path);
         return member.async('uint8array');
       }, paths));
+      if (!result.errs.length) result.errs.push('E_APPLICATION_FEDERATION_ONLY: Submit complete applications through commit-pinned public federation. Source ZIP promotion is not qualified for the preserving layout; installation cartridges are a separate format.');
     }
     renderBundlePreview(result);
   } catch (e) {
@@ -607,6 +611,7 @@ async function resolveFederation() {
     const manifestText = await r.text();
     const m = globalThis.RappStoreContract ? RappStoreContract.parseJSON(manifestText) : JSON.parse(manifestText);
     federation.manifest = m;
+    if (m?.schema === 'rapp-application/2.0' && globalThis.RappStoreContract) await RappStoreContract.ready();
     const { errs, warns } = validateManifest(m, ghUser?.login);
     if (!errs.length && m.schema === 'rapp-application/2.0') {
       const resolved = await fetch(`https://api.github.com/repos/${parsed.repo}/commits/${encodeURIComponent(parsed.ref)}`,

@@ -61,7 +61,10 @@ Authoring order:
 6. Preserve state on stop/detach/reinstall. RAPP/1 receipts/capsules contain
    selected outputs and producing source, not full state or credentials.
 7. Validate with `scripts/lib_rapp.py` and the shared package contract, then
-   use the normal `[RAPP]` receiver/approval flow. Never publish private
+   use commit-pinned public federation through the normal `[RAPP]`
+   receiver/approval flow. Complete source-ZIP promotion is not yet qualified
+   and refuses before extraction; installation cartridges remain separate.
+   Never publish private
    receipts, owner identities, credentials, paths, or output artifacts.
 
 No second runtime, Store server, browser Docker execution or RAPP Work

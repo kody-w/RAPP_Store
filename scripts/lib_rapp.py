@@ -22,6 +22,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -208,6 +209,16 @@ def _application_dir_errors(root: Path, manifest: dict) -> list[str]:
     return errors
 
 
+def _application_previous_errors(manifest: dict, previous: dict | None) -> list[str]:
+    if not is_application(manifest) or not previous:
+        return []
+    if str(previous.get("publisher", "")).casefold() != manifest["publisher"].casefold():
+        return ["E_APPLICATION_OWNERSHIP: a complete application cannot replace another publisher's catalog ID"]
+    if "desktop" in previous:
+        return ["E_APPLICATION_DISTRIBUTION: preserve the existing native listing; use a distinct complete-application ID"]
+    return []
+
+
 def _strict_json(blob):
     def pairs(items):
         result = {}
@@ -262,7 +273,11 @@ def _zip_contract_preflight(archive: zipfile.ZipFile) -> list[str]:
         if name in files:
             return ["E_CLOSURE: duplicate application archive member"]
         files[name] = archive.read(info)
-    return _application_contract_errors(manifest, files)
+    errors = _application_contract_errors(manifest, files)
+    return errors or [
+        "E_APPLICATION_FEDERATION_ONLY: complete applications require commit-pinned public federation; "
+        "source ZIP promotion is not qualified for preserving the complete layout"
+    ]
 
 
 # ── Public API ────────────────────────────────────────────────────────────
@@ -295,7 +310,10 @@ def validate_zip(zip_bytes: bytes, *,
         zf.close()
         return ValidationResult(ok=False, errors=safe)
 
-    preflight = _zip_contract_preflight(zf)
+    try:
+        preflight = _zip_contract_preflight(zf)
+    except (zipfile.BadZipFile, RuntimeError) as exc:
+        preflight = [f"E_BAD_ZIP: cannot read application declarations: {exc}"]
     if preflight:
         zf.close()
         return ValidationResult(ok=False, errors=preflight)
@@ -339,6 +357,9 @@ def validate_dir(rapp_dir: Path, *,
     errors.extend(_validate_manifest(manifest))
     if isinstance(manifest, dict) and "desktop" in manifest and submission_type == "bundle":
         errors.append("E_DESKTOP_FEDERATION_ONLY: native releases must use the [RAPP] federation receiver")
+    if is_application(manifest) and submission_type == "bundle":
+        errors.append("E_APPLICATION_FEDERATION_ONLY: complete applications require commit-pinned public federation; "
+                      "source ZIP promotion is not qualified for preserving the complete layout")
     if errors:
         return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest, errors=errors)
     if "desktop" in manifest:
@@ -369,6 +390,7 @@ def validate_dir(rapp_dir: Path, *,
                           f"submitter '{expected_publisher}'")
 
     prev = _find_catalog_entry(existing_catalog or {}, rapp_id)
+    errors.extend(_application_previous_errors(manifest, prev))
     if existing_catalog is not None:
         if prev and not _semver_gt(manifest["version"], prev.get("version", "0.0.0")):
             errors.append(f"E_VERSION_NOT_BUMPED: manifest.version '{manifest['version']}' "
@@ -559,16 +581,19 @@ def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str
         "quality_tier": downgrade_tier_for_submission(manifest.get("quality_tier")),
     })
     if is_application(manifest):
-        # No source-only installation fields survive, even when supplied as
-        # metadata. Publication of a complete reviewed installer is separate.
-        for key in list(entry):
-            if key.startswith(("singleton_", "service_", "ui_", "hatcher_", "egg_")) or key == "install_one_liner":
-                entry.pop(key)
+        # Keep the complete contract once, under application. Old clients must
+        # not interpret authoring metadata as a partial installation shortcut.
+        display = {
+            "id", "name", "version", "summary", "category", "tags", "license",
+            "publisher", "quality_tier", "tagline", "homepage", "access", "access_note",
+        }
+        entry = {key: value for key, value in entry.items() if key in display}
         entry.update({
             "application_schema": SCHEMA_APPLICATION,
             "application": copy.deepcopy(manifest),
             "distribution": "local-docker" if "local-docker/1" in manifest["requires"] else "application",
             "requires": list(manifest["requires"]),
+            "runtime": copy.deepcopy(manifest["runtime"]),
             "installable": False,
             "install_blockers": ["A complete reviewed content-addressed installer has not been published."],
         })
@@ -725,6 +750,7 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
                           f"submitter '{expected_publisher}'")
 
     prev = _find_catalog_entry(existing_catalog or {}, rapp_id)
+    errors.extend(_application_previous_errors(manifest, prev))
     if existing_catalog is not None:
         if prev and not _semver_gt(manifest["version"], prev.get("version", "0.0.0")):
             errors.append(f"E_VERSION_NOT_BUMPED: manifest.version '{manifest['version']}' "
@@ -850,7 +876,7 @@ def _rewrite_for_federation(entry: dict, manifest: dict, repo: str,
     src: dict[str, Any] = {
         "type": "federation",
         "repo": repo,
-        "ref": ref,
+        "ref": commit_sha if complete else ref,
         "path": rel_path,
     }
     if commit_sha:
@@ -937,10 +963,17 @@ def _make_temp_dir() -> str:
 def _check_zip_safety(zf: zipfile.ZipFile) -> list[str]:
     errs: list[str] = []
     total = 0
+    seen = set()
     for info in zf.infolist():
         name = info.filename
+        folded = name.rstrip("/").casefold()
+        if folded in seen:
+            errs.append(f"E_DUPLICATE_ZIP_MEMBER: {name}")
+        seen.add(folded)
         if name.startswith("/") or ".." in name.replace("\\", "/").split("/"):
             errs.append(f"E_PATH_TRAVERSAL: {name}")
+        if stat.S_ISLNK(info.external_attr >> 16):
+            errs.append(f"E_PATH_TRAVERSAL: archive symlink is forbidden: {name}")
         total += info.file_size
         if total > MAX_BUNDLE_BYTES * 4:  # uncompressed cap, anti-zipbomb
             errs.append(f"E_ZIP_BOMB: uncompressed total exceeds {MAX_BUNDLE_BYTES * 4}")

@@ -987,7 +987,10 @@ Version-1 twin metadata does not grant version-2 support for another engine.
 
 Version-2 validation is closed on behavior-bearing fields. All declared
 files must exist and match their hashes; undeclared executable dependencies
-cannot be hidden inside metadata. Relative paths exclude traversal, hidden
+cannot be hidden inside metadata. Portable source/state-declaration paths
+use printable ASCII, bounded to 512 characters, avoiding host-specific Unicode
+case/normalization aliases. This does not restrict end-user job input text or
+input filenames. Relative paths exclude traversal, hidden
 members, ambiguous components, symlinks and case-folded destination
 collisions. Application metadata is generated, not trusted from an
 `index_entry.json` override. README is part of the lock; a UI is optional.
@@ -999,6 +1002,16 @@ commit and fetches **every** locked file before admission. A source movement
 refuses rather than mixing revisions. Private metadata alone cannot qualify
 this complete installation contract. Native macOS distribution retains its
 own version-1 extension rather than mixing installer semantics.
+
+Complete applications currently use **public federation for Store
+submission**. Their staged `source.ref` is the resolved full commit, so
+approval cannot follow a subsequently moved branch. The existing source-ZIP
+promotion path does not yet provide a qualified publisher-namespaced,
+preserving complete-layout transaction; version-2 source ZIPs therefore
+refuse **before extraction or promotion writes**, with
+`E_APPLICATION_FEDERATION_ONLY`. This does not disable the separately
+verified `rapp-egg/2.0` installation cartridge. Existing version-1 source
+bundle behavior is unchanged.
 
 ### 15.2 `local-docker/1`
 
@@ -1012,7 +1025,9 @@ the closed feature contract. It requires `schema: rapp-local-docker/1` and:
 - `requirements_file`: explicit Python/current-Grail/Docker/Compose,
   host/guest architectures, resource observations and adopter login needs.
 - `jobs_file`: closed typed job inputs, outputs, modes, providers and
-  limitations. There is no command-string execution escape hatch.
+  limitations. Bounds, enums, typed arrays and closed objects are supported;
+  arbitrary publisher-supplied regular expressions are not part of this
+  feature. There is no command-string execution escape hatch.
 - `state_lifecycle_file`: owned roots/volumes, sealed inputs, preserving
   start/stop/detach/reinstall/recovery and credential/export exclusions.
 - `intelligence`: official Copilot CLI in Docker, pinned version, model,

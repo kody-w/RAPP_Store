@@ -46,6 +46,9 @@ See [Proposal 0007](./docs/proposals/0007-chat-operated-rapplications.md),
 requires `local-docker/1`; unsupported clients must refuse instead of
 installing a bare singleton. Existing simple/native/Zoo listings and the
 root catalog remain unchanged. Submission still requires `[RAPP]` review.
+Complete applications submit through commit-pinned public federation.
+Source-ZIP promotion is refused until its preserving layout is qualified;
+verified installation cartridges are a different artifact, not a fallback.
 
 > Legacy local producer outputs may include a singleton `.py` and portable
 > `.egg` cartridge ([brainstem-egg/2.2-rapplication schema](https://github.com/kody-w/RAPP/blob/main/rapp_brainstem/utils/bond.py)).

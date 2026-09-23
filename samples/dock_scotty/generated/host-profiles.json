@@ -1,0 +1,28 @@
+{
+  "schema": "rapp-local-host-profiles/1",
+  "python_minimum": "3.11",
+  "grail": {
+    "repo": "microsoft/aibast-agents-library",
+    "commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
+    "version": "0.6.16"
+  },
+  "tools": {"git": true, "docker": true, "compose_plugin": true, "local_daemon_only": true},
+  "profiles": [
+    {
+      "id": "apple-silicon-development",
+      "host_os": "darwin",
+      "host_arch": "arm64",
+      "guest_platforms": ["linux/arm64", "linux/amd64"],
+      "emulation": true,
+      "qualification": "development-reference",
+      "fresh_install": "pending",
+      "reference_resources": {"docker_vm_cpus": 16, "docker_vm_memory_gib": 31.3, "is_minimum": false}
+    }
+  ],
+  "authentication": {
+    "provider": "github-copilot",
+    "custody": "adopter-owned",
+    "required_for_ai_jobs": true,
+    "export_credentials": false
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "entrypoint_sha256": "a15aba07b4532b3b1dc866b2d0c6a60efdc9fc175c2ebb2c4528b20eea87aadc",
+  "loader_contract": "scotty-revision-loader/1",
+  "schema": "scotty-agent-revision/1",
+  "support_sha256": "364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21"
+}

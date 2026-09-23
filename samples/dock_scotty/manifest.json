@@ -1,0 +1,178 @@
+{
+  "agent": "singleton/scotty_agent.py",
+  "agents": [
+    "singleton/scotty_agent.py"
+  ],
+  "capabilities": [
+    "template.describe"
+  ],
+  "category": "platform",
+  "dependencies": [],
+  "files": {
+    "README.md": "a252f2cb8152e6eba27134e5899648908d66e93b0330c7318c586fca33a5d49f",
+    "components.lock.json": "53a35a19ff195a3d073d324b04dbddcdf9c7760ad4b2e6f8851d1953d6b64bd2",
+    "generated/host-profiles.json": "4f34fd0694df446adcbfa82afdb5a4823f7067a3185a244cc6ef704200a25e07",
+    "generated/job-contracts.json": "53ac157f044630b4765cc0d292a80dd2fa6fec251d9d29804dcc6f4d48a20f02",
+    "generated/state-lifecycle.json": "44a94ab6fef56c53ff3355d99d67072ee9b819a692f3338f2c6ad0615094bc16",
+    "generated/synthetic-evidence.json": "1a17bf87f5c80d010758f75bc2ffeb883b1916736f1eef7857709d8b2ded0090",
+    "singleton/scotty_agent.py": "a15aba07b4532b3b1dc866b2d0c6a60efdc9fc175c2ebb2c4528b20eea87aadc",
+    "singleton/scotty_revision.json": "7112aed18e78762b90d4fdb5f981dc4cef91ccc92ed5f5e5e027be19c033811e",
+    "singleton/scotty_support_364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21/SCOTTY_CAPABILITY_LOCK.json": "364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21",
+    "singleton/scotty_support_364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21/agents/scotty_agent.py": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5",
+    "source/scotty_agent.py": "a15aba07b4532b3b1dc866b2d0c6a60efdc9fc175c2ebb2c4528b20eea87aadc",
+    "source/scotty_implementation.py": "a5f5495c550139f2bd026e6f6badc4f13a66b6ffb023d25769e14bfe6b7cf9d5",
+    "tools/build_template.py": "d3c7bf4c27b6ae4d66106d6bccfe6fe4c59dad0a259b519afa73b4637ed7555a"
+  },
+  "id": "dock_scotty",
+  "license": "LicenseRef-Template-Review-Required",
+  "lifecycle": {
+    "install": "copy-verified-files",
+    "recovery": "reinstall-verified-package",
+    "uninstall": "preserve-state",
+    "upgrade": "preserve-state"
+  },
+  "local_docker": {
+    "component_lock": "components.lock.json",
+    "exhaust": {
+      "capsule_contains": "selected-outputs-and-producing-source-not-full-app-state",
+      "capsule_variant": "rapplication",
+      "frame_kind": "memory.tool-call",
+      "receipt_variant": "session",
+      "verification": "unsigned-structural-only",
+      "wire": "rapp/1"
+    },
+    "intelligence": {
+      "cloud_inference": true,
+      "concurrency": 2,
+      "hard_spend_cap": null,
+      "model": "gpt-5-mini",
+      "monetary_cost": null,
+      "other_paid_providers": "disabled",
+      "runtime": "official-copilot-cli-in-docker",
+      "tools": [],
+      "usage": "measured-when-available",
+      "version": "1.0.88"
+    },
+    "jobs_file": "generated/job-contracts.json",
+    "loader": {
+      "contract": "scotty-revision-loader/1",
+      "descriptor": "singleton/scotty_revision.json",
+      "entrypoint": "singleton/scotty_agent.py",
+      "support": "singleton/scotty_support_364fc202f946900b65c0203637813f8e31713738f957195f07f6241f0d611c21/"
+    },
+    "readiness": {
+      "acceptance_suite": {
+        "revision": null,
+        "status": "pending"
+      },
+      "candidate": "experimental",
+      "current_health": {
+        "observed_at": null,
+        "status": "unknown"
+      },
+      "fresh_install": "pending",
+      "fresh_install_profiles": {
+        "apple-silicon-development": "pending"
+      },
+      "jobs": {
+        "dify.knowledge_answer": {
+          "mode": "economy-retrieval-gateway-grounded",
+          "status": "pending"
+        },
+        "dify.knowledge_build": {
+          "mode": "economy-indexing-gateway-grounded",
+          "status": "pending"
+        },
+        "intelligence.chat": {
+          "mode": "tool-free-copilot-diagnostic",
+          "status": "pending"
+        },
+        "open-seo.project_create": {
+          "mode": "native-project-paid-data-disabled",
+          "status": "pending"
+        },
+        "openshorts.clips": {
+          "mode": "gateway-selected-native-rendered",
+          "status": "pending"
+        },
+        "presenton.deck": {
+          "mode": "gateway-authored-presenton-exported",
+          "status": "pending"
+        },
+        "scrapling.scrape": {
+          "mode": "native-collection-gateway-summary",
+          "status": "pending"
+        }
+      },
+      "live_results": "generated/synthetic-evidence.json",
+      "package_verification": "pending",
+      "provider_blockers": [
+        "Adopter-owned Copilot entitlement and authentication required for AI jobs.",
+        "All other paid providers disabled; paid metrics are not available.",
+        "Native Dify model plugin is not installed in the described default mode."
+      ],
+      "recreation": {
+        "dify": "pending",
+        "intelligence": "pending",
+        "open-seo": "pending",
+        "openshorts": "pending",
+        "presenton": "pending",
+        "scrapling": "pending"
+      },
+      "restart": {
+        "dify": "pending",
+        "intelligence": "pending",
+        "open-seo": "pending",
+        "openshorts": "pending",
+        "presenton": "pending",
+        "scrapling": "pending"
+      }
+    },
+    "requirements_file": "generated/host-profiles.json",
+    "schema": "rapp-local-docker/1",
+    "state_lifecycle_file": "generated/state-lifecycle.json"
+  },
+  "name": "RAPP Dock / Scotty authoring template",
+  "permissions": [
+    "host-user"
+  ],
+  "profiles": [],
+  "provenance": {
+    "deployed": false,
+    "job_verified": false,
+    "source": "synthetic-authoring-template",
+    "status": "development"
+  },
+  "providers": {
+    "egress_allowlist": null,
+    "mode": "host",
+    "spend_limit": null
+  },
+  "publisher": "@example",
+  "quality_tier": "experimental",
+  "requires": [
+    "portable-agents/1",
+    "owned-files/1",
+    "local-docker/1"
+  ],
+  "runtime": {
+    "commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
+    "repo": "microsoft/aibast-agents-library",
+    "version": "0.6.16"
+  },
+  "schema": "rapp-application/2.0",
+  "services": [],
+  "state": {
+    "preserve": true,
+    "seeds": {},
+    "version": "1"
+  },
+  "summary": "Synthetic, experimental template for one chat-operated application with five local journeys; not an installable release.",
+  "tags": [
+    "rapplication",
+    "chat-operated",
+    "local-docker",
+    "template"
+  ],
+  "version": "0.1.0"
+}

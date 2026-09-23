@@ -53,6 +53,12 @@ maintainer ratification or external RAPP/1/Apple acceptance. New listings still
 enter through the `[RAPP]` receiver and maintainer approval. A draft PR alone
 admits nothing.
 
+For this extension, admission uses commit-pinned public federation. Source-ZIP
+promotion remains refused for version 2 until a publisher-namespaced,
+preserving complete-layout transaction is qualified; old bundle promotion
+must not silently reduce or overwrite the new contract. Version-1 submissions
+are unchanged, and verified installation cartridges remain separate.
+
 ## Main authoring example: RAPP Dock / Scotty
 
 The unlisted `samples/dock_scotty/` template demonstrates five journeys:
