@@ -582,6 +582,50 @@ def test_linked_targets_are_never_followed(app, host, tmp_path, link):
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        "assets/caf\u00e9.txt",
+        "assets/stra\u00dfe.txt",
+        "assets/\u0130.txt",
+        "assets/file\U0001f680.txt",
+        "assets/e\u0301.txt",
+    ],
+)
+def test_v2_relative_paths_are_ascii_before_device_effects(
+    app, host, monkeypatch, name
+):
+    app[1][name] = b"synthetic source"
+    repin(*app)
+    monkeypatch.setattr(
+        package,
+        "preflight_device",
+        lambda *args, **kwargs: pytest.fail(
+            "nonportable path reached device preflight"
+        ),
+    )
+    with pytest.raises(package.PackageError, match="E_PATH:.*ASCII"):
+        package.relative_path(name)
+    with pytest.raises(package.PackageError, match="E_PATH:.*ASCII"):
+        install(app, host)
+    assert not (host / ".brainstem_data").exists()
+
+
+def test_ascii_package_paths_preserve_unicode_contents_and_host_roots(app, host):
+    contents = (
+        "Synthetic multilingual content: caf\u00e9 \u4e16\u754c \u2713\n".encode()
+    )
+    app[1]["assets/unicode.txt"] = contents
+    repin(*app)
+    localized = host.parent / "h\u00f4te-\u4f5c\u696d"
+    (localized / "agents").mkdir(mode=0o700, parents=True)
+    assert install(app, localized)["status"] == "installed"
+    blob = cartridge(*app)
+    release = app_home(localized) / "releases" / package.digest(blob)
+    assert (release / "files/assets/unicode.txt").read_bytes() == contents
+    assert_layout(localized, *app)
+
+
+@pytest.mark.parametrize(
     "change",
     [
         {"requires": ["portable-agents/1", "owned-files/1", "local-docker/2"]},

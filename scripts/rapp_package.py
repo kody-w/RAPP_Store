@@ -150,12 +150,13 @@ def relative_path(value):
     if (
         not isinstance(value, str)
         or not value
+        or not value.isascii()
         or len(value) > 512
         or "\\" in value
         or ":" in value
         or any(ord(c) < 32 or ord(c) == 127 for c in value)
     ):
-        raise PackageError("E_PATH: expected a bounded relative POSIX file path")
+        raise PackageError("E_PATH: expected a bounded ASCII relative POSIX file path")
     parts = value.split("/")
     if any(not part or part in (".", "..") or part.startswith(".") for part in parts):
         raise PackageError("E_PATH: hidden, absolute and traversal paths are forbidden")
