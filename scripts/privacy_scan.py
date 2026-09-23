@@ -645,6 +645,9 @@ class _Scanner:
                 refuse("E_MEMBER_LIMIT", location)
             raw = tarfile.TarInfo.frombuf(header, "utf-8", "surrogateescape")
             self.tar_header(header, where, depth)
+            if raw.type not in _TAR_EXTENSIONS:
+                # Readers that ignore pax and GNU names extract this legacy name instead.
+                self.metadata(raw.name, where + "/name", depth, name=True)
             if raw.size < 0 or raw.size > self.allowance():
                 refuse("E_BYTE_LIMIT", location)
             begin = cursor + 512

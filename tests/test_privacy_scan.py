@@ -437,6 +437,15 @@ def test_tar_extension_payload_bytes_are_all_inspected():
     assert ("P_DENYLIST", "file[0]/tar-header[0]/extension") in tar_findings(blob)
 
 
+@pytest.mark.parametrize("legacy,rule", [("../escape.txt", "E_PATH"), (".env", "P_PRIVATE_ARTIFACT"),
+                                         ("state/raw.json", "P_PRIVATE_ARTIFACT")])
+def test_tar_legacy_names_behind_pax_paths_are_checked_as_names(legacy, rule):
+    blob = tar_bytes({legacy: b"P"}, metadata={"pax_headers": {"path": "public.txt"}})
+    assert readable(blob) == b"P"
+    assert (rule, "file[0]/tar-header[1]/name") in tar_findings(blob)
+    assert tar_findings(tar_bytes({"public.txt": b"P"}, metadata={"pax_headers": {"path": "public.txt"}})) == set()
+
+
 def test_tar_framing_ambiguity_and_incomplete_end_refuse():
     clean = formatted_tar({"public.txt": b"P"})
     extended = tar_bytes({"public.txt": b"P"}, metadata={"pax_headers": {"comment": "Public"}})
