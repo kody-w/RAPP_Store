@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -261,3 +262,19 @@ def test_outer_release_version_does_not_rewrite_stable_bootstrap(sample, tmp_pat
     assert first_files["singleton/scotty_agent.py"] == second_files["singleton/scotty_agent.py"]
     assert first_files["singleton/scotty_revision.json"] == second_files["singleton/scotty_revision.json"]
     assert first["local_docker"]["loader"] == second["local_docker"]["loader"]
+
+
+@pytest.mark.skipif(not os.environ.get("RAPP_STORE_PUBLIC_TEMPLATE"),
+                    reason="Requires a separately reviewed public Dock export; never the live runtime.")
+def test_actual_public_export_passes_static_admission_without_payload_imports():
+    path = ROOT / "samples/dock_scotty/tools/assemble_candidate.py"
+    spec = importlib.util.spec_from_file_location("_actual_candidate_assembler", path)
+    module = importlib.util.module_from_spec(spec)
+    exec(compile(path.read_bytes(), str(path), "exec"), module.__dict__)
+    manifest, files = module.candidate_files(Path(os.environ["RAPP_STORE_PUBLIC_TEMPLATE"]))
+    py, js = both_errors(manifest, files)
+    assert not py, py
+    assert not js, js
+    assert manifest["local_docker"]["readiness"]["fresh_install"] == "pending"
+    assert not manifest["provenance"]["deployed"]
+    assert not manifest["provenance"]["job_verified"]
