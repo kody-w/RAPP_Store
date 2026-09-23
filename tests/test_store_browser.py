@@ -23,8 +23,9 @@ def browser(request):
     assert NODE, "Node is required for browser contract validation"
     code = r"""
 const fs = require('fs');
-const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-const contract = require(input.contract);
+const body = fs.readFileSync(0, 'utf8');
+const contract = require(JSON.parse(body).contract);
+const input = contract.parseJSON(body);
 (async () => {
   if (input.mode === 'parse') {
     try { console.log(JSON.stringify({value: contract.parseJSON(input.text)})); }
@@ -293,13 +294,13 @@ def test_legacy_store_browsing_has_no_new_schema_fetch(entry, expected_loads):
 const fs = require('fs'), vm = require('vm');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 let schemaLoads = 0;
-globalThis.RappStoreContract = {ready: async () => {schemaLoads++;}};
+globalThis.RappStoreContract = {ready: async () => {schemaLoads++;}, parseJSON: JSON.parse};
 globalThis.document = {
   querySelector: () => ({addEventListener(){}, style:{}}),
   querySelectorAll: () => [], addEventListener(){},
 };
 globalThis.window = {addEventListener(){}};
-globalThis.fetch = async () => ({json: async () => ({rapplications: [input.entry]})});
+globalThis.fetch = async () => ({text: async () => JSON.stringify({rapplications: [input.entry]})});
 vm.runInThisContext(input.script);
 loadRapps().then(() => console.log(JSON.stringify({schemaLoads})));
 """

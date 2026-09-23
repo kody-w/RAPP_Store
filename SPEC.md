@@ -997,6 +997,13 @@ collisions. Application metadata is generated, not trusted from an
 The 5 MiB package/20 MiB expanded-source limits remain separate from external
 component materialization, which is declared rather than bundled as images.
 
+Wire fields declared as integers must use JSON integer tokens, not decimal
+or exponent spellings. In particular, the unchanged revision loader reads
+the original inventory bytes and rejects floating-point file lengths.
+Browser wire preflight uses `RappStoreContract.parseJSON`, which retains this
+token distinction without modifying the declared data; an already-parsed
+JavaScript object alone cannot recover discarded numeric spelling.
+
 Public federation resolves a full commit, re-reads the manifest at that
 commit and fetches **every** locked file before admission. A source movement
 refuses rather than mixing revisions. Private metadata alone cannot qualify

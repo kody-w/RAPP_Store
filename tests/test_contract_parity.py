@@ -47,8 +47,9 @@ def browser_batch(request):
     assert node, "Node is required for shared contract parity"
     script = r"""
 const fs = require('fs');
-const data = JSON.parse(fs.readFileSync(0, 'utf8'));
-const contract = require(data.contract);
+const body = fs.readFileSync(0, 'utf8');
+const contract = require(JSON.parse(body).contract);
+const data = contract.parseJSON(body);
 const base = Object.fromEntries(Object.entries(data.files || {}).map(([key, value]) =>
   [key, Buffer.from(value, 'base64')]));
 const result = Promise.all(data.cases.map(async item => {

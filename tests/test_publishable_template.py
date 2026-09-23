@@ -194,6 +194,34 @@ def test_support_member_digest_is_not_enough_if_inventory_differs(sample):
     assert lib_rapp._application_contract_errors(manifest, files)
 
 
+@pytest.mark.parametrize("spelling", ["decimal", "exponent"])
+def test_loader_integer_tokens_are_not_normalized_into_admissibility(sample, spelling):
+    manifest, files = sample
+    old_prefix = manifest["local_docker"]["loader"]["support"]
+    inventory = json.loads(files[old_prefix + "SCOTTY_CAPABILITY_LOCK.json"])
+    length = inventory["files"][0]["bytes"]
+    inventory["files"][0]["bytes"] = float(length)
+    raw = json.dumps(inventory, sort_keys=True).encode()
+    if spelling == "exponent":
+        raw = raw.replace(f'"bytes": {length}.0'.encode(), f'"bytes": {length}e0'.encode(), 1)
+    revision = hashlib.sha256(raw).hexdigest()
+    prefix = "singleton/scotty_support_" + revision + "/"
+    files = {prefix + name[len(old_prefix):] if name.startswith(old_prefix) else name: blob
+             for name, blob in files.items()}
+    files[prefix + "SCOTTY_CAPABILITY_LOCK.json"] = raw
+    descriptor = json.loads(files["singleton/scotty_revision.json"])
+    descriptor["support_sha256"] = revision
+    files["singleton/scotty_revision.json"] = json.dumps(descriptor).encode()
+    manifest["local_docker"]["loader"]["support"] = prefix
+    manifest["files"] = {name: hashlib.sha256(blob).hexdigest() for name, blob in files.items()}
+    result = browser({
+        "mode": "files", "manifest": manifest,
+        "files": {key: base64.b64encode(blob).decode() for key, blob in files.items()},
+    })
+    assert result["errors"]
+    assert any("E_LOADER" in error for error in lib_rapp._application_contract_errors(manifest, files))
+
+
 def test_job_declarations_do_not_execute_publisher_regexes(sample):
     manifest, files = sample
     name = manifest["local_docker"]["jobs_file"]

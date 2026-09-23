@@ -16,6 +16,7 @@
   const documentNames = ['application.schema.json', 'local-docker.schema.json', 'desktop.schema.json'];
   let documents = null;
   let loading = null;
+  const nonIntegerTokens = new WeakMap();
   if (typeof module !== 'undefined' && module.exports) {
     documents = Object.fromEntries(documentNames.map(name => [name, require('./schemas/' + name)]));
   }
@@ -53,13 +54,14 @@
     && value.split('/').every(part => part && !part.startsWith('.') && !/[ .]$/.test(part));
   const runtimeMatches = value => equal(value, GRAIL);
 
-  function schemaErrors(value, schema, documentName, path = '$', depth = 0) {
+  function schemaErrors(value, schema, documentName, path = '$', depth = 0, nonIntegerToken = false) {
     if (depth > 512) return [path + ': declaration nesting exceeds the bound'];
     if (schema === true) return [];
     if (schema === false) return [path + ': declaration is not supported'];
     if (!object(schema)) return [path + ': unsupported schema'];
     const errors = [];
-    const check = (v, s, suffix = '') => schemaErrors(v, s, documentName, path + suffix, depth + 1);
+    const check = (v, s, suffix = '', nonInteger = nonIntegerToken) =>
+      schemaErrors(v, s, documentName, path + suffix, depth + 1, nonInteger);
     if (schema.$ref) {
       const [file, fragment = ''] = schema.$ref.split('#');
       const targetName = file ? file.split('/').pop() : documentName;
@@ -68,7 +70,7 @@
         target = target && target[part.replace(/~1/g, '/').replace(/~0/g, '~')];
       }
       if (!target) return [path + ': referenced schema is unavailable'];
-      errors.push(...schemaErrors(value, target, targetName, path, depth + 1));
+      errors.push(...schemaErrors(value, target, targetName, path, depth + 1, nonIntegerToken));
     }
     if ('const' in schema && !equal(value, schema.const)) errors.push(path + ': unsupported fixed value');
     if (schema.enum && !schema.enum.some(item => equal(item, value))) errors.push(path + ': unsupported enum value');
@@ -76,7 +78,7 @@
       if (type === 'object') return object(value);
       if (type === 'array') return Array.isArray(value);
       if (type === 'null') return value === null;
-      if (type === 'integer') return typeof value === 'number' && Number.isSafeInteger(value);
+      if (type === 'integer') return typeof value === 'number' && Number.isSafeInteger(value) && !nonIntegerToken;
       if (type === 'number') return typeof value === 'number' && Number.isFinite(value);
       return typeof value === type;
     };
@@ -100,16 +102,17 @@
       for (const key of schema.required || []) if (!Object.hasOwn(value, key)) errors.push(path + ': missing ' + key);
       for (const key of keys) {
         if (schema.propertyNames) errors.push(...check(key, schema.propertyNames, '.<key>'));
-        if (Object.hasOwn(properties, key)) errors.push(...check(value[key], properties[key], '.' + key));
+        const fractional = nonIntegerTokens.get(value)?.has(key) || false;
+        if (Object.hasOwn(properties, key)) errors.push(...check(value[key], properties[key], '.' + key, fractional));
         else if (schema.additionalProperties === false) errors.push(path + ': unsupported field ' + key);
-        else if (object(schema.additionalProperties)) errors.push(...check(value[key], schema.additionalProperties, '.' + key));
+        else if (object(schema.additionalProperties)) errors.push(...check(value[key], schema.additionalProperties, '.' + key, fractional));
       }
     } else if (Array.isArray(value)) {
       if (schema.minItems != null && value.length < schema.minItems) errors.push(path + ': too few items');
       if (schema.maxItems != null && value.length > schema.maxItems) errors.push(path + ': too many items');
       if (schema.uniqueItems && new Set(value.map(canonicalKey)).size !== value.length) errors.push(path + ': duplicate items');
-      if (schema.contains && !value.some(item => !check(item, schema.contains).length)) errors.push(path + ': missing required item');
-      if (schema.items) value.forEach((item, i) => errors.push(...check(item, schema.items, '[' + i + ']')));
+      if (schema.contains && !value.some((item, i) => !check(item, schema.contains, '[]', nonIntegerTokens.get(value)?.has(i) || false).length)) errors.push(path + ': missing required item');
+      if (schema.items) value.forEach((item, i) => errors.push(...check(item, schema.items, '[' + i + ']', nonIntegerTokens.get(value)?.has(i) || false)));
     } else if (typeof value === 'string') {
       const length = Array.from(value).length;
       if (schema.minLength != null && length < schema.minLength) errors.push(path + ': text too short');
@@ -182,9 +185,16 @@
   function parseJSON(text) {
     if (typeof text !== 'string') text = new TextDecoder('utf-8', {fatal: true}).decode(text);
     let pos = 0;
+    let nonIntegerToken = false;
     const whitespace = () => { while (/[ \t\r\n]/.test(text[pos] || '') && pos < text.length) pos++; };
+    function complete(container, fields) {
+      if (fields.size) nonIntegerTokens.set(container, fields);
+      nonIntegerToken = false;
+      return container;
+    }
     function value(depth = 0) {
       if (depth > 128) throw new Error('JSON nesting exceeds the bound.');
+      nonIntegerToken = false;
       whitespace();
       if (text[pos] === '"') {
         const start = pos++;
@@ -197,8 +207,9 @@
       if (text[pos] === '{') {
         const result = Object.create(null);
         const keys = new Set();
+        const fractional = new Set();
         pos++; whitespace();
-        if (text[pos] === '}') { pos++; return result; }
+        if (text[pos] === '}') { pos++; return complete(result, fractional); }
         while (pos < text.length) {
           whitespace();
           if (text[pos] !== '"') throw new Error('JSON object keys must be strings.');
@@ -206,19 +217,24 @@
           if (keys.has(key)) throw new Error('Duplicate JSON field: ' + key);
           keys.add(key); whitespace();
           if (text[pos++] !== ':') throw new Error('Invalid JSON object.');
-          result[key] = value(depth + 1); whitespace();
+          result[key] = value(depth + 1);
+          if (nonIntegerToken) fractional.add(key);
+          whitespace();
           const separator = text[pos++];
-          if (separator === '}') return result;
+          if (separator === '}') return complete(result, fractional);
           if (separator !== ',') throw new Error('Invalid JSON object separator.');
         }
       } else if (text[pos] === '[') {
         const result = [];
+        const fractional = new Set();
         pos++; whitespace();
-        if (text[pos] === ']') { pos++; return result; }
+        if (text[pos] === ']') { pos++; return complete(result, fractional); }
         while (pos < text.length) {
-          result.push(value(depth + 1)); whitespace();
+          result.push(value(depth + 1));
+          if (nonIntegerToken) fractional.add(result.length - 1);
+          whitespace();
           const separator = text[pos++];
-          if (separator === ']') return result;
+          if (separator === ']') return complete(result, fractional);
           if (separator !== ',') throw new Error('Invalid JSON array separator.');
         }
       } else {
@@ -227,6 +243,7 @@
           pos += match[0].length;
           const result = JSON.parse(match[0]);
           if (typeof result === 'number' && !Number.isFinite(result)) throw new Error('Non-finite JSON value.');
+          nonIntegerToken = typeof result === 'number' && /[.eE]/.test(match[0]);
           return result;
         }
       }
@@ -440,7 +457,8 @@
         if (result.items) result.items = runtimeShape(result.items);
         return result;
       }
-      if ('default' in spec && schemaErrors(spec.default, runtimeShape(spec), 'local-docker.schema.json').length) errors.push('E_JOBS: Default does not satisfy its parameter type.');
+      if ('default' in spec && schemaErrors(spec.default, runtimeShape(spec), 'local-docker.schema.json',
+          '$.default', 0, nonIntegerTokens.get(spec)?.has('default') || false).length) errors.push('E_JOBS: Default does not satisfy its parameter type.');
       if (spec.items) parameter(spec.items, depth + 1);
       for (const child of Object.values(properties)) parameter(child, depth + 1);
     }

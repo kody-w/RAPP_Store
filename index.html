@@ -598,7 +598,8 @@ async function loadAll() {
 async function loadRapps() {
   try {
     const r = await fetch(SOURCES.rapp.url, { cache: 'no-store' });
-    const cat = await r.json();
+    const body = await r.text();
+    const cat = globalThis.RappStoreContract ? RappStoreContract.parseJSON(body) : JSON.parse(body);
     if (globalThis.RappStoreContract && (cat.rapplications || []).some(applicationDeclared)) {
       await RappStoreContract.ready().catch(() => {});
     }
