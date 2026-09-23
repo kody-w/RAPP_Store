@@ -21,6 +21,10 @@ import rapp_package as package
 from build_hatchers import artifact_names, render_hatcher, write_artifacts
 
 FIXTURES = Path(__file__).parent / "fixtures" / "local_docker"
+STORE_BOOTSTRAPS = {
+    "586627ce417774dd06cb487e012729e6cd68a988733391960cac1b44c98f878d": "generic-authoring-delegate-586627ce",
+    "58ec29e46021b37ceb7fab06f473b93838a42a071fb657b819a0e5dd57d04500": "chosen-release-identity-delegate-58ec29e4",
+}
 AGENT = b"""from agents.basic_agent import BasicAgent
 import json
 __manifest__ = {
@@ -2523,10 +2527,7 @@ def real_bootstrap_fixture():
         if ".brainstem" in path.parts:
             pytest.fail("never use a live installed entrypoint as fixture input")
         source = package._read_regular(path)
-        assert (
-            package.digest(source)
-            == "586627ce417774dd06cb487e012729e6cd68a988733391960cac1b44c98f878d"
-        )
+        assert package.digest(source) in STORE_BOOTSTRAPS
         package._portable_agent(ast.parse(source), path.name)
         return source
     value = os.environ.get("RAPP_SCOTTY_TEST_BOOTSTRAP")
@@ -2616,9 +2617,10 @@ def test_generated_hatcher_in_isolated_exact_grail_loads_one_scotty_and_reinstal
         "RAPP_INSTALL_TEST_STATE": str(state),
         "RAPP_DOCK_HOME": str(state),
         "RAPP_DOCK_NAMESPACE": "rapp-dock-th",
-        "S2_BOOTSTRAP_MODE": "actual-first-store-delegate-586627ce"
-        if os.environ.get("RAPP_SCOTTY_STORE_ENTRYPOINT")
-        else "real-loader-body-with-fixture-delegate",
+        "S2_BOOTSTRAP_MODE": STORE_BOOTSTRAPS.get(
+            package.digest(app[1][app[0]["agent"]]),
+            "real-loader-body-with-fixture-delegate",
+        ),
     }
     docker = shutil.which("docker")
     if docker:
