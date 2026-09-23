@@ -4,7 +4,10 @@
 Supported containers are ZIP/egg, gzip (including concatenated members), tar,
 and literal base64 packages in Python/JSON or .b64 files. Archives are inspected
 in memory, never extracted or executed. Unknown binary formats fail closed.
-Names, comments and contents receive the same JSON/URL decoding and rules.
+Every TAR byte is a checked header field, inspected extension/member data,
+or required zero padding and end-of-archive; anything else refuses.
+Names, comments and contents receive the same rules on every view produced by
+bounded JSON-escape, URL and HTML/XML character-reference decoding.
 
 Private names belong in a runtime JSON file, not in this module:
     {"version": 1, "deny": ["obviously-fake-owner", "fake-workstation"]}
@@ -24,6 +27,7 @@ import binascii
 from contextlib import contextmanager
 import ctypes
 from dataclasses import asdict, dataclass, field
+import html
 import io
 import ipaddress
 import json
@@ -35,6 +39,7 @@ import shutil
 import stat
 import struct
 import sys
+import tarfile
 import unicodedata
 from urllib.parse import unquote, urlsplit
 import zipfile
@@ -219,6 +224,33 @@ def _unescape(match):
     return chr(int(token[1:], 16)) if token.startswith("u") else _ESCAPES[token]
 
 
+def _json_escapes(text):
+    decoded = _ESCAPE.sub(_unescape, text)
+    if re.search("[\ud800-\udfff]", decoded):
+        decoded = decoded.encode("utf-16-le", errors="surrogatepass").decode("utf-16-le")
+    return decoded
+
+
+def _url_escapes(text):
+    return unquote(text, errors="strict")
+
+
+# Each round peels one layer per decoder. html.unescape applies the HTML5 rules
+# browsers use: decimal, hex and named references, with or without the final
+# semicolon. XML character and predefined entity references are a subset.
+_DECODERS = (_json_escapes, _url_escapes, html.unescape)
+
+# USTAR/GNU header layout: terminated text fields, octal numbers, a fixed magic,
+# the type byte and zero padding. Nothing else may carry header bytes.
+_TAR_EXTENSIONS = (tarfile.XHDTYPE, tarfile.XGLTYPE, tarfile.SOLARIS_XHDTYPE,
+                   tarfile.GNUTYPE_LONGNAME, tarfile.GNUTYPE_LONGLINK)
+_TAR_MAGIC = (b"ustar\x0000", b"ustar  \x00")
+_TAR_TEXT = ((0, 100), (157, 257), (265, 297), (297, 329), (345, 500))
+_TAR_NUMBERS = ((100, 108), (108, 116), (116, 124), (124, 136), (136, 148),
+                (148, 156), (329, 337), (337, 345))
+_TAR_OCTAL = re.compile(rb" *[0-7]*[ \x00]*")
+
+
 def _safe_name(name):
     if (not isinstance(name, str) or not name or len(name) > 4096
             or "\\" in name or ":" in name or name.startswith("/")
@@ -295,28 +327,40 @@ class _Scanner:
                     and host.lower() != "localhost"):
                 self.add("P_LAN_HOST", location)
 
+    def view(self, text, location, name):
+        text = unicodedata.normalize("NFKC", text)
+        self.patterns(text, location)
+        if name:
+            if not _safe_name(text):
+                self.add("E_PATH", location)
+            if _private_name(text):
+                self.add("P_PRIVATE_ARTIFACT", location)
+        return text
+
     def text(self, text, location, *, name=False):
+        """Inspect the text and each successive decoded view until a fixed point.
+
+        A round peels one JSON-escape, URL and HTML-reference layer, in that
+        order, inspecting every intermediate view; exhausting the round budget
+        refuses. This is a bounded canonicalization chain, not a search of
+        every possible decoding order.
+        """
+        text = self.view(text, location, name)
         for step in range(self.limits.max_decode_rounds + 1):
-            text = unicodedata.normalize("NFKC", text)
-            self.patterns(text, location)
-            if name:
-                if not _safe_name(text):
-                    self.add("E_PATH", location)
-                if _private_name(text):
-                    self.add("P_PRIVATE_ARTIFACT", location)
-            try:
-                decoded = unquote(_ESCAPE.sub(_unescape, text), errors="strict")
-                if re.search("[\ud800-\udfff]", decoded):
-                    decoded = decoded.encode("utf-16-le", errors="surrogatepass").decode("utf-16-le")
-            except (UnicodeError, ValueError):
-                self.add("E_TEXT_ENCODING", location)
+            start = text
+            for decode in _DECODERS:
+                try:
+                    decoded = decode(text)
+                except (UnicodeError, ValueError):
+                    self.add("E_TEXT_ENCODING", location)
+                    return text
+                if decoded != text:
+                    if step == self.limits.max_decode_rounds:
+                        self.add("E_ENCODING_LIMIT", location)
+                        return text
+                    text = self.view(decoded, location, name)
+            if text == start:
                 break
-            if decoded == text:
-                return text
-            if step == self.limits.max_decode_rounds:
-                self.add("E_ENCODING_LIMIT", location)
-                break
-            text = decoded
         return text
 
     def embedded(self, value, location, depth, *, required=False):
@@ -570,62 +614,103 @@ class _Scanner:
             self.blob(b"".join(chunks), member_name or "contents", member, depth + 1)
             number += 1
 
-    def tar(self, blob, location, depth):
-        import tarfile
+    def tar_header(self, header, location, depth):
+        """Inspect each text field; every other header byte has one fixed form."""
+        canonical = header[257:265] in _TAR_MAGIC and not any(header[500:])
+        for begin, end in _TAR_NUMBERS:
+            canonical = canonical and _TAR_OCTAL.fullmatch(header[begin:end]) is not None
+        for begin, end in _TAR_TEXT:
+            value, _, slack = header[begin:end].partition(b"\x00")
+            canonical = canonical and not any(slack)
+            if value:
+                self.metadata(value.decode("utf-8", errors="replace"), location, depth)
+        if not canonical:
+            self.add("E_CONTAINER_FORMAT", location)
 
-        if len(blob) < 1024 or len(blob) % 512 or blob[-1024:] != b"\x00" * 1024:
+    def tar_layout(self, blob, location, depth):
+        """Account for every block; return each member's (data offset, size)."""
+        members, cursor, headers = [], 0, 0
+        awaiting_member, initial_members = False, self.members
+        while True:
+            header = blob[cursor:cursor + 512]
+            if not any(header):
+                if (len(header) < 512 or awaiting_member or len(blob) - cursor < 1024
+                        or any(blob[cursor:])):
+                    self.add("E_CONTAINER_FORMAT", location + "/end")
+                    return None
+                return members
+            where = location + "/tar-header[" + str(headers) + "]"
+            headers += 1
+            if initial_members + headers > self.limits.max_members:
+                refuse("E_MEMBER_LIMIT", location)
+            raw = tarfile.TarInfo.frombuf(header, "utf-8", "surrogateescape")
+            self.tar_header(header, where, depth)
+            if raw.size < 0 or raw.size > self.allowance():
+                refuse("E_BYTE_LIMIT", location)
+            begin = cursor + 512
+            end = begin + raw.size
+            cursor = begin + (raw.size + 511) // 512 * 512
+            if cursor > len(blob):
+                self.add("E_CONTAINER_FORMAT", where)
+                return None
+            if raw.type in _TAR_EXTENSIONS:
+                self.charge(0, location + "/extended-header")
+                self.metadata(blob[begin:end].decode("utf-8", errors="replace"),
+                              where + "/extension", depth)
+            elif raw.type == tarfile.GNUTYPE_SPARSE:
+                # Old GNU sparse maps continue beyond the header; never guess their framing.
+                self.add("E_LINK_OR_SPECIAL", where)
+                return None
+            elif raw.isreg() or raw.type not in tarfile.SUPPORTED_TYPES:
+                members.append((begin, raw.size))
+            elif raw.size:
+                # Readers resume at the next block for this type: declared data would be read as headers.
+                self.add("E_CONTAINER_FORMAT", where)
+                return None
+            else:
+                members.append((begin, 0))
+            awaiting_member = raw.type in _TAR_EXTENSIONS
+            if any(blob[end:cursor]):
+                self.add("E_CONTAINER_FORMAT", where + "/padding")
+
+    def tar(self, blob, location, depth):
+        """Inspect members only when the byte walk and tarfile frame them identically."""
+        if len(blob) % 512:
             self.add("E_CONTAINER_FORMAT", location)
             return
         try:
-            cursor, headers, initial_members = 0, 0, self.members
-            while cursor < len(blob):
-                header = blob[cursor:cursor + 512]
-                if header == b"\x00" * 512:
-                    if len(blob) - cursor < 1024 or any(blob[cursor:]):
-                        self.add("E_CONTAINER_FORMAT", location)
-                        return
-                    break
-                raw = tarfile.TarInfo.frombuf(header, "utf-8", "surrogateescape")
-                headers += 1
-                if initial_members + headers > self.limits.max_members:
-                    refuse("E_MEMBER_LIMIT", location)
-                if raw.size < 0 or raw.size > self.allowance():
-                    refuse("E_BYTE_LIMIT", location)
-                if raw.type in (tarfile.XHDTYPE, tarfile.XGLTYPE,
-                                tarfile.GNUTYPE_LONGNAME, tarfile.GNUTYPE_LONGLINK):
-                    self.charge(0, location + "/extended-header")
-                cursor += 512 + ((raw.size + 511) // 512) * 512
-                if cursor > len(blob):
-                    self.add("E_CONTAINER_FORMAT", location)
-                    return
+            layout = self.tar_layout(blob, location, depth)
+            if layout is None:
+                return
             with tarfile.open(fileobj=io.BytesIO(blob), mode="r:") as archive:
-                seen = set()
-                for number, info in enumerate(archive):
-                    member = location + "/tar[" + str(number) + "]"
-                    self.metadata(info.name, member + "/name", depth, name=True)
-                    self.metadata(info.uname + "\n" + info.gname, member + "/owner", depth)
-                    for key, value in info.pax_headers.items():
-                        self.metadata(key + "\n" + value, member + "/metadata", depth)
-                    key = unicodedata.normalize("NFKC", info.name).casefold().rstrip("/")
-                    if key in seen:
-                        self.add("E_DUPLICATE_MEMBER", member)
-                    seen.add(key)
-                    if info.issparse() or not (info.isfile() or info.isdir()):
-                        self.add("E_LINK_OR_SPECIAL", member)
-                        self.charge(0, member)
-                        continue
-                    if info.size > self.allowance():
-                        refuse("E_BYTE_LIMIT", member)
-                    if info.isdir():
-                        self.charge(0, member)
-                        if info.size:
-                            self.add("E_CONTAINER_FORMAT", member)
-                        continue
-                    with archive.extractfile(info) as stream:
-                        contents = stream.read(self.allowance() + 1)
-                    self.blob(contents, info.name, member, depth + 1)
+                entries = list(archive)
         except (tarfile.TarError, RecursionError):
             self.add("E_CONTAINER_FORMAT", location)
+            return
+        # The byte walk and the reader must frame identical members.
+        if [(info.offset_data, info.size) for info in entries] != layout:
+            self.add("E_CONTAINER_FORMAT", location)
+            return
+        seen = set()
+        for number, info in enumerate(entries):
+            member = location + "/tar[" + str(number) + "]"
+            self.metadata(info.name, member + "/name", depth, name=True)
+            self.metadata(info.uname + "\n" + info.gname, member + "/owner", depth)
+            for key, value in info.pax_headers.items():
+                self.metadata(key + "\n" + value, member + "/metadata", depth)
+            key = unicodedata.normalize("NFKC", info.name).casefold().rstrip("/")
+            if key in seen:
+                self.add("E_DUPLICATE_MEMBER", member)
+            seen.add(key)
+            if info.issparse() or not (info.isfile() or info.isdir()):
+                self.add("E_LINK_OR_SPECIAL", member)
+                self.charge(0, member)
+                continue
+            if info.isdir():
+                self.charge(0, member)
+                continue
+            self.blob(blob[info.offset_data:info.offset_data + info.size], info.name,
+                      member, depth + 1)
 
 
 def scan_files(files, *, policy=None, limits=None):

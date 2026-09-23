@@ -70,7 +70,30 @@ def encoded(value, mode):
         return "".join("%%%02X" % ord(char) for char in value)
     if mode == "double":
         return quote(encoded(value, "json"), safe="")
+    if mode == "decimal":
+        return "".join("&#%d;" % ord(char) for char in value)
+    if mode == "hex":
+        return "".join("&#x%X;" % ord(char) for char in value)
+    if mode == "named":
+        # Named references where HTML defines one; letters use the double-struck
+        # names, which NFKC folds back to ASCII exactly as a reader sees them.
+        return "".join(NAMED.get(char) or ("&" + char + "opf;" if char.isascii() and char.isalpha()
+                                           else "&#x%x;" % ord(char)) for char in value)
+    if mode == "nested":
+        return encoded(value, "decimal").replace("&", "&amp;")
+    if mode == "html-in-url":
+        return quote(encoded(value, "hex"), safe="")
+    if mode == "url-in-html":
+        return encoded(value, "url").replace("%", "&#37;")
+    if mode == "html-in-json":
+        return encoded(value, "decimal").replace("&", "\\u0026")
     raise AssertionError(mode)
+
+
+NAMED = {"/": "&sol;", ".": "&period;", ":": "&colon;", "_": "&lowbar;", "%": "&percnt;",
+         "\\": "&bsol;", "@": "&commat;", " ": "&nbsp;"}
+MODES = ["plain", "json", "url", "double"]
+REFERENCES = ["decimal", "hex", "named", "nested", "html-in-url", "url-in-html", "html-in-json"]
 
 
 CASES = [
@@ -110,7 +133,7 @@ CASES = [
 
 
 @pytest.mark.parametrize("value,rule", CASES)
-@pytest.mark.parametrize("mode", ["plain", "json", "url", "double"])
+@pytest.mark.parametrize("mode", MODES + REFERENCES)
 def test_marker_matrix_in_contents_and_names(value, rule, mode):
     payload = encoded(value, mode)
     assert rule in rules(payload.encode(), policy=POLICY)
@@ -147,7 +170,7 @@ def test_private_key_families(family):
 
 @pytest.mark.parametrize("outer", ["zip", "egg", "gzip", "tar"])
 @pytest.mark.parametrize("inner", ["zip", "egg", "gzip", "tar"])
-@pytest.mark.parametrize("mode", ["plain", "json", "url"])
+@pytest.mark.parametrize("mode", ["plain", "json", "url", "decimal", "hex", "named", "nested"])
 def test_every_nested_container_pair_scans_names_and_contents(outer, inner, mode):
     hidden = encoded(FAKE_PATH, mode)
     for name, contents in ((hidden, b"Public fixture"), ("public.txt", hidden.encode())):
@@ -232,7 +255,9 @@ def test_runtime_code_and_new_non_authoritative_summaries_are_not_raw_records(na
 
 @pytest.mark.parametrize("bad_name", ["../escape.txt", "/absolute.txt", r"C:\drive.txt",
                                       "folder/../escape.txt", "a//b.txt", "./file.txt",
-                                      "%2e%2e%2fescape.txt", "\\u002e\\u002e\\u002fescape.txt"])
+                                      "%2e%2e%2fescape.txt", "\\u002e\\u002e\\u002fescape.txt",
+                                      "&#46;&#46;&#47;escape.txt", "&period;&period;&sol;escape.txt",
+                                      "&amp;#x2e;&amp;#x2e;&amp;#x2f;escape.txt"])
 @pytest.mark.parametrize("kind", ["zip", "tar"])
 def test_archive_path_attacks_are_refused_without_extraction(bad_name, kind):
     payload, name = wrap(kind, b"Public fixture", bad_name)
@@ -307,6 +332,148 @@ def test_tar_extended_metadata_counts_against_member_limit():
     blob = tar_bytes({"public.txt": b"Public fixture"}, metadata={"pax_headers": {"comment": "Public metadata"}})
     assert "E_MEMBER_LIMIT" in rules(blob, "public.tar", limits=privacy.Limits(max_members=2))
     assert rules(blob, "public.tar", limits=privacy.Limits(max_members=3)) == set()
+
+
+HIDDEN = b"obviously-fake-owner " + FAKE_PATH.encode()
+
+
+def formatted_tar(files, *, fmt=tarfile.USTAR_FORMAT, **options):
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w", format=fmt, **options) as archive:
+        for name, blob in files.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(blob)
+            archive.addfile(info, io.BytesIO(blob))
+    return out.getvalue()
+
+
+def patched(blob, start, edits):
+    """Rewrite one header block, then restore a checksum every reader accepts."""
+    blob, header = bytearray(blob), bytearray(blob[start:start + 512])
+    for offset, data in edits.items():
+        header[offset:offset + len(data)] = data
+    header[148:156] = b" " * 8
+    header[148:156] = b"%06o\x00 " % sum(header)
+    blob[start:start + 512] = header
+    return bytes(blob)
+
+
+def readable(blob, name="public.txt"):
+    with tarfile.open(fileobj=io.BytesIO(blob)) as archive:
+        return archive.extractfile(name).read()
+
+
+def padded_tar(hidden=HIDDEN):
+    clean = formatted_tar({"public.txt": b"P"})
+    return clean[:513] + hidden + clean[513 + len(hidden):]
+
+
+def tar_findings(blob):
+    report = privacy.scan_files({"public.tar": blob}, policy=POLICY)
+    rendered = json.dumps(report)
+    assert "fake" not in rendered and FAKE_PATH not in rendered
+    return {(row["rule"], row["location"]) for row in report["findings"]}
+
+
+@pytest.mark.parametrize("fmt", [tarfile.USTAR_FORMAT, tarfile.GNU_FORMAT, tarfile.PAX_FORMAT])
+@pytest.mark.parametrize("hidden", [HIDDEN, b"\x01"])
+def test_tar_member_padding_is_accounted_not_skipped(fmt, hidden):
+    clean = formatted_tar({"public.txt": b"P"}, fmt=fmt)
+    blob = clean[:513] + hidden + clean[513 + len(hidden):]
+    assert readable(blob) == b"P"
+    assert tar_findings(blob) == {("E_CONTAINER_FORMAT", "file[0]/tar-header[0]/padding")}
+    assert tar_findings(clean) == set()
+
+
+@pytest.mark.parametrize("wrapper", ["zip", "egg", "gzip", "tar", "base64", "json-base64"])
+def test_tar_padding_counterexample_refuses_inside_every_wrapper(wrapper):
+    def outer(blob):
+        if wrapper == "base64":
+            return base64.b64encode(blob), "package.b64"
+        if wrapper == "json-base64":
+            return json.dumps({"encoding": "base64", "data": base64.b64encode(blob).decode()}).encode(), "package.json"
+        return wrap(wrapper, blob, "inner.tar")
+
+    assert "E_CONTAINER_FORMAT" in rules(*outer(padded_tar()), policy=POLICY)
+    assert rules(*outer(formatted_tar({"public.txt": b"P"})), policy=POLICY) == set()
+
+
+@pytest.mark.parametrize("edits", [
+    {11: b"obviously-fake-owner"},          # name after its terminator
+    {158: b"fake-workstation"},             # linkname
+    {266: b"fake-workstation"},             # uname
+    {298: b"fake-workstation"},             # gname
+    {346: HIDDEN[:40]},                     # prefix
+    {500: b"hidden-bytes"},                 # trailing header pad
+    {124: b"1\x00hidden!!!!"},              # numeric field after its terminator
+    {100: b"644\x00abc\x00"},               # mode slack
+    {108: b"\x80\x00\x00\x00\x00\x00\x01\xf5"},  # unsupported base-256 number
+    {257: b"\x00" * 8},                     # pre-POSIX header without magic
+    {263: b"01"},                           # unknown version
+])
+def test_tar_header_slack_and_unknown_forms_refuse(edits):
+    blob = patched(formatted_tar({"public.txt": b"P"}), 0, edits)
+    assert readable(blob) == b"P"
+    assert ("E_CONTAINER_FORMAT", "file[0]/tar-header[0]") in tar_findings(blob)
+
+
+def test_tar_extension_payload_bytes_are_all_inspected():
+    clean = tar_bytes({"public.txt": b"P"}, metadata={"pax_headers": {"comment": "Public"}})
+    size = tarfile.TarInfo.frombuf(clean[:512], "utf-8", "surrogateescape").size
+    hidden = b"\x00obviously-fake-owner"
+    blob = patched(clean[:512 + size] + hidden + clean[512 + size + len(hidden):], 0,
+                   {124: b"%011o\x00" % (size + len(hidden))})
+    assert readable(blob) == b"P"
+    assert ("P_DENYLIST", "file[0]/tar-header[0]/extension") in tar_findings(blob)
+    blob = clean[:512 + size + 3] + HIDDEN + clean[512 + size + 3 + len(HIDDEN):]
+    assert readable(blob) == b"P"
+    assert ("E_CONTAINER_FORMAT", "file[0]/tar-header[0]/padding") in tar_findings(blob)
+    name = "public/" + "n" * 120 + ".txt"
+    clean = formatted_tar({name: b"P"}, fmt=tarfile.GNU_FORMAT)
+    size = tarfile.TarInfo.frombuf(clean[:512], "utf-8", "surrogateescape").size
+    blob = patched(clean[:512 + size] + hidden + clean[512 + size + len(hidden):], 0,
+                   {124: b"%011o\x00" % (size + len(hidden))})
+    assert readable(blob, name) == b"P"
+    assert ("P_DENYLIST", "file[0]/tar-header[0]/extension") in tar_findings(blob)
+
+
+def test_tar_framing_ambiguity_and_incomplete_end_refuse():
+    clean = formatted_tar({"public.txt": b"P"})
+    extended = tar_bytes({"public.txt": b"P"}, metadata={"pax_headers": {"comment": "Public"}})
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        for kind in (tarfile.DIRTYPE, tarfile.SYMTYPE):
+            info = tarfile.TarInfo("entry-" + kind.decode())
+            info.type, info.size = kind, 5
+            archive.addfile(info, io.BytesIO(b"bytes"))
+    for blob in (
+        tar_bytes({"public.txt": b"P"}, metadata={"pax_headers": {"size": "513"}}),
+        extended[:1024] + b"\x00" * 1024,
+        clean[:1024] + b"\x00" * 512,
+        clean[:-1] + b"\x01",
+        patched(clean, 0, {124: b"%011o\x00" % 99999}),
+        out.getvalue(),
+    ):
+        assert "E_CONTAINER_FORMAT" in {rule for rule, _ in tar_findings(blob)}
+
+
+@pytest.mark.parametrize("fmt", [tarfile.USTAR_FORMAT, tarfile.GNU_FORMAT, tarfile.PAX_FORMAT])
+def test_ordinary_tar_layouts_remain_supported(fmt):
+    options = {"pax_headers": {"comment": "Public archive"}} if fmt == tarfile.PAX_FORMAT else {}
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w", format=fmt, **options) as archive:
+        folder = tarfile.TarInfo("folder")
+        folder.type = tarfile.DIRTYPE
+        archive.addfile(folder)
+        for name, blob in {"folder/empty.txt": b"", "one.txt": b"P", "block.txt": b"B" * 512,
+                           "l" * 60 + "/" + "n" * 60 + ".txt": b"Long public name"}.items():
+            info = tarfile.TarInfo(name)
+            info.size, info.mtime = len(blob), 1_700_000_000.5
+            archive.addfile(info, io.BytesIO(blob))
+    blob = out.getvalue()
+    assert tar_findings(blob) == set()
+    assert rules(gzip.compress(blob, mtime=0), "public.tgz", policy=POLICY) == set()
+    assert rules(zip_bytes({"public.tar": blob}), "public.zip", policy=POLICY) == set()
 
 
 def test_zip_local_only_metadata_is_inspected():
@@ -452,9 +619,76 @@ def test_runtime_config_is_strict_literal_private_and_not_copied(tmp_path):
 def test_unicode_private_markers_survive_json_surrogates_and_url_encoding():
     marker = "synthetic-\U0001f600-owner"
     policy = privacy.Policy((marker,))
-    for encoded_marker in (json.dumps(marker, ensure_ascii=True), quote(marker, safe="")):
+    for encoded_marker in (json.dumps(marker, ensure_ascii=True), quote(marker, safe=""),
+                           encoded(marker, "decimal"), encoded(marker, "hex")):
         assert "P_DENYLIST" in rules(encoded_marker.encode(), policy=policy)
     assert rules(b"synthetic-public-owner", policy=policy) == set()
+
+
+@pytest.mark.parametrize("text", [
+    "Tom &amp; Jerry &lt;b&gt;bold&lt;/b&gt; &copy; 2026 &mdash; caf&eacute;",
+    "&#169; &#x2014; &nbsp; &quot;quoted&quot; &apos;single&apos; &hellip;",
+    '<a href="https://example.org/?a=1&amp;b=2&copy=3">Docs &raquo;</a>',
+    "AT&T R&D &unknown; & ; &#; &#x; &#xZZ;", "&#x2F;docs&#x2F;index.html",
+    "Unicode &#x1F600; and &#8364; are public", "public&#45;owner &lt;fake&gt;",
+])
+def test_ordinary_character_references_remain_public(text):
+    assert rules(text.encode(), "public.html", policy=POLICY) == set()
+
+
+@pytest.mark.parametrize("name", ["Tom &amp; Jerry.md", "caf&eacute;.md", "notes&#x2d;2026.txt",
+                                  "R&D.md", "docs/&lt;index&gt;.html"])
+def test_ordinary_character_references_in_names_remain_public(name):
+    assert rules(b"Public fixture", name, policy=POLICY) == set()
+
+
+def test_character_references_hide_nothing_in_every_supported_location():
+    marker = encoded("obviously-fake-owner", "hex")
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as archive:
+        info = zipfile.ZipInfo("public.txt")
+        info.comment = marker.encode()
+        archive.writestr(info, "Public fixture")
+    assert "P_DENYLIST" in rules(out.getvalue(), "public.zip", policy=POLICY)
+    blob = tar_bytes({"public.txt": b"Public fixture"}, metadata={"pax_headers": {"comment": marker}})
+    assert "P_DENYLIST" in rules(blob, "public.tar", policy=POLICY)
+    blob = tar_bytes({"public.txt": b"Public fixture"}, metadata={"uname": encoded("fake-workstation", "decimal")})
+    assert "P_DENYLIST" in rules(blob, "public.tar", policy=POLICY)
+    blob, name = wrap("gzip", b"Public fixture", marker)
+    assert "P_DENYLIST" in rules(blob, name, policy=POLICY)
+    for body in (json.dumps({"description": marker}), "VALUE = " + repr(marker) + "\n"):
+        for name in ("public.json", "public.py"):
+            assert "P_DENYLIST" in rules(body.encode(), name, policy=POLICY)
+
+
+@pytest.mark.parametrize("kind", ["zip", "egg", "gzip", "tar"])
+@pytest.mark.parametrize("container", ["python", "json", "base64-file", "data-url"])
+def test_character_referenced_markers_inside_wrappers_refuse(kind, container):
+    for mode in ("decimal", "hex", "named", "nested"):
+        package, _ = wrap(kind, encoded(FAKE_PATH, mode).encode())
+        value = base64.b64encode(package).decode()
+        blob, name = {
+            "python": (("PACKAGE = " + repr(value) + "\n").encode(), "hatcher.py"),
+            "json": (json.dumps({"encoding": "base64", "data": value}).encode(), "package.json"),
+            "base64-file": (value.encode(), "package.b64"),
+            "data-url": (("data:application/octet-stream;base64," + value).encode(), "public.txt"),
+        }[container]
+        assert "P_HOME_PATH" in rules(blob, name)
+    plain = base64.b64encode(encoded(FAKE_TOKEN, "decimal").encode()).decode()
+    assert "P_TOKEN" in rules(("TEXT = " + repr(plain)).encode(), "public.py")
+
+
+def test_character_reference_decoding_is_bounded_and_fails_closed():
+    layered = encoded(FAKE_PATH, "decimal")
+    for _ in range(7):
+        layered = layered.replace("&", "&amp;")
+    assert rules(layered.encode()) == {"P_HOME_PATH"}
+    assert "E_ENCODING_LIMIT" in rules(layered.replace("&", "&amp;").encode())
+    assert "E_ENCODING_LIMIT" in rules(encoded(FAKE_PATH, "nested").encode(),
+                                       limits=privacy.Limits(max_decode_rounds=1))
+    assert "E_TEXT_ENCODING" in rules(("&#" + "9" * 5000 + ";").encode())
+    report = privacy.scan_files({"public.txt": encoded(FAKE_PATH, "named").encode()})
+    assert FAKE_PATH not in json.dumps(report) and "&sol;" not in json.dumps(report)
 
 
 @pytest.mark.parametrize("blob,name,expected", [
@@ -551,6 +785,28 @@ def test_writer_never_clobbers_a_destination_created_at_commit_time(tmp_path, mo
     assert not list(tmp_path.glob(".public-build-*"))
 
 
+@pytest.mark.parametrize("files", [
+    {"public.html": encoded("obviously-fake-owner", "decimal").encode()},
+    {encoded(FAKE_PATH, "hex") + ".txt": b"Public fixture"},
+    {"public.tar": padded_tar()},
+], ids=["encoded-content", "encoded-name", "tar-padding"])
+def test_writer_refuses_encoded_and_padded_inputs_and_preserves_destinations(tmp_path, files):
+    fresh = tmp_path / "not-created" / "public"
+    with pytest.raises(privacy.PrivacyRefusal) as caught:
+        privacy.write_tree(files, fresh, policy=POLICY)
+    assert not fresh.parent.exists()
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    (existing / "kept.txt").write_bytes(b"Existing public bytes")
+    with pytest.raises(privacy.PrivacyRefusal):
+        privacy.write_tree(files, existing, policy=POLICY)
+    assert privacy.read_tree(existing) == {"kept.txt": b"Existing public bytes"}
+    assert not list(tmp_path.glob(".public-build-*"))
+    rendered = str(caught.value) + json.dumps(caught.value.report())
+    for secret in ("fake", "&#", FAKE_PATH, encoded(FAKE_PATH, "hex")):
+        assert secret not in rendered
+
+
 @pytest.mark.parametrize("files", [{"a": b"Public", "a/b": b"Public"},
                                   {"a/b": b"Public", "a/b/c": b"Public"},
                                   {"a/": b"Public"}])
@@ -578,3 +834,22 @@ def test_cli_has_safe_machine_readable_refusal_and_no_writes(tmp_path):
     assert json.loads(result.stdout)["status"] == "refused"
     assert FAKE_TOKEN not in result.stdout
     assert sorted(p.name for p in root.iterdir()) == ["file.txt"]
+
+
+def test_cli_refuses_encoded_and_padded_counterexamples_without_echoing_them(tmp_path):
+    root = tmp_path / "public"
+    root.mkdir()
+    (root / "notes.html").write_text(encoded(FAKE_TOKEN, "hex"))
+    (root / "bundle.tar").write_bytes(padded_tar())
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"version": 1, "deny": list(POLICY.deny)}))
+    result = subprocess.run([sys.executable, "-B", str(Path(privacy.__file__)),
+                             str(root), "--denylist", str(config)],
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1 and result.stderr == ""
+    found = {(row["rule"], row["location"]) for row in json.loads(result.stdout)["findings"]}
+    assert found == {("E_CONTAINER_FORMAT", "file[0]/tar-header[0]/padding"),
+                     ("P_TOKEN", "file[1]/content")}
+    for secret in (FAKE_TOKEN, encoded(FAKE_TOKEN, "hex"), "fake", FAKE_PATH):
+        assert secret not in result.stdout
+    assert sorted(p.name for p in root.iterdir()) == ["bundle.tar", "notes.html"]
