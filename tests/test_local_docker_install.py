@@ -1356,6 +1356,37 @@ def test_native_outer_lock_must_equal_actual_runtime_lock(app):
         package.verify_closure(*app)
 
 
+@pytest.mark.parametrize("root_copy", [False, True])
+def test_component_pointer_may_select_the_scoped_runtime_lock(app, root_copy):
+    manifest, files = app
+    manifest["local_docker"]["component_lock"] = (
+        manifest["local_docker"]["loader"]["support"]
+        + "/deploy/local/components.lock.json"
+    )
+    if not root_copy:
+        del files["components.lock.json"]
+    repin(manifest, files)
+    package.verify_closure(manifest, files)
+    blob = cartridge(manifest, files)
+    assert package.read_package(blob, package.digest(blob)) == app
+
+
+def test_scoped_pointer_cannot_hide_a_disagreeing_optional_root_copy(app):
+    manifest, files = app
+    manifest["local_docker"]["component_lock"] = (
+        manifest["local_docker"]["loader"]["support"]
+        + "/deploy/local/components.lock.json"
+    )
+    value = json.loads(files["components.lock.json"])
+    value["components"]["scrapling"]["source"] = "misleading root presentation"
+    files["components.lock.json"] = package.canonical_json(value)
+    repin(manifest, files)
+    with pytest.raises(
+        package.PackageError, match="optional root component copy differs"
+    ):
+        package.verify_closure(manifest, files)
+
+
 @pytest.mark.parametrize(
     "mutation", ["digest", "missing", "float-bytes", "base", "add", "duplicate-target"]
 )

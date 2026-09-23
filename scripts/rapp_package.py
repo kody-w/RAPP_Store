@@ -1049,6 +1049,13 @@ def _verify_local_declarations(m, files):
         raise PackageError(
             "E_COMPONENTS: outer component declaration differs from the scoped runtime lock"
         )
+    if (
+        "components.lock.json" in files
+        and files["components.lock.json"] != files[scoped_lock]
+    ):
+        raise PackageError(
+            "E_COMPONENTS: optional root component copy differs from runtime custody"
+        )
     _component_lock(documents["componentLock"], files, local["loader"]["support"] + "/")
     _host_profiles(documents["hostProfiles"])
     _job_contracts(documents["jobContracts"])
