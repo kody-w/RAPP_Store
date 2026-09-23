@@ -1022,8 +1022,10 @@ the closed feature contract. It requires `schema: rapp-local-docker/1` and:
   dependencies/licenses and honest local build observations.
 - `loader`: `scotty-revision-loader/1` plus locked `entrypoint`, `descriptor`
   and the complete content-named `support` subtree.
-- `requirements_file`: explicit Python/current-Grail/Docker/Compose,
+- `requirements_file`: explicit Python/current-Grail/Git/Docker/Compose/Buildx,
   host/guest architectures, resource observations and adopter login needs.
+  Public image materialization uses Buildx/BuildKit, not the legacy builder;
+  the Buildx plugin is checked only during explicit device preflight/use.
 - `jobs_file`: closed typed job inputs, outputs, modes, providers and
   limitations. Bounds, enums, typed arrays and closed objects are supported;
   arbitrary publisher-supplied regular expressions are not part of this

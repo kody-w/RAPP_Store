@@ -188,7 +188,7 @@
         "python_minimum": {"const": "3.11"},
         "grail": {"$ref": "application.schema.json#/$defs/runtime"},
         "tools": {
-          "const": {"git": true, "docker": true, "compose_plugin": true, "local_daemon_only": true}
+          "const": {"git": true, "docker": true, "compose_plugin": true, "buildx_plugin": true, "local_daemon_only": true}
         },
         "profiles": {
           "type": "array", "minItems": 1, "maxItems": 8,

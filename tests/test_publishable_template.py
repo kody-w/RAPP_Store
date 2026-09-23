@@ -134,6 +134,14 @@ def test_exact_seven_job_ids_cover_five_journeys_and_diagnostic(sample):
     assert by_id["dify.knowledge_build"]["input_schema"]["required"] == ["input_paths"]
 
 
+def test_public_materialization_declares_buildx_without_claiming_cold_replay(sample):
+    manifest, files = sample
+    profiles = json.loads(files[manifest["local_docker"]["requirements_file"]])
+    assert profiles["tools"]["buildx_plugin"] is True
+    assert manifest["local_docker"]["readiness"]["fresh_install"] == "pending"
+    assert manifest["local_docker"]["readiness"]["jobs"]["openshorts.clips"]["status"] == "pending"
+
+
 @pytest.mark.parametrize("declaration,change", [
     ("component_lock", lambda d: d.update(unknown_mandatory_requirement="privileged-engine/1")),
     ("component_lock", lambda d: d["components"][0]["images"][0].update(docker_socket=True)),

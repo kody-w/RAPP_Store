@@ -6,7 +6,7 @@
     "commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
     "version": "0.6.16"
   },
-  "tools": {"git": true, "docker": true, "compose_plugin": true, "local_daemon_only": true},
+  "tools": {"git": true, "docker": true, "compose_plugin": true, "buildx_plugin": true, "local_daemon_only": true},
   "profiles": [
     {
       "id": "apple-silicon-development",

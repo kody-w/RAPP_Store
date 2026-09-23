@@ -9,9 +9,9 @@
   "category": "platform",
   "dependencies": [],
   "files": {
-    "README.md": "a252f2cb8152e6eba27134e5899648908d66e93b0330c7318c586fca33a5d49f",
+    "README.md": "63941a64d14d92a17d7bf4bf92e2d3330716087f020ddd4c143292b25e890c13",
     "components.lock.json": "53a35a19ff195a3d073d324b04dbddcdf9c7760ad4b2e6f8851d1953d6b64bd2",
-    "generated/host-profiles.json": "4f34fd0694df446adcbfa82afdb5a4823f7067a3185a244cc6ef704200a25e07",
+    "generated/host-profiles.json": "4283c9e318176ab597a09af77340b1d0b749f5ff71f5455e427203b62becf170",
     "generated/job-contracts.json": "53ac157f044630b4765cc0d292a80dd2fa6fec251d9d29804dcc6f4d48a20f02",
     "generated/state-lifecycle.json": "44a94ab6fef56c53ff3355d99d67072ee9b819a692f3338f2c6ad0615094bc16",
     "generated/synthetic-evidence.json": "1a17bf87f5c80d010758f75bc2ffeb883b1916736f1eef7857709d8b2ded0090",

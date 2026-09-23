@@ -62,9 +62,12 @@ Candidate-specific installed-package tests must produce new evidence.
   has null unavailable pins**, not fake release digests or fetchable image IDs.
   Scrapling's ingress image dependency on Presenton is explicit.
 - [`generated/host-profiles.json`](generated/host-profiles.json): Python 3.11+,
-  exact Grail, Git, Docker/Compose, local daemon, Apple Silicon/amd64 emulation
+  exact Grail, Git, Docker/Compose/Buildx, local daemon, Apple Silicon/amd64 emulation
   and adopter-owned Copilot authentication. The observed 16-CPU / 31.3-GiB
   Docker VM is a reference, not a minimum or an enforced spend/resource cap.
+  Public materialization requires Buildx/BuildKit; a legacy Docker builder is
+  not an equivalent prerequisite. Cached image readiness is not proof of a
+  public-only rebuild or fresh-device installation.
 - [`generated/job-contracts.json`](generated/job-contracts.json): seven exact
   job IDs grouped into the five journeys plus diagnostics.
 - [`generated/state-lifecycle.json`](generated/state-lifecycle.json): logical
