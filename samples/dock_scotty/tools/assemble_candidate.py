@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Bind a separately reviewed public Dock closure to the Store contract, without executing it."""
+"""Bind a reviewed public Dock closure without executing, uploading or approving it.
+
+Every outgoing member passes the shared nested privacy gate before any output
+is written. --denylist supplies private literal markers from an external JSON
+config; without it only generic rules apply. Inspection is not license review,
+authenticated acceptance or permission to publish.
+"""
 import argparse
 import ast
 import hashlib
@@ -22,8 +28,10 @@ def digest(blob):
     return hashlib.sha256(blob).hexdigest()
 
 
-def candidate_files(payload_root, *, publisher="@example", version=None):
-    import rapp_package
+def candidate_files(payload_root, *, publisher="@example", version=None,
+                    source_files=None):
+    """Assemble an inert snapshot; only validate_candidate/write_candidate gate export."""
+    import privacy_scan
 
     root = Path(payload_root)
     if root.is_symlink() or any(parent.is_symlink() for parent in root.parents):
@@ -31,12 +39,14 @@ def candidate_files(payload_root, *, publisher="@example", version=None):
     layout_path = root / "generated/source-layout.json"
     if not layout_path.is_file() or layout_path.is_symlink() or layout_path.stat().st_size > 256 * 1024:
         raise ValueError("Select the public template directory, never a coordinator/validation directory.")
-    layout = json.loads(layout_path.read_bytes())
+    layout = privacy_scan.strict_json(
+        privacy_scan.read_regular(layout_path) if source_files is None
+        else source_files.get("generated/source-layout.json", b"null"))
     if not isinstance(layout, dict) or layout.get("schema") != "scotty-store-template/1" or layout.get("component_lock") != "components.lock.json":
         raise ValueError("Unsupported public source layout.")
     if (root / "manifest.json").exists():
         raise ValueError("Input must be the manifest-free public distribution, not an installed application.")
-    files = rapp_package.application_files(root)
+    files = privacy_scan.read_tree(root) if source_files is None else dict(source_files)
     descriptor = json.loads(files["singleton/scotty_revision.json"])
     if not isinstance(descriptor, dict) or not isinstance(descriptor.get("support_sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", descriptor["support_sha256"]):
         raise ValueError("The public descriptor must identify an exact support revision.")
@@ -123,42 +133,68 @@ def candidate_files(payload_root, *, publisher="@example", version=None):
     return manifest, files
 
 
-def write_candidate(payload_root, output, *, publisher="@example", version=None):
+def validate_candidate(manifest, files, *, privacy_policy=None):
+    """The existing static closure/admission checks, with the shared privacy gate."""
     import lib_rapp
+    import privacy_scan
     import rapp_package
 
-    manifest, files = candidate_files(payload_root, publisher=publisher, version=version)
+    report = privacy_scan.require_clean({**files, "manifest.json": canonical(manifest)},
+                                       policy=privacy_policy)
     rapp_package.require_installable(manifest, files)
     errors = lib_rapp._validate_manifest(manifest)
     for name in manifest["agents"]:
         errors.extend(lib_rapp._validate_singleton_bytes(files[name]))
     if errors:
         raise ValueError("; ".join(errors))
+    return report
+
+
+def write_candidate(payload_root, output, *, publisher="@example", version=None, privacy_policy=None):
+    import privacy_scan
+
+    manifest, files = candidate_files(payload_root, publisher=publisher, version=version)
+    validate_candidate(manifest, files, privacy_policy=privacy_policy)
     target = Path(output)
     if target.name != manifest["id"]:
         raise ValueError("Output directory must match the application ID.")
     if target.exists() or target.is_symlink() or any(parent.is_symlink() for parent in target.parents):
         raise ValueError("Output must be a new directory with no symlink ancestors.")
-    target.mkdir(parents=True, exist_ok=False)
-    for name, blob in {**files, "manifest.json": canonical(manifest)}.items():
-        path = target / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("xb") as stream:
-            stream.write(blob)
+    source, destination = Path(payload_root).resolve(), target.resolve()
+    if source in destination.parents or destination in source.parents:
+        raise ValueError("Output and input must be disjoint.")
+    privacy_scan.write_tree({**files, "manifest.json": canonical(manifest)}, target,
+                            policy=privacy_policy)
     return {"files": len(files), "manifest_sha256": digest(canonical(manifest)),
             "support_sha256": manifest["local_docker"]["loader"]["support"].rstrip("/").rsplit("_", 1)[-1],
             "fresh_install": "pending", "job_verified": False}
 
 
 def main():
+    import privacy_scan
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--payload", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--publisher", default="@example")
     parser.add_argument("--version", help="Outer application release version; never rewrites the stable delegate.")
+    parser.add_argument("--denylist", type=Path, help="Private literal-marker config; never copied into output.")
     args = parser.parse_args()
-    print(json.dumps(write_candidate(args.payload, args.output, publisher=args.publisher, version=args.version), sort_keys=True))
+    try:
+        policy = privacy_scan.load_policy(args.denylist) if args.denylist else None
+        result = write_candidate(args.payload, args.output, publisher=args.publisher,
+                                 version=args.version, privacy_policy=policy)
+    except privacy_scan.PrivacyRefusal as exc:
+        print(json.dumps(exc.report(), sort_keys=True))
+        return 1
+    except (ValueError, OSError, KeyError, TypeError, SyntaxError):
+        print(json.dumps({"status": "refused", "code": "E_CANDIDATE",
+                          "message": "Select a reviewed public closure and a new, disjoint output directory."},
+                         sort_keys=True))
+        return 1
+    print(json.dumps(result, sort_keys=True))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

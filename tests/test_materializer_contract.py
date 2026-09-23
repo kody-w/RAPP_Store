@@ -303,3 +303,66 @@ def test_actual_public_export_passes_static_admission_without_payload_imports():
     assert manifest["local_docker"]["readiness"]["fresh_install"] == "pending"
     assert not manifest["provenance"]["deployed"]
     assert not manifest["provenance"]["job_verified"]
+
+
+@pytest.mark.parametrize("kind", ["zip", "egg", "gzip", "tar"])
+@pytest.mark.parametrize("mode", ["plain", "json", "url"])
+@pytest.mark.parametrize("in_name", [False, True])
+def test_candidate_writer_enforces_real_nested_scan_before_output(sample, tmp_path, kind, mode, in_name):
+    from test_privacy_scan import FAKE_PATH, encoded, wrap
+    import privacy_scan
+
+    module, payload = assembler_fixture(sample, tmp_path)
+    marker = encoded(FAKE_PATH, mode)
+    blob, name = wrap(kind, b"Public fixture" if in_name else marker.encode(),
+                      marker if in_name else "public.txt")
+    (payload / name).write_bytes(blob)
+    before = {p.relative_to(payload).as_posix(): p.read_bytes()
+              for p in payload.rglob("*") if p.is_file()}
+    output = tmp_path / "not-created" / "dock_scotty"
+    with pytest.raises(privacy_scan.PrivacyRefusal, match="P_HOME_PATH") as caught:
+        module.write_candidate(payload, output)
+    assert FAKE_PATH not in str(caught.value)
+    assert not output.parent.exists()
+    assert before == {p.relative_to(payload).as_posix(): p.read_bytes()
+                      for p in payload.rglob("*") if p.is_file()}
+
+
+def test_candidate_writer_scans_generated_manifest_and_runtime_denylist(sample, tmp_path):
+    import privacy_scan
+
+    module, payload = assembler_fixture(sample, tmp_path)
+    output = tmp_path / "not-created" / "dock_scotty"
+    with pytest.raises(privacy_scan.PrivacyRefusal, match="P_DENYLIST") as caught:
+        module.write_candidate(payload, output, publisher="@obviously-fake-private-owner",
+                               privacy_policy=privacy_scan.Policy(("obviously-fake-private-owner",)))
+    assert "obviously-fake-private-owner" not in str(caught.value)
+    assert not output.parent.exists()
+
+
+def test_candidate_writer_does_not_ignore_private_source_directories(sample, tmp_path):
+    import privacy_scan
+
+    module, payload = assembler_fixture(sample, tmp_path)
+    (payload / ".git").mkdir()
+    output = tmp_path / "not-created" / "dock_scotty"
+    with pytest.raises(privacy_scan.PrivacyRefusal, match="P_PRIVATE_ARTIFACT"):
+        module.write_candidate(payload, output)
+    assert not output.parent.exists()
+
+
+def test_candidate_assembly_repeats_exact_bytes_and_digests(sample, tmp_path):
+    module, payload = assembler_fixture(sample, tmp_path)
+    first, second = tmp_path / "first" / "dock_scotty", tmp_path / "second" / "dock_scotty"
+    assert module.write_candidate(payload, first) == module.write_candidate(payload, second)
+    snapshot = lambda root: {p.relative_to(root).as_posix(): p.read_bytes()
+                             for p in root.rglob("*") if p.is_file()}
+    assert snapshot(first) == snapshot(second)
+
+
+def test_candidate_assembly_cannot_mutate_source_tree(sample, tmp_path):
+    module, payload = assembler_fixture(sample, tmp_path)
+    output = payload / "nested" / "dock_scotty"
+    with pytest.raises(ValueError, match="disjoint"):
+        module.write_candidate(payload, output)
+    assert not output.parent.exists()

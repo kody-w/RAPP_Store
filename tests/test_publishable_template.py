@@ -1,5 +1,4 @@
 """Public template qualification uses synthetic bytes, never owner runtime evidence."""
-import ast
 import base64
 import copy
 import hashlib
@@ -7,7 +6,6 @@ import importlib.util
 import io
 import json
 from pathlib import Path
-import re
 import socket
 import subprocess
 import sys
@@ -16,47 +14,16 @@ import zipfile
 import pytest
 
 import lib_rapp
+import privacy_scan
 from test_store_browser import browser, render_complete, schema_validator
 
 
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE = ROOT / "samples" / "dock_scotty"
-PRIVACY_PATTERNS = (
-    rb"/(?:Users|home)/[^/\s\"']+",
-    rb"\.rapp[-]dock",
-    rb"\bgh[o]_[A-Za-z0-9_]+",
-    rb"\bgithub[_]pat_[A-Za-z0-9_]+",
-    rb"\b192[.]168[.][0-9]+[.][0-9]+",
-    rb"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
-    rb"\bop-[0-9]{10}-[0-9a-f]{8}\b",
-)
 
 
-def privacy_findings(blob, label="source", depth=0):
-    if depth > 8:
-        return [label + ": nested privacy inspection depth exceeded"]
-    findings = [label + ": private material pattern" for pattern in PRIVACY_PATTERNS if re.search(pattern, blob)]
-    if zipfile.is_zipfile(io.BytesIO(blob)):
-        with zipfile.ZipFile(io.BytesIO(blob)) as archive:
-            if sum(info.file_size for info in archive.infolist()) > 20 * 1024 * 1024:
-                return findings + [label + ": nested expanded size exceeds the bound"]
-            for info in archive.infolist():
-                if not info.is_dir():
-                    findings.extend(privacy_findings(archive.read(info), label + "/" + info.filename, depth + 1))
-    elif label.endswith(".py"):
-        try:
-            tree = ast.parse(blob)
-        except (SyntaxError, ValueError):
-            return findings
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and isinstance(node.value, (str, bytes)) and len(node.value) >= 256:
-                try:
-                    payload = base64.b64decode(node.value, validate=True)
-                except (ValueError, base64.binascii.Error):
-                    continue
-                if zipfile.is_zipfile(io.BytesIO(payload)):
-                    findings.extend(privacy_findings(payload, label + "/embedded-package", depth + 1))
-    return findings
+def privacy_findings(blob, label="source"):
+    return privacy_scan.scan_files({label: blob})["findings"]
 
 
 @pytest.fixture
@@ -316,4 +283,6 @@ def test_nested_privacy_scan_detects_synthetic_private_path():
     with zipfile.ZipFile(outer, "w") as archive:
         archive.writestr("inner.egg", inner.getvalue())
     findings = privacy_findings(outer.getvalue(), "outer.zip")
-    assert findings and any("inner.egg/fixture.txt" in finding for finding in findings)
+    assert any(finding["rule"] == "P_HOME_PATH" for finding in findings)
+    assert any("/zip[0]/zip[0]/content" in finding["location"] for finding in findings)
+    assert data.decode() not in json.dumps(findings)
