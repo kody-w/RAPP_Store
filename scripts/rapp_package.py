@@ -88,6 +88,7 @@ READINESS_STATUSES = frozenset(
 )
 MAX_DECLARATION_BYTES = 256 * 1024
 MAX_RECORD_BYTES = 1024 * 1024
+MAX_SAFE_INTEGER = (1 << 53) - 1
 RETAINED = [
     "application-state",
     "release-history",
@@ -218,8 +219,58 @@ def _number(value):
     return type(value) is int or type(value) is float and math.isfinite(value)
 
 
+def _integer(value):
+    if type(value) is int:
+        return abs(value) <= MAX_SAFE_INTEGER
+    return (
+        type(value) is float
+        and math.isfinite(value)
+        and value.is_integer()
+        and abs(value) <= MAX_SAFE_INTEGER
+    )
+
+
 def _typed_equal(left, right):
-    return canonical_json(left) == canonical_json(right)
+    if _number(left) or _number(right):
+        return _number(left) and _number(right) and left == right
+    if type(left) is bool or type(right) is bool:
+        return type(left) is bool and type(right) is bool and left is right
+    if left is None or right is None:
+        return left is None and right is None
+    if isinstance(left, dict) or isinstance(right, dict):
+        return (
+            isinstance(left, dict)
+            and isinstance(right, dict)
+            and left.keys() == right.keys()
+            and all(_typed_equal(value, right[key]) for key, value in left.items())
+        )
+    if isinstance(left, list) or isinstance(right, list):
+        return (
+            isinstance(left, list)
+            and isinstance(right, list)
+            and len(left) == len(right)
+            and all(_typed_equal(a, b) for a, b in zip(left, right, strict=True))
+        )
+    return isinstance(left, str) and isinstance(right, str) and left == right
+
+
+def _json_value_key(value):
+    if value is None:
+        return ("null",)
+    if type(value) is bool:
+        return ("boolean", value)
+    if _number(value):
+        return ("number", value)
+    if isinstance(value, str):
+        return ("string", value)
+    if isinstance(value, list):
+        return ("array", tuple(_json_value_key(item) for item in value))
+    if isinstance(value, dict):
+        return (
+            "object",
+            frozenset((key, _json_value_key(item)) for key, item in value.items()),
+        )
+    raise PackageError("E_JSON: unsupported value in a typed declaration")
 
 
 def _local(m):
@@ -623,7 +674,7 @@ def _validate_local_docker(m):
             "hard_spend_cap": None,
             "other_paid_providers": "disabled",
         }
-        or type(intelligence["concurrency"]) not in (int, float)
+        or not _integer(intelligence["concurrency"])
         or intelligence["cloud_inference"] is not True
     ):
         raise PackageError(
@@ -1003,7 +1054,7 @@ def _public_input(value, *, locked):
     if value["revision"] is not None:
         _text(value["revision"], "source revision")
     if value["bytes"] is not None and (
-        type(value["bytes"]) is not int or value["bytes"] < 1
+        not _integer(value["bytes"]) or value["bytes"] < 1
     ):
         raise PackageError(
             "E_COMPONENTS: source length must be a positive integer or null"
@@ -1174,7 +1225,7 @@ def _host_profiles(value):
         resources = profile["reference_resources"]
         _object(resources, ("docker_vm_cpus", "docker_vm_memory_gib", "is_minimum"))
         if (
-            type(resources["docker_vm_cpus"]) is not int
+            not _integer(resources["docker_vm_cpus"])
             or resources["docker_vm_cpus"] < 1
             or not _number(resources["docker_vm_memory_gib"])
             or resources["docker_vm_memory_gib"] <= 0
@@ -1221,7 +1272,7 @@ def _parameter(value, depth=0):
     if "enum" in value:
         _list(value["enum"], "parameter enum", 1)
     for name in ("minLength", "maxLength", "minItems", "maxItems"):
-        if name in value and (type(value[name]) is not int or value[name] < 0):
+        if name in value and (not _integer(value[name]) or value[name] < 0):
             raise PackageError("E_JOBS: parameter bounds must be nonnegative integers")
     for name in ("minimum", "maximum"):
         if name in value and not _number(value[name]):
@@ -1267,7 +1318,7 @@ def _parameter_value(value, schema):
         "object": isinstance(value, dict),
         "array": isinstance(value, list),
         "string": isinstance(value, str),
-        "integer": type(value) is int,
+        "integer": _integer(value),
         "number": _number(value),
         "boolean": type(value) is bool,
         "null": value is None,
@@ -1294,11 +1345,11 @@ def _parameter_value(value, schema):
             <= schema.get("maxItems", MAX_DECLARATION_BYTES)
         ):
             return False
-        if schema.get("uniqueItems") and len(
-            {canonical_json(item) for item in value}
-        ) != len(value):
+        if not all(_parameter_value(item, schema["items"]) for item in value):
             return False
-        return all(_parameter_value(item, schema["items"]) for item in value)
+        return not schema.get("uniqueItems") or len(
+            {_json_value_key(item) for item in value}
+        ) == len(value)
     if kind == "string":
         if (
             not schema.get("minLength", 0)

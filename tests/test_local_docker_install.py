@@ -438,6 +438,161 @@ def test_loader_byte_counts_remain_strict_even_for_integral_json_floats(app):
 
 
 @pytest.mark.parametrize(
+    "value",
+    [0, 2, 2.0, -2, -2.0, package.MAX_SAFE_INTEGER, -package.MAX_SAFE_INTEGER],
+)
+def test_contract_integers_accept_safe_json_integral_numbers(value):
+    assert package._integer(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        True,
+        False,
+        "2",
+        2.5,
+        float("inf"),
+        float("nan"),
+        package.MAX_SAFE_INTEGER + 1,
+        -(package.MAX_SAFE_INTEGER + 1),
+        float(package.MAX_SAFE_INTEGER + 1),
+    ],
+)
+def test_contract_integers_refuse_bool_fractional_nonfinite_and_inexact_values(value):
+    assert not package._integer(value)
+
+
+@pytest.mark.parametrize(
+    "document,change",
+    [
+        (
+            "components.lock.json",
+            lambda value: value["components"][0]["source"].update(bytes=2.0),
+        ),
+        (
+            "generated/host-profiles.json",
+            lambda value: value["profiles"][0]["reference_resources"].update(
+                docker_vm_cpus=2.0
+            ),
+        ),
+        (
+            "generated/job-contracts.json",
+            lambda value: value["jobs"][0]["input_schema"]["properties"].update(
+                text={
+                    "type": "string",
+                    "minLength": 2.0,
+                    "maxLength": 5.0,
+                    "default": "ok",
+                }
+            ),
+        ),
+        (
+            "generated/job-contracts.json",
+            lambda value: value["jobs"][0]["input_schema"]["properties"].update(
+                values={
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "minItems": 1.0,
+                    "maxItems": 2.0,
+                    "default": [1.0],
+                }
+            ),
+        ),
+        (
+            "generated/job-contracts.json",
+            lambda value: value["jobs"][0]["input_schema"]["properties"].update(
+                count={
+                    "type": "integer",
+                    "enum": [2],
+                    "default": 2.0,
+                }
+            ),
+        ),
+    ],
+)
+def test_referenced_integer_fields_use_json_semantics(app, document, change):
+    change_document(app, document, change)
+    package.require_supported(app[0])
+    package.verify_closure(*app)
+    blob = cartridge(*app)
+    assert package.read_package(blob, package.digest(blob)) == app
+
+
+@pytest.mark.parametrize(
+    "document,change",
+    [
+        (
+            "components.lock.json",
+            lambda value: value["components"][0]["source"].update(
+                bytes=package.MAX_SAFE_INTEGER + 1
+            ),
+        ),
+        (
+            "generated/host-profiles.json",
+            lambda value: value["profiles"][0]["reference_resources"].update(
+                docker_vm_cpus=2.5
+            ),
+        ),
+        (
+            "generated/job-contracts.json",
+            lambda value: value["jobs"][0]["input_schema"]["properties"].update(
+                text={
+                    "type": "string",
+                    "minLength": True,
+                }
+            ),
+        ),
+        (
+            "generated/job-contracts.json",
+            lambda value: value["jobs"][0]["input_schema"]["properties"].update(
+                count={
+                    "type": "integer",
+                    "default": package.MAX_SAFE_INTEGER + 1,
+                }
+            ),
+        ),
+    ],
+)
+def test_referenced_integer_fields_never_accept_unsafe_coercion(app, document, change):
+    change_document(app, document, change)
+    with pytest.raises(package.PackageError):
+        package.verify_closure(*app)
+
+
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        {
+            "type": "array",
+            "items": {"type": "number"},
+            "uniqueItems": True,
+            "default": [1, 1.0],
+        },
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"n": {"type": "number"}},
+                "required": ["n"],
+                "additionalProperties": False,
+            },
+            "uniqueItems": True,
+            "default": [{"n": 1}, {"n": 1.0}],
+        },
+        {"type": "boolean", "enum": [1], "default": True},
+    ],
+)
+def test_numeric_equality_preserves_unique_items_and_bool_distinction(app, parameter):
+    def change(value):
+        value["jobs"][0]["input_schema"]["properties"]["value"] = parameter
+
+    change_document(app, "generated/job-contracts.json", change)
+    with pytest.raises(package.PackageError, match="E_JOBS"):
+        package.verify_closure(*app)
+
+
+@pytest.mark.parametrize(
     "field,value",
     [
         ("license", {}),
