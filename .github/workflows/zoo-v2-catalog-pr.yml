@@ -7,8 +7,7 @@ on:
   schedule:
     - cron: '17,47 * * * *'
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   # Contention coalescing only. The atomic remote lock and reconciliation are authoritative.
@@ -17,27 +16,37 @@ concurrency:
 
 jobs:
   catalog-pr:
+    permissions:
+      contents: write
     environment: zoo-v2-validator
     runs-on: ubuntu-latest
     steps:
-      - name: Mint dedicated validator App token
-        id: validator-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
-          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          permission-contents: read
-          permission-issues: write
-          permission-pull-requests: write
+      - name: Check validator App availability before minting
+        env:
+          ZOO_V2_VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          ZOO_V2_VALIDATOR_PRIVATE_KEY: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          ZOO_V2_VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          ZOO_V2_VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          ZOO_V2_VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import sys
+          names = ("APP_ID", "PRIVATE_KEY", "APP_LOGIN", "APP_SLUG", "APP_USER_ID")
+          missing = ["ZOO_V2_VALIDATOR_" + name for name in names
+                     if not os.environ.get("ZOO_V2_VALIDATOR_" + name, "").strip()]
+          if missing:
+              print("::error::validator App unavailable: missing " + ", ".join(missing))
+              sys.exit(1)
+          PY
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
 
@@ -58,13 +67,24 @@ jobs:
           test -n "$VALIDATOR_APP_SLUG"
           test -n "$VALIDATOR_APP_LOGIN"
           test -n "$VALIDATOR_APP_USER_ID"
-          test -n '${{ steps.validator-token.outputs.token }}'
           python3 scripts/configure_zoo_v2_protection.py verify-audit \
             --repository "$GITHUB_REPOSITORY" \
             --validator-app-id "$VALIDATOR_APP_ID" \
             --validator-app-slug "$VALIDATOR_APP_SLUG" \
             --validator-app-login "$VALIDATOR_APP_LOGIN" \
             --validator-app-user-id "$VALIDATOR_APP_USER_ID"
+
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Reconcile complete eligible issue queue
         id: reconcile
@@ -79,7 +99,13 @@ jobs:
 
       - name: Ensure bootstrap has a permanent ref
         if: steps.reconcile.outputs.selected == 'true'
+        env:
+          PUSH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          export GIT_CONFIG_VALUE_0
           python3 scripts/zoo_v2_release.py protect-bootstrap \
             --repository "$GITHUB_REPOSITORY"
 
@@ -117,8 +143,12 @@ jobs:
           ISSUE_NUMBER: ${{ steps.reconcile.outputs.issue_number }}
           GENERATION_PATH: ${{ steps.generation.outputs.path }}
           ALLOWED_ACTORS: ${{ github.repository_owner }},${{ vars.RAPP_ZOO_V2_ACTORS }}
+          PUSH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          export GIT_CONFIG_VALUE_0
           python3 scripts/zoo_v2_release.py resume \
             --generation "$GENERATION_PATH" \
             --repository "$GITHUB_REPOSITORY" \

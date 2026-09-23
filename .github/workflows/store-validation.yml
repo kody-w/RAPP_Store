@@ -5,32 +5,68 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR requiring explicit validation after token-created publication
+        required: true
+        type: string
+      expected_head:
+        description: Exact candidate commit
+        required: true
+        type: string
+      expected_base:
+        description: Reviewed current-main commit
+        required: true
+        type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: store-validation-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  subject:
+    name: Exact validation subject
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse dispatch for a different commit
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
+          ACTUAL_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if test "$EVENT_NAME" = workflow_dispatch; then
+            [[ "$EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$EXPECTED_BASE" =~ ^[0-9a-f]{40}$ ]]
+            test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
+          fi
+
   tests:
     name: Complete store suite
+    needs: subject
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: requirements-test.txt
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
 
@@ -52,3 +88,52 @@ jobs:
 
       - name: Verify catalog and discovery remain unchanged
         run: git diff --exit-code HEAD -- index.json api/
+
+  pages:
+    name: Pages checks
+    needs: subject
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Check local Pages contract and report known debt
+        run: python3 scripts/pages_check.py --baseline docs/pages-check-baseline.json
+
+  submission:
+    name: Submission binding
+    needs: subject
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Check exact issue candidate without publisher credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || inputs.expected_head }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
+        run: |
+          set -euo pipefail
+          if test -n "$PR_NUMBER"; then
+            python3 .github/workflows/rapplication_pr.py verify \
+              --pr-number "$PR_NUMBER" --expected-head "$EXPECTED_HEAD" --expected-base "$EXPECTED_BASE"
+          else
+            echo "Main-branch test run; no issue publication is authorized by this job."
+          fi

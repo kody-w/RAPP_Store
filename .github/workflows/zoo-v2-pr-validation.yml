@@ -1,52 +1,69 @@
 name: Zoo v2 current-main validation
+run-name: "Zoo v2 PR #${{ github.event.pull_request.number || inputs.pr_number }} @ ${{ github.event.pull_request.head.sha || inputs.expected_head }}"
 
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Same-repository PR to validate (also used for token-created PRs)
+        required: true
+        type: string
+      expected_head:
+        description: Exact candidate commit; refuse a changed head
+        required: true
+        type: string
 
-permissions:
-  contents: read
-  pull-requests: read
+permissions: {}
 
 concurrency:
-  group: zoo-v2-current-main-${{ github.event.pull_request.number }}
+  group: zoo-v2-current-main-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   current-main:
+    permissions:
+      contents: read
+      pull-requests: read
     environment: zoo-v2-validator
     runs-on: ubuntu-latest
     steps:
-      - name: Mint dedicated validator App token
-        id: validator-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
-          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          permission-contents: read
-          permission-pull-requests: read
-          permission-statuses: write
+      - name: Check validator App availability before minting
+        id: app-settings
+        env:
+          ZOO_V2_VALIDATOR_APP_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          ZOO_V2_VALIDATOR_PRIVATE_KEY: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          ZOO_V2_VALIDATOR_APP_LOGIN: ${{ secrets.ZOO_V2_VALIDATOR_APP_LOGIN }}
+          ZOO_V2_VALIDATOR_APP_SLUG: ${{ secrets.ZOO_V2_VALIDATOR_APP_SLUG }}
+          ZOO_V2_VALIDATOR_APP_USER_ID: ${{ secrets.ZOO_V2_VALIDATOR_APP_USER_ID }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          names = ("APP_ID", "PRIVATE_KEY", "APP_LOGIN", "APP_SLUG", "APP_USER_ID")
+          missing = ["ZOO_V2_VALIDATOR_" + name for name in names
+                     if not os.environ.get("ZOO_V2_VALIDATOR_" + name, "").strip()]
+          if missing:
+              message = "validator App unavailable: missing " + ", ".join(missing)
+              print("::error::" + message)
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as out:
+                  out.write("## validator App unavailable\n\n" + message + "\n\n"
+                            "No App token was minted. No successful Zoo v2 current-main "
+                            "status was issued. An administrator must provision the validator.\n")
+              sys.exit(1)
+          PY
 
       - name: Check out trusted current main
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
           fetch-depth: 0
           path: trusted-main
           persist-credentials: false
 
-      - name: Check out candidate as inert data
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          path: candidate
-          persist-credentials: false
-
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
 
@@ -71,14 +88,60 @@ jobs:
             --validator-app-login "$VALIDATOR_APP_LOGIN" \
             --validator-app-user-id "$VALIDATOR_APP_USER_ID"
 
+      - name: Resolve exact current PR subject
+        id: subject
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          INPUT_PR: ${{ inputs.pr_number }}
+          INPUT_HEAD: ${{ inputs.expected_head }}
+        with:
+          script: |
+            const dispatched = context.eventName === 'workflow_dispatch';
+            if (dispatched && context.ref !== 'refs/heads/main') {
+              throw new Error('Validator dispatch must run from trusted main');
+            }
+            const raw = dispatched ? process.env.INPUT_PR : String(context.payload.pull_request.number);
+            if (!/^[1-9][0-9]*$/.test(raw)) throw new Error('Invalid PR number');
+            const expected = dispatched ? process.env.INPUT_HEAD : context.payload.pull_request.head.sha;
+            if (!/^[0-9a-f]{40}$/.test(expected)) throw new Error('Invalid expected head');
+            const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: Number(raw)});
+            if (pr.state !== 'open' || pr.base.ref !== 'main' || pr.head.sha !== expected) {
+              throw new Error('Stale or ineligible PR; revalidate its exact current head');
+            }
+            core.setOutput('number', raw);
+            core.setOutput('sha', pr.head.sha);
+            core.setOutput('ref', pr.head.ref);
+            core.setOutput('repository', pr.head.repo.full_name);
+
+      - name: Mint dedicated validator App token
+        id: validator-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.ZOO_V2_VALIDATOR_APP_ID }}
+          private-key: ${{ secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: read
+          permission-statuses: write
+
+      - name: Check out candidate as inert data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ steps.subject.outputs.repository }}
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
       - name: Inspect complete local diff with trusted main
         id: inspection
         continue-on-error: true
         env:
           CANDIDATE_ROOT: ${{ github.workspace }}/candidate
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ steps.subject.outputs.ref }}
+          HEAD_REPOSITORY: ${{ steps.subject.outputs.repository }}
+          HEAD_SHA: ${{ steps.subject.outputs.sha }}
           TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
         run: |
           set -euo pipefail
@@ -118,7 +181,7 @@ jobs:
         env:
           BASE_SHA: ${{ steps.inspection.outputs.base_sha }}
           CANDIDATE_ROOT: ${{ github.workspace }}/candidate
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ steps.subject.outputs.sha }}
           MODE: ${{ steps.inspection.outputs.mode }}
           TRUSTED_ROOT: ${{ github.workspace }}/trusted-main
         run: |
@@ -154,14 +217,16 @@ jobs:
           esac
 
       - name: Publish App-bound required current-main status
-        if: always()
+        if: always() && steps.validator-token.outcome == 'success'
         env:
           GH_TOKEN: ${{ steps.validator-token.outputs.token }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ steps.subject.outputs.sha }}
           INSPECTION: ${{ steps.inspection.outcome }}
           MODE: ${{ steps.inspection.outputs.mode }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ steps.subject.outputs.number }}
           RESULT: ${{ steps.validation.outcome }}
+          APP_CONFIG: ${{ steps.app-config.outcome }}
+          BASE_SHA: ${{ steps.inspection.outputs.base_sha }}
         run: |
           set -euo pipefail
           test -n "$GH_TOKEN"
@@ -170,14 +235,15 @@ jobs:
           test "$current_head" = "$HEAD_SHA" || exit 0
           state=failure
           description='Protected Store diff is not authorized'
-          if test '${{ steps.app-config.outcome }}' = success &&
+          current_base="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            --jq .object.sha)"
+          if test "$APP_CONFIG" = success && test "$current_base" = "$BASE_SHA" &&
             test "$INSPECTION" = success && test "$RESULT" = success; then
             state=success
             if test "$MODE" = none; then
               description='No protected Store paths changed'
             else
-              base_sha='${{ steps.inspection.outputs.base_sha }}'
-              description="Trusted-main ${MODE} validation at ${base_sha:0:12}"
+              description="Trusted-main ${MODE} validation at ${BASE_SHA:0:12}"
             fi
           fi
           gh api --method POST \
@@ -186,3 +252,10 @@ jobs:
             -f context='Zoo v2 current-main' \
             -f description="$description"
           test "$state" = success
+
+      - name: Explain unavailable validator authority
+        if: failure() && (steps.app-settings.outcome != 'success' || steps.app-config.outcome != 'success' || steps.validator-token.outcome == 'failure')
+        run: |
+          echo "::error::validator App unavailable: configuration, committed protection audit, or token minting failed. No successful required status is claimed."
+          printf '%s\n' 'Validator authority is unavailable. See the failed preflight above and docs/CI.md; this is not a publisher-code verdict.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1

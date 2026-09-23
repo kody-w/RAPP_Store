@@ -2436,7 +2436,7 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "contents: read" in validation
     assert "pull-requests: read" in validation
     assert "\n  statuses: write" not in validation
-    assert "actions/create-github-app-token@v2" in validation
+    assert "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349" in validation
     assert "secrets.ZOO_V2_VALIDATOR_APP_ID" in validation
     assert "secrets.ZOO_V2_VALIDATOR_PRIVATE_KEY" in validation
     assert "secrets.ZOO_V2_VALIDATOR_APP_SLUG" in validation
@@ -2454,7 +2454,7 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "types: [closed]" in completion
     assert "github.event.pull_request.merged == true" in completion
     assert "issues: write" in completion
-    assert "actions/create-github-app-token@v2" in completion
+    assert "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349" in completion
     assert "GH_TOKEN: ${{ steps.validator-token.outputs.token }}" in completion
     assert "GH_TOKEN: ${{ github.token }}" not in completion
     assert "environment: zoo-v2-validator" in completion
@@ -2469,7 +2469,7 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     )
     assert "contents: write" in migration
     assert "GH_TOKEN: ${{ github.token }}" not in catalog
-    assert "actions/create-github-app-token@v2" in catalog
+    assert "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349" in catalog
     assert "\n  issues: write" not in catalog.split("concurrency:", 1)[0]
     assert "\n  pull-requests: write" not in catalog.split("concurrency:", 1)[0]
     assert catalog.index("verify-audit") < catalog.index(
@@ -2481,7 +2481,7 @@ def test_workflows_lock_permissions_queue_validation_and_audit():
     assert "gh pr list" not in main_advance
     assert "--limit 100" not in main_advance
     assert "\n  statuses: write" not in main_advance
-    assert "actions/create-github-app-token@v2" in main_advance
+    assert "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349" in main_advance
     assert "GH_TOKEN: ${{ github.token }}" not in main_advance
     assert "\n  issues: write" not in main_advance.split("concurrency:", 1)[0]
     assert "\n  pull-requests: write" not in main_advance.split("concurrency:", 1)[0]

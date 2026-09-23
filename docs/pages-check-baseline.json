@@ -1,0 +1,12 @@
+[
+  "index.html:control-label:input#search",
+  "index.html:pointer-only:div#modal",
+  "index.html:raw-markdown-link:a@409",
+  "index.html:raw-markdown-link:a@480",
+  "index.html:raw-markdown-link:a@481",
+  "index.html:blocking-startup:loadAll",
+  "submit.html:control-label:input#pat-input",
+  "submit.html:pointer-only:div#drop-zone-bundle",
+  "submit.html:control-label:input#file-input-bundle",
+  "submit.html:control-label:input#federation-url"
+]
