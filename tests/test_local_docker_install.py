@@ -78,8 +78,8 @@ def declarations():
             "profile": {
                 "host": "darwin/arm64",
                 "docker_context": "desktop-linux",
-                "guest_platforms": ["linux/arm64"],
-                "amd64_emulation_required": False,
+                "guest_platforms": ["linux/arm64", "linux/amd64"],
+                "amd64_emulation_required": True,
                 "assurance": "locked-public-inputs-and-local-image-observations-not-signed-builds",
                 "fresh_machine_acceptance": "pending",
                 "bit_identical_rebuilds_claimed": False,
@@ -109,6 +109,7 @@ def declarations():
                 "git": True,
                 "docker": True,
                 "compose_plugin": True,
+                "buildx_plugin": True,
                 "local_daemon_only": True,
             },
             "profiles": [
@@ -116,8 +117,8 @@ def declarations():
                     "id": "synthetic-arm64",
                     "host_os": "darwin",
                     "host_arch": "arm64",
-                    "guest_platforms": ["linux/arm64"],
-                    "emulation": False,
+                    "guest_platforms": ["linux/arm64", "linux/amd64"],
+                    "emulation": True,
                     "qualification": "development-reference",
                     "fresh_install": "pending",
                     "reference_resources": {
@@ -1074,7 +1075,7 @@ def test_unknown_support_files_are_refused_even_when_outer_package_is_repinned(a
         package.verify_closure(m, files)
 
 
-@pytest.mark.parametrize("failed", ["python", "git", "docker", "compose"])
+@pytest.mark.parametrize("failed", ["python", "git", "docker", "compose", "buildx"])
 def test_explicit_device_preflight_failure_has_no_application_writes(
     app, host, monkeypatch, failed
 ):
@@ -1090,7 +1091,7 @@ def test_explicit_device_preflight_failure_has_no_application_writes(
 
         def run(argv, **kwargs):
             return SimpleNamespace(
-                returncode=1 if "compose" in argv else 0, stdout=b"version\n"
+                returncode=1 if failed in argv else 0, stdout=b"version\n"
             )
 
         monkeypatch.setattr(package.subprocess, "run", run)
@@ -1116,6 +1117,7 @@ def test_docker_preflight_only_calls_harmless_version_commands(app, host, monkey
     assert calls == [
         ["/fixture/docker", "--version"],
         ["/fixture/docker", "compose", "version", "--short"],
+        ["/fixture/docker", "buildx", "version"],
     ]
 
 
@@ -2523,6 +2525,8 @@ def test_generated_hatcher_in_isolated_exact_grail_loads_one_scotty_and_reinstal
     )
     assert proof["support_tamper_refused"] is True
     assert all(
-        call in (["--version"], ["compose", "version", "--short"])
+        call
+        in (["--version"], ["compose", "version", "--short"], ["buildx", "version"])
         for call in proof["docker_commands"]
     )
+    assert proof["buildx_probe"] == "fixture-only-not-live"

@@ -1277,7 +1277,7 @@ def _component_lock(value, files, prefix):
     if (
         profile["host"] != "darwin/arm64"
         or profile["docker_context"] != "desktop-linux"
-        or type(profile["amd64_emulation_required"]) is not bool
+        or profile["amd64_emulation_required"] is not True
         or profile["bit_identical_rebuilds_claimed"] is not False
         or profile["assurance"]
         != "locked-public-inputs-and-local-image-observations-not-signed-builds"
@@ -1532,6 +1532,7 @@ def _host_profiles(value):
                 "git": True,
                 "docker": True,
                 "compose_plugin": True,
+                "buildx_plugin": True,
                 "local_daemon_only": True,
             },
         )
@@ -2300,10 +2301,14 @@ def preflight_device(m, root, files=None):
     docker = shutil.which("docker")
     if docker is None:
         raise PackageError(
-            "E_DOCKER_REQUIRED: install Docker CLI and its Compose v2 plugin"
+            "E_DOCKER_REQUIRED: install Docker CLI, Compose v2 and Buildx plugins"
         )
     try:
-        for arguments in (["--version"], ["compose", "version", "--short"]):
+        for arguments in (
+            ["--version"],
+            ["compose", "version", "--short"],
+            ["buildx", "version"],
+        ):
             result = subprocess.run(
                 [docker, *arguments],
                 stdin=subprocess.DEVNULL,
@@ -2318,11 +2323,11 @@ def preflight_device(m, root, files=None):
                 or len(result.stdout) > 4096
             ):
                 raise PackageError(
-                    "E_DOCKER_REQUIRED: Docker CLI and Compose v2 version checks must succeed"
+                    "E_DOCKER_REQUIRED: Docker CLI, Compose v2 and Buildx version checks must succeed"
                 )
     except (OSError, subprocess.SubprocessError) as exc:
         raise PackageError(
-            "E_DOCKER_REQUIRED: Docker CLI or Compose v2 is unavailable"
+            "E_DOCKER_REQUIRED: Docker CLI, Compose v2 or Buildx is unavailable"
         ) from exc
     return root
 

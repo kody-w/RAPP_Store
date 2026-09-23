@@ -47,8 +47,16 @@ commands = []
 
 def versions_only(argv, **kwargs):
     assert Path(argv[0]).name == "docker", argv
-    assert argv[1:] in (["--version"], ["compose", "version", "--short"]), argv
+    assert argv[1:] in (
+        ["--version"],
+        ["compose", "version", "--short"],
+        ["buildx", "version"],
+    ), argv
     commands.append(argv[1:])
+    if argv[1:] == ["buildx", "version"]:
+        return subprocess.CompletedProcess(
+            argv, 0, b"synthetic Buildx version fixture\n", b""
+        )
     return real_run(argv, **kwargs)
 
 
@@ -67,7 +75,11 @@ assert result["status"] == "installed", result
 assert not hatcher_path.exists(), (
     "only the exact hash-owned transient hatcher must retire"
 )
-assert commands == [["--version"], ["compose", "version", "--short"]], commands
+assert commands == [
+    ["--version"],
+    ["compose", "version", "--short"],
+    ["buildx", "version"],
+], commands
 assert json.loads(agent.perform(action="install"))["status"] == "already_installed"
 py_compile.compile(str(root / "agents/scotty_agent.py"), doraise=True)
 loaded = brainstem.load_agents()
@@ -150,6 +162,7 @@ print(
             "support_tamper_refused": True,
             "preserving_detach_reinstall": True,
             "docker_commands": commands,
+            "buildx_probe": "fixture-only-not-live",
         }
     )
 )
