@@ -119,6 +119,11 @@ candidate evidence, not runtime qualification. Never pass a coordinator
 directory, owner validation tree, receipt collection or installed application
 as input.
 
+Use `--version <new-semver>` for a subsequent outer application release.
+The loader's literal internal metadata and bootstrap bytes stay stable
+within `scotty-revision-loader/1`; support revisions and outer release
+versions do not rewrite that bootstrap.
+
 ## Readiness is a vector
 
 | Fact | This public template |

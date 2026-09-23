@@ -22,7 +22,7 @@ def digest(blob):
     return hashlib.sha256(blob).hexdigest()
 
 
-def candidate_files(payload_root, *, publisher="@example"):
+def candidate_files(payload_root, *, publisher="@example", version=None):
     import rapp_package
 
     root = Path(payload_root)
@@ -54,7 +54,7 @@ def candidate_files(payload_root, *, publisher="@example"):
     manifest = json.loads((SAMPLE / "manifest.json").read_text())
     manifest.update(
         name="RAPP Dock / Scotty public source candidate",
-        version=internal["version"], publisher=publisher,
+        version=internal["version"] if version is None else version, publisher=publisher,
         summary="Experimental chat-operated Dock candidate; source closure only, not a fresh-install or job qualification.",
         provenance={"status": "development", "source": "public-source-candidate:" + revision,
                     "deployed": False, "job_verified": False},
@@ -113,11 +113,11 @@ def candidate_files(payload_root, *, publisher="@example"):
     return manifest, files
 
 
-def write_candidate(payload_root, output, *, publisher="@example"):
+def write_candidate(payload_root, output, *, publisher="@example", version=None):
     import lib_rapp
     import rapp_package
 
-    manifest, files = candidate_files(payload_root, publisher=publisher)
+    manifest, files = candidate_files(payload_root, publisher=publisher, version=version)
     rapp_package.require_installable(manifest, files)
     errors = lib_rapp._validate_manifest(manifest)
     for name in manifest["agents"]:
@@ -145,8 +145,9 @@ def main():
     parser.add_argument("--payload", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--publisher", default="@example")
+    parser.add_argument("--version", help="Outer application release version; never rewrites the stable delegate.")
     args = parser.parse_args()
-    print(json.dumps(write_candidate(args.payload, args.output, publisher=args.publisher), sort_keys=True))
+    print(json.dumps(write_candidate(args.payload, args.output, publisher=args.publisher, version=args.version), sort_keys=True))
 
 
 if __name__ == "__main__":

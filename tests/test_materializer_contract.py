@@ -250,3 +250,14 @@ def test_candidate_refusal_occurs_before_output_writes(sample, tmp_path, monkeyp
     with pytest.raises(rapp_package.PackageError, match="E_UNSUPPORTED_REQUIREMENT"):
         module.write_candidate(payload, output)
     assert not output.parent.exists()
+
+
+def test_outer_release_version_does_not_rewrite_stable_bootstrap(sample, tmp_path):
+    module, payload = assembler_fixture(sample, tmp_path)
+    first, first_files = module.candidate_files(payload)
+    second, second_files = module.candidate_files(payload, version="0.2.0")
+    assert first["version"] == "0.1.0"
+    assert second["version"] == "0.2.0"
+    assert first_files["singleton/scotty_agent.py"] == second_files["singleton/scotty_agent.py"]
+    assert first_files["singleton/scotty_revision.json"] == second_files["singleton/scotty_revision.json"]
+    assert first["local_docker"]["loader"] == second["local_docker"]["loader"]
