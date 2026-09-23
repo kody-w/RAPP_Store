@@ -18,10 +18,44 @@
   <h1>RAPPstore vbrainstem is now the grail brainstem (heimdall)</h1>
   <p>Per the operator: stop rebuilding this thing. Heimdall's <code>index.html</code> IS the canonical browser brainstem and supports embodying any planted twin via <code>?seed=&lt;owner&gt;/&lt;repo&gt;</code>.</p>
   <p>Redirecting to <a id="dest" href="https://kody-w.github.io/heimdall/?seed=kody-w/RAPP">the grail (embodying kody-w/RAPP)</a>…</p>
+  <p id="application-status">Complete local applications use their installed Grail chat entrypoint,
+    not this browser. A browser redirect does not install Docker or qualify device readiness.</p>
+  <p><a href="https://github.com/kody-w/RAPP_Store/blob/main/samples/dock_scotty/README.md">Dock / Scotty authoring template</a>
+    — experimental, synthetic and unlisted; fresh installation remains pending.
+    Local application execution; Copilot cloud inference; other paid providers disabled.</p>
   <p style="margin-top: 30px;"><small>Other twins to embody: <a href="https://kody-w.github.io/RAPP/pages/summon.html">summon portal</a>.</small></p>
   <script>
-    // carry the #rapp=<id> deep link through — a brainstem that hosts skins opens it
-    setTimeout(() => location.replace("https://kody-w.github.io/heimdall/?seed=kody-w/RAPP" + (location.hash || "")), 600);
+    async function routeIntegration() {
+      const destination = document.getElementById('dest');
+      const status = document.getElementById('application-status');
+      const selected = new URLSearchParams((location.hash || '').replace(/^#/, '')).get('rapp');
+      if (selected) {
+        destination.removeAttribute('href');
+        destination.textContent = 'Checking the selected application contract…';
+        try {
+          const response = await fetch('./index.json', {cache: 'no-store'});
+          if (!response.ok) throw new Error('Catalog is unavailable.');
+          const catalog = await response.json();
+          const entry = (catalog.rapplications || []).find(item => item.id === selected);
+          if (!entry) throw new Error('No supported catalog entry was found; unlisted templates are not runnable.');
+          if (entry.application || entry.application_schema || entry.local_docker
+              || Object.prototype.hasOwnProperty.call(entry, 'requires')
+                && (!Array.isArray(entry.requires) || entry.requires.length)) {
+            throw new Error('This complete application requires its verified local installation. '
+              + 'Use the installed Grail chat entrypoint; no browser or bare-singleton fallback is offered.');
+          }
+        } catch (error) {
+          destination.textContent = 'Browser execution not offered';
+          status.textContent = error.message;
+          return;
+        }
+      }
+      const url = 'https://kody-w.github.io/heimdall/?seed=kody-w/RAPP' + (location.hash || '');
+      destination.href = url;
+      destination.textContent = 'Open the browser integration';
+      setTimeout(() => location.replace(url), 600);
+    }
+    routeIntegration();
   </script>
 </body>
 </html>

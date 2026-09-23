@@ -2,17 +2,60 @@
 
 **[📦 Browse the store](https://kody-w.github.io/RAPP_Store/)** · **[🦎 Pokédex API](#pokédex-api)** · **[📋 SPEC](./SPEC.md)** · **[🔒 Gated rapps (§11)](./SPEC.md#11-gated-rapplications-access-private)** · **[🔌 RAPP Agent Registry](https://github.com/kody-w/RAR)** · **[⚙️ RAPP engine](https://github.com/kody-w/RAPP)**
 
-Public catalog of RAPP **rapplications** — agent/UI integrations, optionally
-supplemented by genuine native macOS release downloads. Legacy integrations
-load into a brainstem; native applications install separately. Browse the
+Public catalog of RAPP **rapplications** — chat-operated applications, from
+simple agent/UI integrations to explicitly packaged local application stacks.
+Native macOS release downloads remain an independent optional distribution.
+Existing integrations load into a brainstem; native applications install separately. Browse the
 [store](https://kody-w.github.io/RAPP_Store/) or [Pokédex API](#pokédex-api).
+
+## Main authoring template: RAPP Dock / Scotty
+
+[**Start with the Dock / Scotty template**](./samples/dock_scotty/README.md):
+one visible bot operates five application journeys through Brainstem chat,
+with declared components, typed jobs, providers, owned state, preserving
+lifecycle and portable results. An agent is the entrypoint, not the whole app.
+RAPP is the technical platform; RAPP Work can consume it but is not required.
+
+> **Local application execution; Copilot cloud inference; tested on Apple
+> Silicon with some amd64 guests under emulation.**
+
+That is the development reference profile, not proof of a fresh installation
+of this public candidate or a minimum machine specification. The **unlisted,
+experimental authoring sample uses synthetic fixtures**; it is not a runnable
+release, catalog listing, featured badge, or preinstalled app. Fresh install
+and Dify/OpenShorts full recreation remain pending.
+
+| Journey | Shipped development mode |
+|---|---|
+| Scrapling | Native collection with cited gateway summaries |
+| Presenton | **Gateway-authored, Presenton-exported** editable PPTX and PDF |
+| OpenSEO | Actual native projects; paid metrics disabled |
+| Dify | Economy indexing/retrieval; gateway-grounded cited answers, not the native provider plugin |
+| OpenShorts | AI-selected clips; native captioned vertical-video rendering |
+
+The adopter supplies their own Copilot entitlement and authentication.
+Copilot consumes usage/credits; other paid providers remain disabled. Unknown
+cost stays unknown, and bounded processes are **not** a hard monetary spend
+cap. Canonical RAPP/1 receipts and selected-output/source capsules are not full
+state backups; verification is unsigned and structural-only.
+
+See [Proposal 0007](./docs/proposals/0007-chat-operated-rapplications.md),
+[SPEC §15](./SPEC.md#15-complete-chat-operated-applications), and the
+[application](./schemas/application.schema.json) /
+[local Docker](./schemas/local-docker.schema.json) contracts. The extension
+requires `local-docker/1`; unsupported clients must refuse instead of
+installing a bare singleton. Existing simple/native/Zoo listings and the
+root catalog remain unchanged. Submission still requires `[RAPP]` review.
 
 > Legacy local producer outputs may include a singleton `.py` and portable
 > `.egg` cartridge ([brainstem-egg/2.2-rapplication schema](https://github.com/kody-w/RAPP/blob/main/rapp_brainstem/utils/bond.py)).
 > Federation does not imply that an egg, hatcher, lineage or protocol
 > identity exists. Only explicitly published artifacts are offered.
 
-> **Looking for bare agents?** A single `*_agent.py` with no UI belongs in **[kody-w/RAR](https://github.com/kody-w/RAR)** — single-celled organisms without skin. Per [Constitution Article XXVII](https://github.com/kody-w/RAPP/blob/main/CONSTITUTION.md), bundle goes here, bare goes there.
+> **Looking for bare agents?** A reusable `*_agent.py` without an application
+> contract belongs in **[kody-w/RAR](https://github.com/kody-w/RAR)**. Existing
+> simple applications retain their UI contract; complete chat-operated apps
+> follow §15 and may use chat without a separate UI.
 
 This repo was extracted from [`kody-w/RAPP`](https://github.com/kody-w/RAPP) on 2026-04-26 as the content layer of the platform. The engine (Tier 1 brainstem, Tier 2 swarm, Tier 3 worker) lives in `kody-w/RAPP`. Trust metadata (signing, identity, provenance) lives in the RAR registry. This repo is just **content** — rapplications you can fetch and run.
 
@@ -46,8 +89,9 @@ signing/notarization does not require exporting Apple credentials to CI.
 See [SPEC §14](./SPEC.md#14-optional-native-desktop-distribution),
 [Proposal 0006](./docs/proposals/0006-native-desktop-distribution.md), and the
 [desktop](./schemas/desktop.schema.json) /
-[evidence](./schemas/desktop-evidence.schema.json) schemas. No constitutional
-amendment is made; any such change requires explicit owner approval.
+[evidence](./schemas/desktop-evidence.schema.json) schemas. The native
+extension makes no constitutional amendment; Proposal 0007 is a separately
+reviewed, explicitly proposed chat-application extension.
 
 ## Gated rapplications (private substance, public discovery)
 

@@ -189,7 +189,16 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
 
 <div class="container">
   <h1>Submit a Rapplication</h1>
-  <p class="subtitle">A rapplication is an agent <em>plus</em> a UI — bundled. Drop a <code>.zip</code> of your rapp directory, or point at a public GitHub repo. The receiver validates against <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md</a> and stages it for review.</p>
+  <p class="subtitle">A rapplication is a chat-operated application. Simple bundles retain their agent and UI;
+    complete applications declare components, jobs, providers, owned state and lifecycle.
+    Drop a <code>.zip</code> or point at a public GitHub repo. The receiver validates against
+    <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md</a> and stages it for review.</p>
+  <p class="note">Start with the
+    <a href="https://github.com/kody-w/RAPP_Store/blob/main/samples/dock_scotty/README.md">Dock / Scotty authoring template</a>
+    (experimental, synthetic, unlisted; fresh installation pending).
+    Local application execution; Copilot cloud inference; tested on Apple Silicon with some amd64 guests under emulation.
+    This is a development profile, not a fresh-install or minimum-specification claim. Other paid providers are disabled.
+    Mandatory <code>local-docker/1</code> features cannot be dropped or installed as a bare singleton.</p>
 
   <p style="font-size:.82rem;color:var(--text-muted);margin-top:-20px;margin-bottom:32px">
     Reference:
@@ -238,7 +247,11 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
     <div class="tab-pane active" id="tab-bundle">
       <div class="step">
         <div class="step-label">1. Zip your rapplication directory</div>
-        <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:8px">The zip should contain a single folder with <code>manifest.json</code>, your <code>*_agent.py</code> singleton, a <code>ui/</code>, and a <code>README.md</code>. See <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md §6</a> for the full ruleset. Max 5&nbsp;MB.</p>
+        <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:8px">The zip contains one folder with
+          <code>manifest.json</code>, the entrypoint and <code>README.md</code>. Simple version-1 apps require
+          <code>ui/</code>; complete version-2 apps require every locked file and referenced declaration.
+          See <a href="https://github.com/kody-w/RAPP_Store/blob/main/SPEC.md" target="_blank" rel="noopener">SPEC.md</a>.
+          Max 5&nbsp;MB compressed; complete source expands to at most 20&nbsp;MiB.</p>
       </div>
       <div class="step">
         <div class="step-label">2. Drop the zip</div>
@@ -265,7 +278,9 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
     <div class="tab-pane" id="tab-federation">
       <div class="step">
         <div class="step-label">1. Public GitHub repo URL</div>
-        <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:8px">Point at the rapp directory in your public repo. The catalog entry's <code>singleton_url</code> will reference your <code>raw.githubusercontent.com</code> path. Nothing is copied into <code>RAPP_Store</code>.</p>
+        <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:8px">Point at the application directory in
+          your public repo. Complete applications resolve a full commit and verify the whole file lock.
+          Their catalog rows never offer a singleton-only installation fallback. Existing simple/native federation is unchanged.</p>
         <input type="text" id="federation-url" class="text-input" placeholder="https://github.com/your-username/your-rapps/tree/main/my_rapp">
       </div>
       <div class="step">
@@ -289,6 +304,7 @@ h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
   </div>
 </div>
 
+<script src="./store-contract.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 // Reuses the same OAuth app / worker as the RAR submit page. The OAuth app
@@ -401,7 +417,12 @@ const CATEGORIES = ['productivity','creative','analysis','data','integration','p
 
 function validateManifest(m, owner) {
   const errs = [], warns = [];
-  if (m.schema !== 'rapp-application/1.0') errs.push('schema must be "rapp-application/1.0"');
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return {errs: ['Manifest must be an object.'], warns};
+  const complete = m.schema === 'rapp-application/2.0';
+  if (complete || 'local_docker' in m || 'requires' in m) {
+    if (!globalThis.RappStoreContract) errs.push('Complete contract validator is unavailable; refusing feature downgrade.');
+    else errs.push(...RappStoreContract.validate(m));
+  } else if (m.schema !== 'rapp-application/1.0') errs.push('Unsupported application schema.');
   if (!ID_RE.test(m.id || '')) errs.push('id must match /^[a-z][a-z0-9_]*$/');
   if (!m.name) errs.push('name is required');
   if (!SEMVER_RE.test(m.version || '')) errs.push('version must be MAJOR.MINOR.PATCH');
@@ -410,7 +431,8 @@ function validateManifest(m, owner) {
   if (!CATEGORIES.includes(m.category)) errs.push('category must be one of ' + CATEGORIES.join(', '));
   if (!Array.isArray(m.tags) || !m.tags.length) errs.push('tags must be a non-empty list');
   if (!m.agent && !m.service) errs.push('manifest must declare agent and/or service');
-  if (!m.ui) errs.push('rapplications must declare a ui (rapp = agent + UI)');
+  if (!m.ui && !complete) errs.push('Simple version-1 rapplications must declare a ui.');
+  if (complete) warns.push('Static validation is not deployment, fresh-install evidence, or permission to run Docker. Complete installer/device checks still apply.');
   if (owner && m.publisher && m.publisher.toLowerCase() !== '@' + owner.toLowerCase()
       && m.publisher !== '@rapp' && m.publisher !== '@rarbookworld') {
     warns.push(`publisher ${m.publisher} doesn't match submitter @${owner} — receiver will reject unless you're authorized for that handle`);
@@ -460,9 +482,26 @@ async function loadBundle(file) {
       return;
     }
     const mtxt = await manifestEntry.entry.async('string');
-    const m = JSON.parse(mtxt);
+    const m = globalThis.RappStoreContract ? RappStoreContract.parseJSON(mtxt) : JSON.parse(mtxt);
     bundle.manifest = m;
-    renderBundlePreview(validateManifest(m, ghUser?.login));
+    const result = validateManifest(m, ghUser?.login);
+    if (!result.errs.length && m.schema === 'rapp-application/2.0') {
+      const prefix = manifestEntry.path.slice(0, -'manifest.json'.length);
+      const paths = [];
+      zip.forEach((path, entry) => {
+        if (entry.dir) return;
+        if (entry.unsafeOriginalName && entry.unsafeOriginalName !== path) result.errs.push('Unsafe archive path.');
+        if (!path.startsWith(prefix)) result.errs.push('File outside the application bundle root.');
+        const relative = path.slice(prefix.length);
+        if (!['manifest.json', 'index_entry.json'].includes(relative)) paths.push(relative);
+      });
+      if (!result.errs.length) result.errs.push(...await RappStoreContract.validateFiles(m, async path => {
+        const member = zip.file(prefix + path);
+        if (!member) throw new Error('Missing locked file: ' + path);
+        return member.async('uint8array');
+      }, paths));
+    }
+    renderBundlePreview(result);
   } catch (e) {
     renderBundlePreview({ errs: ['failed to read zip: ' + e.message], warns: [] });
   }
@@ -565,9 +604,27 @@ async function resolveFederation() {
   try {
     const r = await fetch(rawBase + '/manifest.json');
     if (!r.ok) throw new Error('HTTP ' + r.status + ' fetching manifest.json');
-    const m = await r.json();
+    const manifestText = await r.text();
+    const m = globalThis.RappStoreContract ? RappStoreContract.parseJSON(manifestText) : JSON.parse(manifestText);
     federation.manifest = m;
     const { errs, warns } = validateManifest(m, ghUser?.login);
+    if (!errs.length && m.schema === 'rapp-application/2.0') {
+      const resolved = await fetch(`https://api.github.com/repos/${parsed.repo}/commits/${encodeURIComponent(parsed.ref)}`,
+        {credentials: 'omit', redirect: 'error'});
+      if (!resolved.ok) throw new Error('Cannot resolve an immutable source commit.');
+      const commit = (await resolved.json()).sha;
+      if (typeof commit !== 'string' || !/^[0-9a-f]{40}$/.test(commit)) throw new Error('Invalid source commit.');
+      const pinnedBase = `https://raw.githubusercontent.com/${parsed.repo}/${commit}` + (parsed.path ? '/' + parsed.path : '');
+      const pinned = await fetch(pinnedBase + '/manifest.json', {credentials: 'omit', redirect: 'error'});
+      if (!pinned.ok || await pinned.text() !== manifestText) throw new Error('Source changed during resolution; retry against an exact commit.');
+      errs.push(...await RappStoreContract.validateFiles(m, async path => {
+        const file = await fetch(pinnedBase + '/' + path.split('/').map(encodeURIComponent).join('/'),
+          {credentials: 'omit', redirect: 'error'});
+        if (!file.ok) throw new Error('Missing locked file: ' + path);
+        return file.arrayBuffer();
+      }));
+      federation.ref = commit;
+    }
     let h = '';
     h += `<div class="field"><span class="k">repo:</span> <code>${esc(parsed.repo)}@${esc(parsed.ref)}</code></div>`;
     h += `<div class="field"><span class="k">path:</span> <code>${esc(parsed.path || '<root>')}</code></div>`;
@@ -579,7 +636,7 @@ async function resolveFederation() {
     h += '<div class="check-list">';
     for (const e of errs) h += `<div class="field"><span class="err">&#10007; ${esc(e)}</span></div>`;
     for (const w of warns) h += `<div class="field"><span class="warn">&#9888; ${esc(w)}</span></div>`;
-    if (!errs.length) h += `<div class="field"><span class="ok">&#10003; manifest fetched and looks valid — receiver will fetch the singleton & UI from the same path</span></div>`;
+    if (!errs.length) h += `<div class="field"><span class="ok">&#10003; static preflight passed — the receiver independently validates the declared application before review; this does not install or qualify it</span></div>`;
     h += '</div>';
     preview.innerHTML = h;
     federation.valid = errs.length === 0;

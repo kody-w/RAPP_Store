@@ -1,8 +1,14 @@
 # Rapplication Spec
 
-`schema: rapp-application/1.0`
+Existing simple manifest: `rapp-application/1.0`. Complete chat-operated
+application: `rapp-application/2.0` (§15; proposed extension).
 
-A **rapplication** is a portable, self-describing bundle of one Python agent (and optional UI / state / docs) that drops into any RAPP brainstem and runs. This document defines the bundle layout, the manifest schema, the singleton contract, and the validation rules. Everything in `rapp_store/` conforms to this spec; everything that gets submitted to the store is checked against it.
+A **rapplication** is a portable, self-describing, chat-operated application.
+Its Python agent is the conversational entrypoint; a complete contract can
+also declare components, jobs, providers, owned state, lifecycle and portable
+results. Sections 1–13 retain the existing version-1 integration contract,
+§14 retains native desktop distribution, and §15 adds complete applications
+without rewriting existing catalog entries or artifacts.
 
 A rapplication runs one of two ways. **In‑process** (`runtime: "agent"`, the default): its agent loads into the host brainstem's `agents/` dir — simple, fine for one or two. **Twin‑port** (`runtime: "twin"`): the rapplication **hatches into its own specialized brainstem‑twin on its own port**, carrying only its own agents and persona, and the host brainstem reaches it over **twin‑chat** instead of absorbing it (§13). Twin‑port is the answer to crowding: drop many `.egg`s into one global brainstem and each hatches as its own port‑addressable app — still fully usable from the global `brainstem.py`, but never tangling its agent namespace, tool list, or state.
 
@@ -933,3 +939,156 @@ The rationale and owner-approval boundary are in
 The existing four Fable5 catalog IDs remain `rapp_crispy`, `rapp_rewind`,
 `rapp_shot`, `rapp_voice`; RAPP Tools is infrastructure, not another entry.
 No constitutional amendment is made by this optional extension.
+
+## 15. Complete chat-operated applications
+
+[Proposal 0007](./docs/proposals/0007-chat-operated-rapplications.md) introduces
+the explicit `rapp-application/2.0` contract and mandatory `local-docker/1`
+feature. The root catalog remains `rapp-store/1.0`; existing simple entries,
+native release descriptors, historical artifacts and Zoo v2 remain intact.
+This is an experimental implementation proposed for review, not a catalog
+admission, externally ratified protocol or automatic release.
+
+### 15.1 Complete source contract
+
+[`schemas/application.schema.json`](./schemas/application.schema.json)
+describes the manifest. Version 2 retains `id`, `name`, `version`, `publisher`,
+`summary`, `category`, `tags`, `agent`, and optional `ui`, with:
+
+| Declaration | Meaning |
+|---|---|
+| `agents` | The exact file-locked BasicAgent entrypoints; `agent` names one |
+| `runtime` | Unchanged Grail repository, full commit and version |
+| `files` | Complete safe relative-path → SHA-256 map, not just singleton bytes |
+| `requires` | Mandatory feature versions; unknown features refuse |
+| `profiles`, `permissions`, `capabilities` | Explicit requirements, never silently discarded |
+| `dependencies` | Exact application identity/version/package hash, or `[]` |
+| `services` | Locked definitions and immutable images, or `[]` |
+| `state` | Version, preserving behavior and locked initial seeds |
+| `lifecycle` | Qualified install/upgrade/uninstall/recovery behavior |
+| `providers` | Provider policy and honest spend/egress enforcement |
+| `provenance` | Explicit source, qualification, deployment and job facts |
+| `local_docker` | Required exactly when `requires` includes `local-docker/1` |
+
+The exact runtime is:
+
+```json
+{
+  "repo": "microsoft/aibast-agents-library",
+  "commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
+  "version": "0.6.16"
+}
+```
+
+Grail owns chat and agent discovery. The Store does not ship BasicAgent, a
+second inference loop, server, identity system or worker daemon. RAPP Work
+is optional business workflow content, not a technical runtime dependency.
+Version-1 twin metadata does not grant version-2 support for another engine.
+
+Version-2 validation is closed on behavior-bearing fields. All declared
+files must exist and match their hashes; undeclared executable dependencies
+cannot be hidden inside metadata. Relative paths exclude traversal, hidden
+members, ambiguous components, symlinks and case-folded destination
+collisions. Application metadata is generated, not trusted from an
+`index_entry.json` override. README is part of the lock; a UI is optional.
+The 5 MiB package/20 MiB expanded-source limits remain separate from external
+component materialization, which is declared rather than bundled as images.
+
+Public federation resolves a full commit, re-reads the manifest at that
+commit and fetches **every** locked file before admission. A source movement
+refuses rather than mixing revisions. Private metadata alone cannot qualify
+this complete installation contract. Native macOS distribution retains its
+own version-1 extension rather than mixing installer semantics.
+
+### 15.2 `local-docker/1`
+
+[`schemas/local-docker.schema.json`](./schemas/local-docker.schema.json) is
+the closed feature contract. It requires `schema: rapp-local-docker/1` and:
+
+- `component_lock`: locked public component/source/image inputs, platforms,
+  dependencies/licenses and honest local build observations.
+- `loader`: `scotty-revision-loader/1` plus locked `entrypoint`, `descriptor`
+  and the complete content-named `support` subtree.
+- `requirements_file`: explicit Python/current-Grail/Docker/Compose,
+  host/guest architectures, resource observations and adopter login needs.
+- `jobs_file`: closed typed job inputs, outputs, modes, providers and
+  limitations. There is no command-string execution escape hatch.
+- `state_lifecycle_file`: owned roots/volumes, sealed inputs, preserving
+  start/stop/detach/reinstall/recovery and credential/export exclusions.
+- `intelligence`: official Copilot CLI in Docker, pinned version, model,
+  concurrency, cloud inference, tools disabled, usage disclosure and
+  disabled other paid providers.
+- `exhaust`: canonical RAPP/1 `memory.tool-call` frames, session receipts,
+  selected-output/source rapplication capsules and verification scope.
+- `readiness`: independent package/install/job/health/lifecycle facts plus
+  a locked evidence reference, not a universal “ready” flag.
+
+File references are not arbitrary JSON escape hatches. Python admission,
+embedded installer and browser file preflight dereference and type-check
+them against the same advertised feature. Unknown mandatory declarations
+refuse before installation or bundle extraction writes. Static preflight
+does not invoke Docker, inspect credentials or infer device health.
+Explicit installation/use performs the separate device preflight.
+
+The installer verifies the exact Grail baseline and installs the complete
+bootstrap, descriptor and hash-scoped support layout. It checks ownership,
+collisions and existing receipts before writes, writes the receipt last and
+supports recovery without replaying application jobs. Detach/uninstall
+preserves app data and retained, unqualified container layers. It must not
+delete volumes, daemon-prune, or substitute a bare singleton.
+
+### 15.3 Readiness and truthful listing language
+
+The main authoring template is
+[`samples/dock_scotty/`](./samples/dock_scotty/README.md). It is **unlisted,
+experimental, synthetic authoring material**, not a deployed app or runnable
+release. Its first-card disclosure is:
+
+> Local application execution; Copilot cloud inference; tested on Apple
+> Silicon with some amd64 guests under emulation.
+
+This describes the development reference profile, not successful fresh
+installation of the public candidate, a minimum resource specification, or
+whole-bundle Intel/amd64 qualification. Resource observations, source/package
+verification, fresh install, each job/mode, timestamped current health,
+restart and full recreation are separate facts. Fresh install and Dify/
+OpenShorts recreation remain pending in this sample. Missing evidence stays
+pending/unknown; synthetic evidence never certifies runtime outcomes.
+
+The shipped development modes are native Scrapling collection;
+gateway-authored, Presenton-exported editable PPTX/PDF; actual OpenSEO
+projects with paid data disabled; Dify economy retrieval with gateway-grounded
+cited answers; and AI-selected/native-rendered OpenShorts. Native Presenton
+generation is not the default and a native Dify model plugin is not claimed.
+
+The adopter supplies their own Copilot entitlement/authentication. Copilot
+consumes usage/credits; other paid providers stay disabled. Process, byte,
+time and concurrency bounds are not a hard monetary spend cap or guaranteed
+generation-token ceiling. App-window usage is not exact per-job billing.
+Unmeasured monetary cost and hard spend cap remain `null`.
+
+RAPP/1 receipt verification is unsigned and structural-only. A capsule
+carries selected outputs and producing source, **not** full database state,
+Docker images, secrets or a complete backup. Installation cartridges
+(`rapp-egg/2.0`) and canonical RAPP/1 eggs are different artifacts.
+
+### 15.4 Discovery, browsers and admission
+
+Complete catalog/discovery rows retain `application_schema`, the full
+`application`, `requires`, runtime and readiness. They default to
+`installable: false` until a complete reviewed content-addressed package and
+installer are published and applicable readiness gates pass. No
+`singleton_url`, `service_url`, legacy egg, shell command or browser-run
+fallback may bypass feature, closure or device checks.
+
+The scoped `--application-only --ids <approved-id>` projection preserves
+unrelated v1/native records, index metadata and immutable artifacts; it
+does not alter the root catalog or Zoo. Global legacy producers must refuse
+complete applications rather than generate partial eggs.
+
+Browser validation is a static preflight, never execution authority.
+Unknown, malformed or pending rich-app cards show blockers and disclosures,
+not an “install” or “run in browser” shortcut. Existing simple and native UI
+behavior is unchanged. New applications still require the `[RAPP]` receiver
+and maintainer approval. Opening a draft plumbing PR does not admit the
+unlisted template or authorize publication of private evidence.
