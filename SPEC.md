@@ -1003,6 +1003,8 @@ the original inventory bytes and rejects floating-point file lengths.
 Browser wire preflight uses `RappStoreContract.parseJSON`, which retains this
 token distinction without modifying the declared data; an already-parsed
 JavaScript object alone cannot recover discarded numeric spelling.
+The gateway's fixed concurrency policy is the numeric value `2` (excluding
+booleans), not a serialized loader byte-count field.
 
 Public federation resolves a full commit, re-reads the manifest at that
 commit and fetches **every** locked file before admission. A source movement
