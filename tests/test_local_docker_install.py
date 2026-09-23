@@ -317,6 +317,13 @@ def app():
 def host(tmp_path, monkeypatch):
     root = tmp_path / "isolated-host"
     (root / "agents").mkdir(parents=True, mode=0o700)
+    owner = tmp_path / "isolated-owner"
+    owner.mkdir(mode=0o700)
+    for name in package.LIFECYCLE_ENVIRONMENT:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("HOME", str(owner))
+    monkeypatch.setenv("RAPP_DOCK_HOME", str(tmp_path / "bound-runtime"))
+    monkeypatch.setenv("RAPP_DOCK_NAMESPACE", "rapp-dock-th")
     monkeypatch.setattr(package, "verify_grail", lambda path: Path(path))
     monkeypatch.setattr(package.shutil, "which", lambda name: "/fixture/docker")
     monkeypatch.setattr(package.platform, "system", lambda: "Darwin")
@@ -647,6 +654,117 @@ def test_complete_flat_layout_and_receipt_written_last(app, host, monkeypatch):
     )
     assert install(app, host)["status"] == "already_installed"
     assert not (app_home(host) / "pending.json").exists()
+
+
+def test_install_binds_private_scope_without_initializing_runtime_or_reading_custody(
+    app, host
+):
+    selected = Path(os.environ["RAPP_DOCK_HOME"])
+    assert not selected.exists()
+    install(app, host)
+    record = json.loads((app_home(host) / "installed.json").read_text())
+    binding = record["local_docker_binding"]
+    assert binding["home"] == str(selected)
+    assert binding["owner_home"] == str(Path.home())
+    assert binding["namespace"] == "rapp-dock-th"
+    assert binding["port_base"] == 18080
+    assert (
+        binding["environment_sha256"]
+        == package._current_binding()["environment_sha256"]
+    )
+    assert not selected.exists()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("RAPP_DOCK_NAMESPACE", "rapp-dock-tg"),
+        ("RAPP_DOCK_PORT_BASE", "18600"),
+        ("RAPP_DOCK_AI_MODEL", "another-model"),
+        ("RAPP_DOCK_NETWORK_POOL", "10.236.0.0/16"),
+    ],
+)
+def test_runtime_configuration_drift_refuses_before_any_lifecycle_effect(
+    app, host, monkeypatch, field, value
+):
+    install(app, host)
+    before = source_tree(host)
+    monkeypatch.setenv(field, value)
+    monkeypatch.setattr(
+        package,
+        "_stop_local_docker",
+        lambda *a, **kw: pytest.fail("drift reached lifecycle effects"),
+    )
+    with pytest.raises(package.PackageError, match="E_LIFECYCLE_SCOPE"):
+        uninstall(app, host)
+    with pytest.raises(package.PackageError, match="E_LIFECYCLE_SCOPE"):
+        install(app, host)
+    assert source_tree(host) == before
+
+
+def test_other_runtime_home_is_never_initialized_or_stopped(
+    app, host, tmp_path, monkeypatch
+):
+    install(app, host)
+    other = tmp_path / "unrelated-runtime"
+    monkeypatch.setenv("RAPP_DOCK_HOME", str(other))
+    monkeypatch.setattr(
+        package,
+        "_stop_local_docker",
+        lambda *a, **kw: pytest.fail("unrelated runtime reached lifecycle"),
+    )
+    with pytest.raises(package.PackageError, match="E_LIFECYCLE_SCOPE"):
+        uninstall(app, host)
+    assert not other.exists()
+    assert (host / "agents/scotty_agent.py").exists()
+
+
+def test_unbound_historical_receipt_never_falls_back_to_ambient_runtime(
+    app, host, monkeypatch
+):
+    install(app, host)
+    path = app_home(host) / "installed.json"
+    value = json.loads(path.read_text())
+    del value["local_docker_binding"]
+    path.chmod(0o600)
+    path.write_bytes(package.canonical_json(value))
+    path.chmod(0o400)
+    monkeypatch.setattr(
+        package,
+        "_stop_local_docker",
+        lambda *a, **kw: pytest.fail("unbound receipt reached lifecycle"),
+    )
+    with pytest.raises(package.PackageError, match="E_LIFECYCLE_BINDING"):
+        uninstall(app, host)
+    assert (host / "agents/scotty_agent.py").exists()
+
+
+def test_resume_requires_the_same_verified_receipt_binding(app, host):
+    install(app, host)
+    binding = json.loads((app_home(host) / "installed.json").read_text())[
+        "local_docker_binding"
+    ]
+    calls = []
+    key = (str(host), app[0]["publisher"], app[0]["id"])
+    wrong = {**binding, "namespace": "rapp-dock-tg"}
+    entry = {
+        "home": Path(binding["home"]),
+        "binding": wrong,
+        "resume": lambda **kwargs: calls.append(kwargs),
+    }
+    package._fences()[key] = entry
+    try:
+        assert package._resume_after_install(host, app[0]) == "restart-Grail-required"
+        assert calls == [] and key in package._fences()
+        entry["binding"] = binding
+        assert (
+            package._resume_after_install(host, app[0])
+            == "resumed-after-preserving-reinstall"
+        )
+        assert calls == [{"home": Path(binding["home"])}]
+        assert key not in package._fences()
+    finally:
+        package._fences().pop(key, None)
 
 
 @pytest.mark.parametrize("stage", ["support", "descriptor", "entrypoint", "receipt"])
@@ -2140,6 +2258,8 @@ def test_generated_hatcher_in_isolated_exact_grail_loads_one_scotty_and_reinstal
         "PYTHONNOUSERSITE": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
         "RAPP_INSTALL_TEST_STATE": str(state),
+        "RAPP_DOCK_HOME": str(state),
+        "RAPP_DOCK_NAMESPACE": "rapp-dock-th",
     }
     docker = shutil.which("docker")
     if docker:

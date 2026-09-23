@@ -117,6 +117,16 @@ RETAINED = [
     "docker-images",
     "unqualified-container-writable-layers",
 ]
+LIFECYCLE_ENVIRONMENT = (
+    "RAPP_DOCK_HOME",
+    "RAPP_DOCK_NAMESPACE",
+    "RAPP_DOCK_PORT_BASE",
+    "RAPP_DOCK_AI_MODEL",
+    "RAPP_DOCK_COPILOT_ENV",
+    "RAPP_DOCK_DOCKER",
+    "RAPP_DOCK_NETWORK_POOL",
+    "RAPP_DOCK_INPUT_ROOTS",
+)
 
 
 class PackageError(ValueError):
@@ -2534,7 +2544,89 @@ def _home(root, m):
     return home
 
 
-def _make_receipt(m, sha, sources, *, detached=False):
+def _validate_binding(value):
+    _object(
+        value,
+        (
+            "schema",
+            "home",
+            "owner_home",
+            "namespace",
+            "port_base",
+            "environment_sha256",
+        ),
+    )
+    if (
+        value["schema"] != "rapp-local-docker-binding/1"
+        or not isinstance(value["namespace"], str)
+        or re.fullmatch(r"rapp-dock(?:-t[a-h])?", value["namespace"]) is None
+        or type(value["port_base"]) is not int
+        or not 1024 <= value["port_base"] <= 65530
+        or not _sha(value["environment_sha256"])
+    ):
+        raise PackageError("E_LIFECYCLE_BINDING: invalid private runtime target")
+    for key in ("home", "owner_home"):
+        path = value[key]
+        if (
+            not isinstance(path, str)
+            or not path
+            or len(path) > 4096
+            or "\0" in path
+            or not Path(path).is_absolute()
+            or str(_absolute(path)) != path
+        ):
+            raise PackageError(
+                "E_LIFECYCLE_BINDING: runtime roots must be canonical absolute paths"
+            )
+
+
+def _current_binding():
+    """Capture selectors only; never import app code, read custody or create its home."""
+    owner = _absolute(Path.home())
+    selected = os.environ.get("RAPP_DOCK_HOME")
+    home = Path(selected).expanduser() if selected else owner / ".rapp-dock"
+    if not home.is_absolute():
+        raise PackageError(
+            "E_LIFECYCLE_BINDING: relative runtime homes are not portable custody"
+        )
+    port = os.environ.get("RAPP_DOCK_PORT_BASE", "18080")
+    if re.fullmatch(r"[0-9]{1,5}", port) is None:
+        raise PackageError("E_LIFECYCLE_BINDING: invalid private port selection")
+    configuration = {name: os.environ.get(name) for name in LIFECYCLE_ENVIRONMENT}
+    if any(
+        value is not None and len(value) > 16384 for value in configuration.values()
+    ):
+        raise PackageError(
+            "E_LIFECYCLE_BINDING: runtime configuration exceeds its bound"
+        )
+    value = {
+        "schema": "rapp-local-docker-binding/1",
+        "home": str(_absolute(home)),
+        "owner_home": str(owner),
+        "namespace": os.environ.get("RAPP_DOCK_NAMESPACE", "rapp-dock"),
+        "port_base": int(port),
+        "environment_sha256": digest(
+            canonical_json({"owner_home": str(owner), "configuration": configuration})
+        ),
+    }
+    _validate_binding(value)
+    return value
+
+
+def _require_binding(value):
+    if value is None:
+        raise PackageError(
+            "E_LIFECYCLE_BINDING: unbound historical source requires a qualified custody migration"
+        )
+    _validate_binding(value)
+    if value != _current_binding():
+        raise PackageError(
+            "E_LIFECYCLE_SCOPE: restore the receipt-bound runtime configuration; no other target is selected"
+        )
+    return value
+
+
+def _make_receipt(m, sha, sources, *, detached=False, binding=None):
     value = {
         "schema": "rapp-install/2.0",
         "status": "detached" if detached else "installed",
@@ -2550,6 +2642,13 @@ def _make_receipt(m, sha, sources, *, detached=False):
         "loader_contract": LOADER_CONTRACT if _local(m) else None,
         "retained": RETAINED if detached else [],
     }
+    if binding is not None:
+        if not _local(m):
+            raise PackageError(
+                "E_RECEIPT: non-Docker source cannot claim a Docker target"
+            )
+        _validate_binding(binding)
+        value["local_docker_binding"] = binding
     if len(canonical_json(value)) > MAX_RECORD_BYTES:
         raise PackageError(
             "E_PACKAGE_SIZE: installation record exceeds its recovery bound"
@@ -2578,6 +2677,7 @@ def _receipt(path):
         _object(
             value,
             (*base, "status", "sources", "directories", "loader_contract", "retained"),
+            ("local_docker_binding",),
         )
         if (
             value["schema"] != "rapp-install/2.0"
@@ -2592,6 +2692,8 @@ def _receipt(path):
             relative_path(name)
         if any(not _sha(sha) for sha in value["sources"].values()):
             raise PackageError("E_RECEIPT: invalid owned source digest")
+        if "local_docker_binding" in value:
+            _validate_binding(value["local_docker_binding"])
     if (
         value["runtime"] != GRAIL
         or not _sha(value["package_sha256"])
@@ -2672,6 +2774,7 @@ def _owned_receipt(root, home, m):
             previous["package_sha256"],
             _source_layout(old, files),
             detached=previous.get("status") == "detached",
+            binding=previous.get("local_docker_binding"),
         )
         if previous["schema"] == "rapp-install/1.0":
             if _local(old) or any(
@@ -3082,11 +3185,18 @@ def install_package(blob, expected_sha256, root, *, retire_hatcher=None):
     sources = _source_layout(m, files)
     home = _home(root, m)
     record = _safe_target(home, "installed.json")
-    receipt = _make_receipt(m, expected_sha256, sources)
+    binding = _current_binding() if _local(m) else None
+    receipt = _make_receipt(m, expected_sha256, sources, binding=binding)
 
     def inspect():
         previous_raw = _optional_read(record)
         previous = _owned_receipt(root, home, m)
+        if _local(m):
+            _require_binding(binding)
+            if previous is not None and previous.get("local_docker_binding") != binding:
+                raise PackageError(
+                    "E_LIFECYCLE_SCOPE: installation cannot rebind existing custody"
+                )
         _check_version(previous, m, expected_sha256)
         old_sources, _ = _ownership(previous)
         if set(old_sources) - set(sources):
@@ -3159,6 +3269,8 @@ def install_package(blob, expected_sha256, root, *, retire_hatcher=None):
         _ensure_sources(root, home, m, sources, previous, pending)
         _check_sources(root, sources, receipt, pending, local=_local(m), complete=True)
         _retire_hatcher(root, home, retire_hatcher)
+        if _local(m):
+            _require_binding(binding)
         # No source, seed, or hatcher mutation is allowed after this commit point.
         new_record = canonical_json(receipt)
         current = _optional_read(record)
@@ -3204,7 +3316,13 @@ def _resume_after_install(root, m):
     if entry is None:
         return "not-needed"
     try:
-        entry["resume"](home=entry["home"])
+        receipt = _owned_receipt(root, _home(root, m), m)
+        binding = _require_binding(
+            receipt.get("local_docker_binding") if receipt else None
+        )
+        if binding != entry["binding"] or str(entry["home"]) != binding["home"]:
+            return "restart-Grail-required"
+        entry["resume"](home=Path(binding["home"]))
     except Exception:  # noqa: BLE001 - a controller failure must not roll back installed source.
         return "restart-Grail-required"
     registry.entries.pop(key, None)
@@ -3228,6 +3346,10 @@ def _stop_local_docker(root, home, m, files, sha):
     module.__file__ = str(entrypoint)
     module.__package__ = ""
     try:
+        installed = _receipt(home / "installed.json")
+        binding = _require_binding(
+            installed.get("local_docker_binding") if installed else None
+        )
         exec(  # noqa: S102 - explicit uninstall executes only the verified installed bootstrap.
             compile(files[loader["entrypoint"]], str(entrypoint), "exec"),
             module.__dict__,
@@ -3240,13 +3362,25 @@ def _stop_local_docker(root, home, m, files, sha):
             raise PackageError(
                 "E_LIFECYCLE: controller is not from the verified scoped support"
             )
-        dock = controller_type.shared()
-        fence = controller_module.quiesce(timeout=0, home=dock.home)
+        _require_binding(binding)
+        dock = controller_type.shared(home=Path(binding["home"]))
+        _require_binding(binding)
+        if (
+            str(_absolute(dock.home)) != binding["home"]
+            or str(_absolute(dock.owner_home)) != binding["owner_home"]
+            or dock.namespace != binding["namespace"]
+            or dock.port_base != binding["port_base"]
+        ):
+            raise PackageError(
+                "E_LIFECYCLE_SCOPE: controller target differs from installation custody"
+            )
+        fence = controller_module.quiesce(timeout=0, home=Path(binding["home"]))
         if not isinstance(fence, dict) or fence.get("admission_paused") is not True:
             raise PackageError("E_DRAIN_STOP: controller did not pause admission")
         _fences()[(str(root), m["publisher"], m["id"])] = {
             "home": dock.home,
             "resume": controller_module.resume,
+            "binding": dict(binding),
         }
         record = dock.lifecycle("stop", None, wait_seconds=10)
         deadline = time.monotonic() + 330
@@ -3280,7 +3414,8 @@ def _stop_local_docker(root, home, m, files, sha):
             raise PackageError(
                 "E_DRAIN_STOP: preserving stop was incomplete; all sources and layers retained"
             )
-        fence = controller_module.quiesce(timeout=30, home=dock.home)
+        _require_binding(binding)
+        fence = controller_module.quiesce(timeout=30, home=Path(binding["home"]))
         if (
             not isinstance(fence, dict)
             or fence.get("quiesced") is not True
@@ -3350,11 +3485,23 @@ def uninstall_package(blob, expected_sha256, root, *, retire_hatcher=None):
     home = _home(root, m)
     record = _safe_target(home, "installed.json")
     sources = _source_layout(m, files)
-    receipt = _make_receipt(m, expected_sha256, sources, detached=True)
+    current = _owned_receipt(root, home, m)
+    binding = (
+        _require_binding(current.get("local_docker_binding") if current else None)
+        if _local(m)
+        else None
+    )
+    receipt = _make_receipt(m, expected_sha256, sources, detached=True, binding=binding)
 
     def inspect():
         previous_raw = _optional_read(record)
         previous = _owned_receipt(root, home, m)
+        if _local(m):
+            _require_binding(binding)
+            if previous is None or previous.get("local_docker_binding") != binding:
+                raise PackageError(
+                    "E_LIFECYCLE_SCOPE: detachment cannot select different custody"
+                )
         if previous is None or previous["package_sha256"] != expected_sha256:
             raise PackageError(
                 "E_RECEIPT_REQUIRED: detach requires the exact installed package and receipt"

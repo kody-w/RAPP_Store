@@ -6,14 +6,19 @@ from pathlib import Path
 
 
 class LocalDock:
-    def __init__(self):
-        self.home = Path(os.environ["RAPP_INSTALL_TEST_STATE"])
+    def __init__(self, home):
+        self.home = Path(home)
+        assert self.home == Path(os.environ["RAPP_INSTALL_TEST_STATE"])
+        self.owner_home = Path.home()
+        self.namespace = os.environ["RAPP_DOCK_NAMESPACE"]
+        self.port_base = int(os.environ.get("RAPP_DOCK_PORT_BASE", "18080"))
         self.ops = self
         self.record = None
 
     @classmethod
-    def shared(cls):
-        return cls()
+    def shared(cls, home=None):
+        assert home is not None, "ambient runtime target must never be selected"
+        return cls(home)
 
     def lifecycle(self, action, app, *, wait_seconds):
         assert (action, app, wait_seconds) == ("stop", None, 10)
