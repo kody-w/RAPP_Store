@@ -124,7 +124,7 @@ def build():
             "component_lock": "components.lock.json",
             "loader": {
                 "contract": "scotty-revision-loader/1", "entrypoint": entrypoint,
-                "descriptor": "singleton/scotty_revision.json", "support": prefix,
+                "descriptor": "singleton/scotty_revision.json", "support": prefix.rstrip("/"),
             },
             "requirements_file": "generated/host-profiles.json",
             "jobs_file": "generated/job-contracts.json",

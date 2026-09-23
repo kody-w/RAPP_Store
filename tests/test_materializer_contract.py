@@ -29,7 +29,7 @@ def digest(blob):
 def materializer_fixture(original, *, change_lock=None, change_dependency=None):
     manifest, originals = original
     manifest, files = copy.deepcopy(manifest), dict(originals)
-    old_prefix = manifest["local_docker"]["loader"]["support"]
+    old_prefix = manifest["local_docker"]["loader"]["support"] + "/"
     support = {name[len(old_prefix):]: blob for name, blob in files.items()
                if name.startswith(old_prefix) and not name.endswith("/SCOTTY_CAPABILITY_LOCK.json")}
     for name in list(files):
@@ -121,7 +121,7 @@ def materializer_fixture(original, *, change_lock=None, change_dependency=None):
         "entrypoint_sha256": digest(files["singleton/scotty_agent.py"]), "support_sha256": revision,
     })
     files["generated/dockerfiles/openshorts-backend.Dockerfile"] = dockerfile
-    manifest["local_docker"]["loader"]["support"] = prefix
+    manifest["local_docker"]["loader"]["support"] = prefix.rstrip("/")
     manifest["files"] = {name: digest(blob) for name, blob in files.items()}
     return manifest, files
 

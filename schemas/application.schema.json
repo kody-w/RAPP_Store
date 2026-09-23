@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kody-w.github.io/RAPP_Store/schemas/application.schema.json",
   "title": "RAPP application manifests: unchanged simple bundles and complete chat-operated applications",
-  "$comment": "Wire validation additionally requires integer-typed fields to use JSON integer tokens, not decimal/exponent spellings; unchanged runtime loaders consume the original locked bytes.",
+  "$comment": "Fields marked x-wire-integer must use literal JSON integer tokens, not decimal/exponent spellings; unchanged loaders/materializers consume the original locked bytes. Other integer fields use safe JSON numeric semantics.",
   "oneOf": [
     {"$ref": "#/$defs/simple"},
     {"$ref": "#/$defs/application"}

@@ -60,7 +60,7 @@ def candidate_files(payload_root, *, publisher="@example", version=None):
                     "deployed": False, "job_verified": False},
     )
     local = manifest["local_docker"]
-    local["loader"]["support"] = "singleton/scotty_support_" + revision + "/"
+    local["loader"]["support"] = "singleton/scotty_support_" + revision
 
     def put(name, blob):
         if name in files and files[name] != blob:

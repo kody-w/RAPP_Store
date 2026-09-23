@@ -78,7 +78,8 @@
       if (type === 'object') return object(value);
       if (type === 'array') return Array.isArray(value);
       if (type === 'null') return value === null;
-      if (type === 'integer') return typeof value === 'number' && Number.isSafeInteger(value) && !nonIntegerToken;
+      if (type === 'integer') return typeof value === 'number' && Number.isSafeInteger(value)
+        && !(schema['x-wire-integer'] && nonIntegerToken);
       if (type === 'number') return typeof value === 'number' && Number.isFinite(value);
       return typeof value === type;
     };
@@ -176,7 +177,7 @@
       if (!Object.hasOwn(files, local.readiness.live_results)) errors.push('E_CLOSURE: Unlocked readiness evidence.');
       if (local.loader.entrypoint !== manifest.agent || manifest.agents.length !== 1
           || !Object.hasOwn(files, local.loader.descriptor)
-          || !Object.hasOwn(files, local.loader.support + 'SCOTTY_CAPABILITY_LOCK.json')) errors.push('E_LOADER: Incomplete revision layout.');
+          || !Object.hasOwn(files, local.loader.support + '/SCOTTY_CAPABILITY_LOCK.json')) errors.push('E_LOADER: Incomplete revision layout.');
       if (!manifest.requires.includes('owned-files/1')) errors.push('E_UNSUPPORTED_REQUIREMENT: Local layout requires owned-files/1.');
     }
     return errors;
@@ -257,7 +258,7 @@
 
   async function validateMaterializer(manifest, files, lock) {
     const errors = [];
-    const prefix = manifest.local_docker.loader.support;
+    const prefix = manifest.local_docker.loader.support + '/';
     const definitions = documents['local-docker.schema.json'].$defs;
     const internal = prefix + 'deploy/local/components.lock.json';
     const publicHosts = new Set([
@@ -404,7 +405,7 @@
     }
     if (errors.length) return errors;
     const loader = values.loaderDescriptor;
-    const prefix = local.loader.support;
+    const prefix = local.loader.support + '/';
     if (loader.entrypoint_sha256 !== manifest.files[local.loader.entrypoint]
         || prefix !== 'singleton/scotty_support_' + loader.support_sha256 + '/'
         || manifest.agents.length !== 1) errors.push('E_LOADER: Descriptor and complete loader layout disagree.');

@@ -183,7 +183,7 @@ def test_synthetic_readiness_cannot_be_relabelled_as_live_success(sample):
 
 def test_support_member_digest_is_not_enough_if_inventory_differs(sample):
     manifest, files = sample
-    name = manifest["local_docker"]["loader"]["support"] + "agents/scotty_agent.py"
+    name = manifest["local_docker"]["loader"]["support"] + "/agents/scotty_agent.py"
     files[name] += b"\n# synthetic tampering fixture\n"
     manifest["files"][name] = hashlib.sha256(files[name]).hexdigest()
     result = browser({
@@ -197,7 +197,7 @@ def test_support_member_digest_is_not_enough_if_inventory_differs(sample):
 @pytest.mark.parametrize("spelling", ["decimal", "exponent"])
 def test_loader_integer_tokens_are_not_normalized_into_admissibility(sample, spelling):
     manifest, files = sample
-    old_prefix = manifest["local_docker"]["loader"]["support"]
+    old_prefix = manifest["local_docker"]["loader"]["support"] + "/"
     inventory = json.loads(files[old_prefix + "SCOTTY_CAPABILITY_LOCK.json"])
     length = inventory["files"][0]["bytes"]
     inventory["files"][0]["bytes"] = float(length)
@@ -212,7 +212,7 @@ def test_loader_integer_tokens_are_not_normalized_into_admissibility(sample, spe
     descriptor = json.loads(files["singleton/scotty_revision.json"])
     descriptor["support_sha256"] = revision
     files["singleton/scotty_revision.json"] = json.dumps(descriptor).encode()
-    manifest["local_docker"]["loader"]["support"] = prefix
+    manifest["local_docker"]["loader"]["support"] = prefix.rstrip("/")
     manifest["files"] = {name: hashlib.sha256(blob).hexdigest() for name, blob in files.items()}
     result = browser({
         "mode": "files", "manifest": manifest,

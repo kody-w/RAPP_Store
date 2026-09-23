@@ -21,7 +21,7 @@
         "contract": {"const": "scotty-revision-loader/1"},
         "entrypoint": {"const": "singleton/scotty_agent.py"},
         "descriptor": {"const": "singleton/scotty_revision.json"},
-        "support": {"type": "string", "pattern": "^singleton/scotty_support_[0-9a-f]{64}/$(?![\\s\\S])"}
+        "support": {"type": "string", "pattern": "^singleton/scotty_support_[0-9a-f]{64}$(?![\\s\\S])"}
       }
     },
     "intelligence": {
@@ -144,7 +144,7 @@
       "properties": {
         "url": {"$ref": "#/$defs/text"},
         "sha256": {"$ref": "#/$defs/sha256"},
-        "bytes": {"type": "integer", "minimum": 1, "maximum": 2147483648},
+        "bytes": {"type": "integer", "x-wire-integer": true, "minimum": 1, "maximum": 2147483648},
         "license": {"$ref": "#/$defs/text"}
       }
     },
@@ -155,7 +155,7 @@
         "path": {"$ref": "#/$defs/path"},
         "target": {"$ref": "#/$defs/path"},
         "sha256": {"$ref": "#/$defs/sha256"},
-        "bytes": {"type": "integer", "minimum": 0, "maximum": 4194304}
+        "bytes": {"type": "integer", "x-wire-integer": true, "minimum": 0, "maximum": 4194304}
       }
     },
     "recipeFiles": {
@@ -304,7 +304,7 @@
         "sha256": {"$ref": "#/$defs/sha256"},
         "sha512_hex": {"type": "string", "pattern": "^[0-9a-f]{128}$(?![\\s\\S])"},
         "integrity": {"type": "string", "pattern": "^sha512-[A-Za-z0-9+/]{86}==$(?![\\s\\S])"},
-        "bytes": {"type": ["integer", "null"], "minimum": 1, "maximum": 2147483648},
+        "bytes": {"type": ["integer", "null"], "x-wire-integer": true, "minimum": 1, "maximum": 2147483648},
         "optional": {"type": "boolean"},
         "cpu": {"anyOf": [{"$ref": "#/$defs/strings"}, {"type": "null"}]},
         "os": {"anyOf": [{"$ref": "#/$defs/strings"}, {"type": "null"}]},
@@ -544,7 +544,7 @@
             "required": ["path", "bytes", "sha256"],
             "properties": {
               "path": {"$ref": "#/$defs/path"},
-              "bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+              "bytes": {"type": "integer", "x-wire-integer": true, "minimum": 0, "maximum": 4194304},
               "sha256": {"$ref": "#/$defs/sha256"}
             }
           }

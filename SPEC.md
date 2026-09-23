@@ -997,9 +997,11 @@ collisions. Application metadata is generated, not trusted from an
 The 5 MiB package/20 MiB expanded-source limits remain separate from external
 component materialization, which is declared rather than bundled as images.
 
-Wire fields declared as integers must use JSON integer tokens, not decimal
-or exponent spellings. In particular, the unchanged revision loader reads
-the original inventory bytes and rejects floating-point file lengths.
+Byte-length fields marked `x-wire-integer` must use JSON integer tokens,
+not decimal or exponent spellings. The unchanged revision loader and
+materializer read the original locked bytes and reject floating-point
+file/artifact lengths. Other integer annotations use finite, integral,
+safe JSON-number semantics, excluding booleans.
 Browser wire preflight uses `RappStoreContract.parseJSON`, which retains this
 token distinction without modifying the declared data; an already-parsed
 JavaScript object alone cannot recover discarded numeric spelling.
@@ -1030,7 +1032,9 @@ the closed feature contract. It requires `schema: rapp-local-docker/1` and:
 - `component_lock`: locked public component/source/image inputs, platforms,
   dependencies/licenses and honest local build observations.
 - `loader`: `scotty-revision-loader/1` plus locked `entrypoint`, `descriptor`
-  and the complete content-named `support` subtree.
+  and the complete content-named `support` subtree. `support` is the canonical
+  relative directory path without a trailing slash; member resolution adds
+  the separator rather than accepting multiple path aliases.
 - `requirements_file`: explicit Python/current-Grail/Git/Docker/Compose/Buildx,
   host/guest architectures, resource observations and adopter login needs.
   Public image materialization uses Buildx/BuildKit, not the legacy builder;
