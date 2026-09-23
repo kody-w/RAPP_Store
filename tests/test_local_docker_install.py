@@ -1315,7 +1315,6 @@ def test_referenced_requirements_are_closed_and_typechecked(
             "additionalProperties": False,
             "default": {"extra": 1},
         },
-        {"type": "string", "pattern": "^(a+)+$", "default": "a" * 40 + "X"},
     ],
 )
 def test_nested_job_parameters_do_not_hide_unsupported_or_unbounded_defaults(
@@ -1327,6 +1326,36 @@ def test_nested_job_parameters_do_not_hide_unsupported_or_unbounded_defaults(
     change_document(app, "generated/job-contracts.json", change)
     with pytest.raises(package.PackageError, match="E_JOBS"):
         package.verify_closure(*app)
+
+
+@pytest.mark.parametrize("pattern", ["^safe$", "^(a+)+$", "["])
+@pytest.mark.parametrize("with_default", [False, True])
+def test_publisher_parameter_patterns_refuse_before_evaluation_or_device_effects(
+    app,
+    host,
+    monkeypatch,
+    pattern,
+    with_default,
+):
+    parameter = {"type": "string", "pattern": pattern}
+    if with_default:
+        parameter["default"] = "a" * 40 + "X"
+
+    def change(value):
+        value["jobs"][0]["input_schema"]["properties"]["argument"] = parameter
+
+    change_document(app, "generated/job-contracts.json", change)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("publisher pattern/default or device was evaluated")
+
+    monkeypatch.setattr(package, "_parameter_value", forbidden)
+    monkeypatch.setattr(package, "preflight_device", forbidden)
+    with pytest.raises(
+        package.PackageError, match="E_UNSUPPORTED_REQUIREMENT:.*pattern"
+    ):
+        install(app, host)
+    assert not (host / ".brainstem_data").exists()
 
 
 def test_template_declarations_are_inspectable_but_cannot_install_or_publish_hatchers(

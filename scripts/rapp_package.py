@@ -1253,7 +1253,6 @@ def _parameter(value, depth=0):
             "minItems",
             "maxItems",
             "uniqueItems",
-            "pattern",
             "format",
             "items",
             "properties",
@@ -1279,8 +1278,6 @@ def _parameter(value, depth=0):
             raise PackageError("E_JOBS: parameter numeric bounds must be finite")
     if "uniqueItems" in value and type(value["uniqueItems"]) is not bool:
         raise PackageError("E_JOBS: uniqueItems must be boolean")
-    if "pattern" in value and not isinstance(value["pattern"], str):
-        raise PackageError("E_JOBS: pattern must be text")
     if "format" in value:
         _enum(value["format"], {"uri", "url"}, "parameter format")
     if "additionalProperties" in value and value["additionalProperties"] is not False:
@@ -1350,60 +1347,17 @@ def _parameter_value(value, schema):
         return not schema.get("uniqueItems") or len(
             {_json_value_key(item) for item in value}
         ) == len(value)
-    if kind == "string":
-        if (
-            not schema.get("minLength", 0)
-            <= len(value)
-            <= schema.get("maxLength", MAX_DECLARATION_BYTES)
-        ):
-            return False
-        if "pattern" in schema:
-            if len(schema["pattern"]) > 256 or len(value) > 4096:
-                raise PackageError(
-                    "E_JOBS: patterned default exceeds the static validation bound"
-                )
-            _safe_default_pattern(schema["pattern"])
-            try:
-                if re.search(schema["pattern"], value) is None:
-                    return False
-            except re.error as exc:
-                raise PackageError("E_JOBS: malformed parameter pattern") from exc
+    if kind == "string" and not (
+        schema.get("minLength", 0)
+        <= len(value)
+        <= schema.get("maxLength", MAX_DECLARATION_BYTES)
+    ):
+        return False
     if kind in ("integer", "number"):
         return (
             schema.get("minimum", -math.inf) <= value <= schema.get("maximum", math.inf)
         )
     return True
-
-
-def _safe_default_pattern(pattern):
-    # A single repeated atom and no branches/groups/backreferences keep static
-    # default validation bounded without a subprocess or global signal handler.
-    in_class = escaped = False
-    repeats = 0
-    for character in pattern:
-        if escaped:
-            if character.isdigit():
-                raise PackageError(
-                    "E_JOBS: backreferences in patterned defaults are unsupported"
-                )
-            escaped = False
-        elif character == "\\":
-            escaped = True
-        elif character == "[" and not in_class:
-            in_class = True
-        elif character == "]" and in_class:
-            in_class = False
-        elif not in_class:
-            if character in "()|{}":
-                raise PackageError(
-                    "E_JOBS: complex patterned defaults require separate qualification"
-                )
-            if character in "*+?":
-                repeats += 1
-    if repeats > 1:
-        raise PackageError(
-            "E_JOBS: multiple repetitions in patterned defaults are unsupported"
-        )
 
 
 def _job_contracts(value):
