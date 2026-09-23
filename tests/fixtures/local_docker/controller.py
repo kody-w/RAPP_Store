@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 
+APPS = ("synthetic", "synthetic-helper")
+
 
 class LocalDock:
     def __init__(self, home, namespace, port_base):
@@ -60,10 +62,10 @@ class LocalDock:
             "name": "stop",
             "application": None,
             "namespace": self.namespace,
-            "scope": ["synthetic"],
+            "scope": list(APPS),
             "status": "succeeded",
             "result": {
-                "scope": ["synthetic"],
+                "scope": list(APPS),
                 "stopped": True,
                 "data_deleted": False,
                 "unrelated_projects_changed": [],

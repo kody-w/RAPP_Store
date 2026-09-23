@@ -3358,6 +3358,7 @@ def _binding_target(binding):
 
 
 def _bound_controller(home, m, files, sha, binding):
+    """Return the bound controller and its verified module's application scope."""
     import types
 
     _require_binding(binding)
@@ -3404,7 +3405,7 @@ def _bound_controller(home, m, files, sha, binding):
         raise PackageError(
             "E_LIFECYCLE_SCOPE: controller does not implement the exact bound lifecycle"
         )
-    return dock
+    return dock, getattr(controller_module, "APPS", None)
 
 
 def _resume_after_install(root, m, *, reactivate=False):
@@ -3429,7 +3430,7 @@ def _resume_after_install(root, m, *, reactivate=False):
                 limit=MAX_PACKAGE_BYTES,
             )
             installed, files = read_package(blob, receipt["package_sha256"])
-            dock = _bound_controller(
+            dock, _ = _bound_controller(
                 home, installed, files, receipt["package_sha256"], binding
             )
             result = dock.resume_after_installation()
@@ -3454,11 +3455,27 @@ def _resume_after_install(root, m, *, reactivate=False):
     )
 
 
+def _application_scope(value):
+    if (
+        not isinstance(value, (list, tuple))
+        or not value
+        or any(
+            not isinstance(name, str) or re.fullmatch(r"[a-z][a-z0-9-]*", name) is None
+            for name in value
+        )
+    ):
+        return None
+    scope = frozenset(value)
+    return scope if len(scope) == len(value) else None
+
+
 def _stop_local_docker(root, home, m, files, sha):
     """Explicit uninstall only: use the byte-verified controller, not shell hooks.
 
     The retained release permits safe recovery after partial source detachment.
     Its scoped controller shares the existing Dock admission/operation registry.
+    Its complete APPS export defines the required stop scope; both durable and
+    result scopes must match that set without invalid or duplicate identifiers.
     No executable lifecycle path is accepted from package metadata.
     """
     import time
@@ -3468,7 +3485,8 @@ def _stop_local_docker(root, home, m, files, sha):
         binding = _require_binding(
             installed.get("local_docker_binding") if installed else None
         )
-        dock = _bound_controller(home, m, files, sha, binding)
+        dock, applications = _bound_controller(home, m, files, sha, binding)
+        expected_scope = _application_scope(applications)
         fence = dock.pause_for_detach()
         if (
             not isinstance(fence, dict)
@@ -3483,6 +3501,10 @@ def _stop_local_docker(root, home, m, files, sha):
             "resume": dock.resume_after_installation,
             "binding": dict(binding),
         }
+        if expected_scope is None:
+            raise PackageError(
+                "E_DRAIN_STOP: verified controller application scope is invalid; all sources and layers retained"
+            )
         record = dock.lifecycle("stop", None, wait_seconds=10)
         deadline = time.monotonic() + 330
         while isinstance(record, dict) and record.get("status") in (
@@ -3510,8 +3532,9 @@ def _stop_local_docker(root, home, m, files, sha):
             or result.get("data_deleted") is not False
             or result.get("unrelated_projects_changed") != []
             or not isinstance(record.get("scope"), list)
-            or not record["scope"]
-            or result.get("scope") != record["scope"]
+            or _application_scope(record["scope"]) != expected_scope
+            or not isinstance(result.get("scope"), list)
+            or _application_scope(result["scope"]) != expected_scope
         ):
             raise PackageError(
                 "E_DRAIN_STOP: preserving stop was incomplete; all sources and layers retained"

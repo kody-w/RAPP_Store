@@ -2233,8 +2233,23 @@ def stopped_fixture(*args, **kwargs):
     }
 
 
-def test_real_controller_preserves_targeted_durable_detach_and_reactivation(
-    host, monkeypatch
+@pytest.mark.parametrize(
+    "publication_paused", [False, True], ids=["ordinary", "publication-paused"]
+)
+@pytest.mark.parametrize(
+    "scope_case",
+    [
+        "complete",
+        "reordered",
+        "proper-subset",
+        "duplicate",
+        "extra",
+        "invalid-identifier",
+        "non-string",
+    ],
+)
+def test_real_controller_detach_requires_complete_scope_and_targeted_reactivation(
+    host, monkeypatch, publication_paused, scope_case
 ):
     public_root = os.environ.get("RAPP_DOCK_PUBLIC_TEMPLATE_ROOT")
     controller_root = os.environ.get("RAPP_DOCK_CONTROLLER_TEST_ROOT")
@@ -2359,6 +2374,37 @@ def test_real_controller_preserves_targeted_durable_detach_and_reactivation(
         namespace=binding["namespace"],
         port_base=binding["port_base"],
     )
+    if publication_paused:
+        assert dock.quiesce(timeout=0)["quiesced"]
+    if scope_case != "complete":
+        operation_get = dock.ops.get
+
+        def changed_scope(operation_id):
+            record = operation_get(operation_id)
+            if not record or record.get("status") != "succeeded":
+                return record
+            record = copy.deepcopy(record)
+            scope = record["scope"]
+            assert set(scope) == set(controller.APPS)
+            if scope_case == "reordered":
+                record["result"]["scope"] = list(reversed(scope))
+                return record
+            changed = {
+                "proper-subset": scope[:-1],
+                "duplicate": scope + scope[:1],
+                "extra": scope + ["unrelated-app"],
+                "invalid-identifier": scope[:-1] + ["../not-an-app"],
+                "non-string": scope[:-1] + [{"application": scope[-1]}],
+            }[scope_case]
+            record["scope"] = changed
+            record["result"]["scope"] = list(changed)
+            return record
+
+        monkeypatch.setattr(dock.ops, "get", changed_scope)
+    for name in ("local_dock", "scotty_contract"):
+        ambient = ModuleType(name)
+        ambient.APPS = ("scrapling",)
+        monkeypatch.setitem(sys.modules, name, ambient)
     other_home = host.parent / "unrelated-controller-home"
     other = controller_type.for_installation(
         home=other_home, namespace="rapp-dock-tg", port_base=18600
@@ -2367,12 +2413,40 @@ def test_real_controller_preserves_targeted_durable_detach_and_reactivation(
     other.quiesce(timeout=0)
     sentinel = Path(binding["home"]) / "owned-output.bin"
     sentinel.write_bytes(b"synthetic owner output")
+    retained_data = {}
+    for name in ("application-state.bin", "identity.bin", "volume-state.bin"):
+        path = Path(binding["home"]) / name
+        path.write_bytes(("synthetic retained data: " + name).encode())
+        retained_data[path] = path.read_bytes()
+    before_sources = source_tree(host)
     detached = uninstall(candidate, host)
-    assert detached["status"] == "detached", detached
     assert not running["value"] and any(call[2:3] == ["stop"] for call in calls)
     assert dock.detach_status()["durable"] and dock.detach_status()["quiesced"]
     assert other.detach_status()["durable"] and other.runtime.quiescing
     assert sentinel.read_bytes() == b"synthetic owner output"
+    assert all(
+        path.read_bytes() == contents for path, contents in retained_data.items()
+    )
+    if scope_case not in ("complete", "reordered"):
+        assert detached["status"] == "retained", detached
+        assert detached["detached"] is False and detached["data_deleted"] is False
+        assert detached["source_removed"] == []
+        assert detached["error"].startswith("E_DRAIN_STOP:")
+        after_sources = source_tree(host)
+        assert before_sources.items() <= after_sources.items()
+        assert_layout(host, *candidate)
+        assert package._receipt(home / "installed.json") == receipt
+        assert (home / "pending.json").is_file()
+        assert dock.detach_status()["admission_paused"] is True
+        assert (
+            package._fences()[
+                (str(host), candidate[0]["publisher"], candidate[0]["id"])
+            ]["binding"]
+            == binding
+        )
+        dock.quiesce(timeout=2)
+        return
+    assert detached["status"] == "detached", detached
     assert not (host / "agents/scotty_agent.py").exists()
     # Lose the installer-only in-memory fence: reactivation must use its durable
     # transaction intent and exact verified receipt, not a global resume.
@@ -2381,11 +2455,14 @@ def test_real_controller_preserves_targeted_durable_detach_and_reactivation(
     )
     before = len(calls)
     reinstalled = install(candidate, host)
-    assert reinstalled["runtime_resume"] == "resumed-after-preserving-reinstall", (
-        reinstalled
+    assert reinstalled["runtime_resume"] == (
+        "paused-by-other-control"
+        if publication_paused
+        else "resumed-after-preserving-reinstall"
     )
     assert len(calls) == before
     assert dock.detach_status()["durable"] is False
+    assert dock.detach_status()["admission_paused"] is publication_paused
     assert other.detach_status()["durable"] and other.runtime.quiescing
     assert sentinel.read_bytes() == b"synthetic owner output"
     assert not any(
