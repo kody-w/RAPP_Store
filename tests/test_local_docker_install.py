@@ -73,36 +73,32 @@ def declarations():
     source = b"synthetic fixture source; never fetched or materialized"
     return {
         "components.lock.json": {
-            "schema": "rapp-local-components/1",
-            "mode": "locked",
-            "components": [
-                {
-                    "id": "scrapling",
-                    "source": {
-                        "url": "https://example.invalid/synthetic-source.tar.gz",
-                        "revision": "fixture-revision",
-                        "bytes": len(source),
-                        "sha256": package.digest(source),
-                    },
-                    "images": [
-                        {
-                            "role": "synthetic",
-                            "platform": "linux/arm64",
-                            "reference": "example.invalid/fixture@sha256:"
-                            + package.digest(source),
-                            "build_recipe": None,
-                            "observed_image_id": None,
-                        }
-                    ],
-                    "inputs": [],
-                    "dependencies": [],
-                    "licenses": {
-                        "status": "pending",
-                        "files": [],
-                        "note": "Synthetic test input; no real public component is claimed.",
-                    },
+            "schema": "rapp-dock-components/1",
+            "profile": {
+                "host": "darwin/arm64",
+                "docker_context": "desktop-linux",
+                "guest_platforms": ["linux/arm64"],
+                "amd64_emulation_required": False,
+                "assurance": "locked-public-inputs-and-local-image-observations-not-signed-builds",
+                "fresh_machine_acceptance": "pending",
+                "bit_identical_rebuilds_claimed": False,
+            },
+            "artifacts": {},
+            "input_sets": {},
+            "components": {
+                "scrapling": {
+                    "kind": "registry",
+                    "platform": "linux/arm64",
+                    "env": "RAPP_DOCK_IMAGE_SCRAPLING",
+                    "reference": "fixture@sha256:" + package.digest(source),
+                    "recipe": None,
+                    "observed_image_ids": [],
+                    "source": "Synthetic fixture; no registry fetch or image identity is claimed.",
+                    "license": "Synthetic test data only.",
+                    "blockers": [],
                 }
-            ],
+            },
+            "applications": {"scrapling": {"scrapling": "scrapling"}},
         },
         "generated/host-profiles.json": {
             "schema": "rapp-local-host-profiles/1",
@@ -194,9 +190,13 @@ def declarations():
 
 
 def local_application(bootstrap=AGENT, *, with_controller=False):
+    documents = declarations()
     support = {
         "agents/scotty_agent.py": AGENT,
         "assets/synthetic.txt": b"synthetic retained source\n",
+        "deploy/local/components.lock.json": package.canonical_json(
+            documents["components.lock.json"]
+        ),
     }
     if with_controller:
         support["agents/scotty_agent.py"] = (
@@ -226,10 +226,7 @@ def local_application(bootstrap=AGENT, *, with_controller=False):
         ),
         prefix + "SCOTTY_CAPABILITY_LOCK.json": lock_bytes,
         **{prefix + name: blob for name, blob in support.items()},
-        **{
-            name: package.canonical_json(value)
-            for name, value in declarations().items()
-        },
+        **{name: package.canonical_json(value) for name, value in documents.items()},
         "README.md": b"Synthetic installer fixture. This is not application acceptance.\n",
     }
     manifest = simple_manifest(files)
@@ -241,7 +238,7 @@ def local_application(bootstrap=AGENT, *, with_controller=False):
             "contract": package.LOADER_CONTRACT,
             "entrypoint": "singleton/scotty_agent.py",
             "descriptor": "singleton/scotty_revision.json",
-            "support": prefix,
+            "support": prefix.rstrip("/"),
         },
         "requirements_file": "generated/host-profiles.json",
         "jobs_file": "generated/job-contracts.json",
@@ -415,7 +412,7 @@ def test_fixed_concurrency_does_not_coerce_booleans_or_other_values(app, concurr
 def test_loader_byte_counts_remain_strict_even_for_integral_json_floats(app):
     manifest, files = app
     loader = manifest["local_docker"]["loader"]
-    old_prefix = loader["support"]
+    old_prefix = loader["support"] + "/"
     lock = json.loads(files[old_prefix + "SCOTTY_CAPABILITY_LOCK.json"])
     lock["files"][0]["bytes"] = float(lock["files"][0]["bytes"])
     encoded = package.canonical_json(lock)
@@ -431,7 +428,7 @@ def test_loader_byte_counts_remain_strict_even_for_integral_json_floats(app):
     descriptor = json.loads(updated[loader["descriptor"]])
     descriptor["support_sha256"] = revision
     updated[loader["descriptor"]] = package.canonical_json(descriptor)
-    loader["support"] = new_prefix
+    loader["support"] = new_prefix.rstrip("/")
     repin(manifest, updated)
     with pytest.raises(package.PackageError, match="E_LOADER_CLOSURE"):
         package.verify_closure(manifest, updated)
@@ -466,10 +463,6 @@ def test_contract_integers_refuse_bool_fractional_nonfinite_and_inexact_values(v
 @pytest.mark.parametrize(
     "document,change",
     [
-        (
-            "components.lock.json",
-            lambda value: value["components"][0]["source"].update(bytes=2.0),
-        ),
         (
             "generated/host-profiles.json",
             lambda value: value["profiles"][0]["reference_resources"].update(
@@ -524,8 +517,13 @@ def test_referenced_integer_fields_use_json_semantics(app, document, change):
     [
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(
-                bytes=package.MAX_SAFE_INTEGER + 1
+            lambda value: value["artifacts"].update(
+                bad={
+                    "url": "https://github.com/example/fixture",
+                    "sha256": "0" * 64,
+                    "bytes": package.MAX_SAFE_INTEGER + 1,
+                    "license": "synthetic",
+                }
             ),
         ),
         (
@@ -899,7 +897,7 @@ def test_nested_descriptor_and_lock_are_verified_not_just_outer_file_hashes(app)
 
 def test_unknown_support_files_are_refused_even_when_outer_package_is_repinned(app):
     m, files = app
-    files[m["local_docker"]["loader"]["support"] + "unlisted.py"] = (
+    files[m["local_docker"]["loader"]["support"] + "/unlisted.py"] = (
         b"raise AssertionError('must not execute')"
     )
     repin(m, files)
@@ -1092,7 +1090,168 @@ def change_document(app, name, transform):
     value = json.loads(app[1][name])
     transform(value)
     app[1][name] = package.canonical_json(value)
+    if name == app[0]["local_docker"]["component_lock"]:
+        rebind_support(app, {"deploy/local/components.lock.json": app[1][name]})
     repin(*app)
+
+
+def rebind_support(app, changed):
+    manifest, files = app
+    loader = manifest["local_docker"]["loader"]
+    prefix = loader["support"] + "/"
+    support = {
+        name[len(prefix) :]: contents
+        for name, contents in files.items()
+        if name.startswith(prefix) and name != prefix + "SCOTTY_CAPABILITY_LOCK.json"
+    }
+    for name, contents in changed.items():
+        if contents is None:
+            support.pop(name, None)
+        else:
+            support[name] = contents
+    inventory = {
+        "schema": "scotty-capability-files/1",
+        "grail_commit": package.GRAIL["commit"],
+        "files": [
+            {"path": name, "bytes": len(contents), "sha256": package.digest(contents)}
+            for name, contents in sorted(support.items())
+        ],
+    }
+    lock = package.canonical_json(inventory)
+    revision = package.digest(lock)
+    new_prefix = "singleton/scotty_support_" + revision + "/"
+    updated = {
+        name: contents
+        for name, contents in files.items()
+        if not name.startswith(prefix)
+    }
+    updated.update({new_prefix + name: contents for name, contents in support.items()})
+    updated[new_prefix + "SCOTTY_CAPABILITY_LOCK.json"] = lock
+    descriptor = json.loads(updated[loader["descriptor"]])
+    descriptor["support_sha256"] = revision
+    updated[loader["descriptor"]] = package.canonical_json(descriptor)
+    loader["support"] = new_prefix.rstrip("/")
+    files.clear()
+    files.update(updated)
+    repin(manifest, files)
+
+
+def dockerfile_component(app):
+    base = "python@sha256:" + "0" * 64
+    content = ("FROM " + base + "\nRUN true\n").encode()
+    path = "deploy/local/fixture/Dockerfile"
+    rebind_support(app, {path: content})
+
+    def change(value):
+        value["components"]["scrapling"].update(
+            kind="dockerfile",
+            reference=None,
+            observed_image_ids=["sha256:" + "1" * 64],
+            recipe={
+                "files": [
+                    {
+                        "path": path,
+                        "target": "Dockerfile",
+                        "bytes": len(content),
+                        "sha256": package.digest(content),
+                    }
+                ],
+                "bases": [base],
+                "artifacts": [],
+            },
+        )
+
+    change_document(app, "components.lock.json", change)
+    return path, content
+
+
+def test_native_lock_uses_scoped_files_not_outer_lookalikes(app):
+    path, content = dockerfile_component(app)
+    package.verify_closure(*app)
+    app[1][path] = content
+    rebind_support(app, {path: None})
+    with pytest.raises(package.PackageError, match="E_COMPONENTS"):
+        package.verify_closure(*app)
+
+
+def test_native_outer_lock_must_equal_actual_runtime_lock(app):
+    value = json.loads(app[1]["components.lock.json"])
+    value["components"]["scrapling"]["source"] = "changed outer description"
+    app[1]["components.lock.json"] = package.canonical_json(value)
+    repin(*app)
+    with pytest.raises(
+        package.PackageError, match="outer component declaration differs"
+    ):
+        package.verify_closure(*app)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["digest", "missing", "float-bytes", "base", "add", "duplicate-target"]
+)
+def test_native_recipe_closes_file_and_base_inputs(app, mutation):
+    path, content = dockerfile_component(app)
+
+    def change(value):
+        recipe = value["components"]["scrapling"]["recipe"]
+        if mutation == "digest":
+            recipe["files"][0]["sha256"] = "f" * 64
+        elif mutation == "missing":
+            recipe["files"][0]["path"] = "missing/Dockerfile"
+        elif mutation == "float-bytes":
+            recipe["files"][0]["bytes"] = float(recipe["files"][0]["bytes"])
+        elif mutation == "base":
+            recipe["bases"] = ["python:latest"]
+        elif mutation == "duplicate-target":
+            recipe["files"].append(dict(recipe["files"][0]))
+        else:
+            altered = content + b"ADD https://example.invalid/unlocked /app\n"
+            rebind_support(app, {path: altered})
+            recipe["files"][0].update(
+                bytes=len(altered), sha256=package.digest(altered)
+            )
+
+    change_document(app, "components.lock.json", change)
+    with pytest.raises(package.PackageError, match="E_COMPONENTS"):
+        package.verify_closure(*app)
+
+
+@pytest.mark.parametrize("kind", ["wheels", "npm"])
+def test_native_dependency_lengths_may_be_absent_but_digest_is_required(kind):
+    if kind == "wheels":
+        row = {
+            "filename": "fixture.whl",
+            "package": "fixture",
+            "version": "1.0",
+            "url": "https://files.pythonhosted.org/fixture.whl",
+            "sha256": "0" * 64,
+        }
+    else:
+        row = {
+            "package_path": "node_modules/fixture",
+            "version": "1.0",
+            "url": "https://registry.npmjs.org/fixture/-/fixture.tgz",
+            "sha512_hex": "0" * 128,
+            "integrity": "sha512-" + base64.b64encode(bytes(64)).decode(),
+        }
+    package._native_dependencies(package.canonical_json({"artifacts": [row]}), kind)
+    row["requires"] = ["unqualified-fetcher"]
+    with pytest.raises(package.PackageError, match="E_UNSUPPORTED_REQUIREMENT"):
+        package._native_dependencies(package.canonical_json({"artifacts": [row]}), kind)
+
+
+def test_real_public_native_component_lock_is_inertly_verifiable():
+    value = os.environ.get("RAPP_DOCK_PUBLIC_TEMPLATE_ROOT")
+    if not value:
+        pytest.skip("set RAPP_DOCK_PUBLIC_TEMPLATE_ROOT to the public-only T artifact")
+    root = Path(value)
+    files = package.application_files(root)
+    layout = package._json(files["generated/source-layout.json"])
+    prefix = layout["loader"]["support"].rstrip("/") + "/"
+    assert (
+        files["components.lock.json"]
+        == files[prefix + "deploy/local/components.lock.json"]
+    )
+    package._component_lock(package._json(files["components.lock.json"]), files, prefix)
 
 
 @pytest.mark.parametrize(
@@ -1105,65 +1264,68 @@ def change_document(app, name, transform):
         ("components.lock.json", lambda value: value.update(mode="mutable")),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(sha256=None),
+            lambda value: value["components"]["scrapling"].update(kind="unqualified"),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(bytes=True),
+            lambda value: value["components"]["scrapling"].update(env="DOCKER_HOST"),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(
-                url="https://user:secret@example.invalid/source"
+            lambda value: value["components"]["scrapling"].update(
+                reference="private.invalid/app@sha256:" + "0" * 64
             ),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(
-                url="https://localhost/source"
+            lambda value: value["profile"].update(docker_context="remote"),
+        ),
+        (
+            "components.lock.json",
+            lambda value: value["artifacts"].update(
+                bad={
+                    "url": "https://127.0.0.1/source",
+                    "sha256": "0" * 64,
+                    "bytes": 1,
+                    "license": "synthetic",
+                }
             ),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(
-                url="https://127.0.0.1/source"
-            ),
+            lambda value: value["profile"].update(required_authority="unsupported"),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(
-                url="https://example.invalid/source?credential=value"
-            ),
-        ),
-        (
-            "components.lock.json",
-            lambda value: value["components"][0]["images"][0].update(
+            lambda value: value["components"]["scrapling"].update(
                 reference="fixture:latest"
             ),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["images"][0].update(reference=None),
+            lambda value: value["components"]["scrapling"].update(reference=None),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["images"][0].update(
-                build_recipe="unlocked/Dockerfile"
+            lambda value: value["components"]["scrapling"].update(
+                recipe={"unlocked": "Dockerfile"}
             ),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0].update(dependencies=["missing"]),
-        ),
-        (
-            "components.lock.json",
-            lambda value: value["components"][0].update(dependencies=["scrapling"]),
-        ),
-        (
-            "components.lock.json",
-            lambda value: value["components"][0]["licenses"].update(
-                files=["unlocked/LICENSE"]
+            lambda value: value["applications"]["scrapling"].update(
+                scrapling="missing"
             ),
+        ),
+        (
+            "components.lock.json",
+            lambda value: value["components"].update(
+                other=copy.deepcopy(value["components"]["scrapling"])
+            ),
+        ),
+        (
+            "components.lock.json",
+            lambda value: value["components"]["scrapling"].update(license={}),
         ),
         (
             "generated/host-profiles.json",
@@ -1362,9 +1524,13 @@ def test_template_declarations_are_inspectable_but_cannot_install_or_publish_hat
     app, host, tmp_path
 ):
     def template(value):
-        value["mode"] = "template"
-        value["components"][0]["source"].update(revision=None, bytes=None, sha256=None)
-        value["components"][0]["images"][0]["reference"] = None
+        value["components"]["scrapling"].update(
+            kind="blocked-build",
+            reference=None,
+            recipe=None,
+            observed_image_ids=[],
+            blockers=["Synthetic authoring fixture; no public build is claimed."],
+        )
 
     change_document(app, "components.lock.json", template)
     package.verify_closure(*app)
@@ -1656,16 +1822,23 @@ def test_python_and_integrating_browser_agree_on_closed_local_declarations(
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(sha256=None),
+            lambda value: value["components"]["scrapling"].update(reference=None),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0].update(dependencies=["missing"]),
+            lambda value: value["applications"]["scrapling"].update(
+                scrapling="missing"
+            ),
         ),
         (
             "components.lock.json",
-            lambda value: value["components"][0]["source"].update(
-                url="https://127.0.0.1/source"
+            lambda value: value["artifacts"].update(
+                bad={
+                    "url": "https://127.0.0.1/source",
+                    "sha256": "0" * 64,
+                    "bytes": 1,
+                    "license": "synthetic",
+                }
             ),
         ),
         (

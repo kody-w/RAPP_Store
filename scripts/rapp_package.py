@@ -8,6 +8,7 @@ device. These cartridges are Store installers, not canonical RAPP/1 eggs.
 from __future__ import annotations
 
 import ast
+import base64
 import contextlib
 import ctypes
 import errno
@@ -89,6 +90,24 @@ READINESS_STATUSES = frozenset(
 MAX_DECLARATION_BYTES = 256 * 1024
 MAX_RECORD_BYTES = 1024 * 1024
 MAX_SAFE_INTEGER = (1 << 53) - 1
+MAX_PUBLIC_INPUT_BYTES = 2 * 1024 * 1024 * 1024
+PUBLIC_INPUT_HOSTS = frozenset(
+    {
+        "github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+        "raw.githubusercontent.com",
+        "files.pythonhosted.org",
+        "registry.npmjs.org",
+        "deb.debian.org",
+        "huggingface.co",
+        "cdn-lfs.huggingface.co",
+        "cdn-lfs-us-1.huggingface.co",
+        "cas-bridge.xethub.hf.co",
+        "download-r2.pytorch.org",
+    }
+)
 RETAINED = [
     "application-state",
     "release-history",
@@ -615,7 +634,7 @@ def _validate_local_docker(m):
         or loader["entrypoint"] != "singleton/scotty_agent.py"
         or loader["descriptor"] != "singleton/scotty_revision.json"
         or not isinstance(loader["support"], str)
-        or re.fullmatch(r"singleton/scotty_support_[0-9a-f]{64}/", loader["support"])
+        or re.fullmatch(r"singleton/scotty_support_[0-9a-f]{64}", loader["support"])
         is None
         or m["agents"] != [loader["entrypoint"]]
         or m["agent"] != loader["entrypoint"]
@@ -642,7 +661,7 @@ def _validate_local_docker(m):
     for name in ("entrypoint", "descriptor"):
         if loader[name] not in m["files"]:
             raise PackageError("E_LOADER_CLOSURE: missing pinned " + name)
-    if loader["support"] + "SCOTTY_CAPABILITY_LOCK.json" not in m["files"]:
+    if loader["support"] + "/SCOTTY_CAPABILITY_LOCK.json" not in m["files"]:
         raise PackageError("E_LOADER_CLOSURE: missing pinned support manifest")
     intelligence = local["intelligence"]
     _object(
@@ -960,7 +979,7 @@ def _verify_loader(m, files):
         raise PackageError(
             "E_LOADER_BINDING: descriptor does not bind this bootstrap and support"
         )
-    prefix = loader["support"]
+    prefix = loader["support"] + "/"
     lock_name = prefix + "SCOTTY_CAPABILITY_LOCK.json"
     if digest(files[lock_name]) != revision:
         raise PackageError(
@@ -1015,7 +1034,12 @@ def _verify_local_declarations(m, files):
         if len(files[path]) > MAX_DECLARATION_BYTES:
             raise PackageError("E_LOCAL_DOCKER: referenced declaration exceeds 256 KiB")
         documents[field] = _json(files[path])
-    _component_lock(documents["componentLock"], m["files"])
+    scoped_lock = local["loader"]["support"] + "/deploy/local/components.lock.json"
+    if scoped_lock not in files or files[local["component_lock"]] != files[scoped_lock]:
+        raise PackageError(
+            "E_COMPONENTS: outer component declaration differs from the scoped runtime lock"
+        )
+    _component_lock(documents["componentLock"], files, local["loader"]["support"] + "/")
     _host_profiles(documents["hostProfiles"])
     _job_contracts(documents["jobContracts"])
     _state_lifecycle(documents["stateLifecycle"])
@@ -1024,134 +1048,463 @@ def _verify_local_declarations(m, files):
     return documents
 
 
-def _public_input(value, *, locked):
-    _object(value, ("url", "revision", "bytes", "sha256"))
-    _text(value["url"], "source URL")
+def _native_url(value):
+    _text(value, "public input URL")
     try:
-        url = urlsplit(value["url"])
-        host = (url.hostname or "").lower()
+        url = urlsplit(value)
         if (
             url.scheme != "https"
-            or not host
+            or url.hostname not in PUBLIC_INPUT_HOSTS
             or url.username is not None
             or url.password is not None
-            or url.query
             or url.fragment
-            or url.port is not None
-            or any(c.isspace() for c in value["url"])
-            or "@" in value["url"]
-            or host == "localhost"
-            or host.startswith("[")
-            or re.match(r"^[0-9]+(?:\.|$)", host)
-            or ":" in host
-            or host.endswith((".localhost", ".local", ".internal"))
+            or url.port not in (None, 443)
+            or any(ord(c) < 32 or ord(c) == 127 for c in value)
         ):
             raise ValueError("not public HTTPS")
     except ValueError as exc:
         raise PackageError(
-            "E_COMPONENTS: source inputs require credential-free public HTTPS URLs"
+            "E_COMPONENTS: input URL is outside the qualified anonymous HTTPS sources"
         ) from exc
-    if value["revision"] is not None:
-        _text(value["revision"], "source revision")
-    if value["bytes"] is not None and (
-        not _integer(value["bytes"]) or value["bytes"] < 1
-    ):
-        raise PackageError(
-            "E_COMPONENTS: source length must be a positive integer or null"
-        )
-    if value["sha256"] is not None and not _sha(value["sha256"]):
-        raise PackageError("E_COMPONENTS: invalid source digest")
-    if locked and any(
-        value[field] is None for field in ("revision", "bytes", "sha256")
-    ):
-        raise PackageError(
-            "E_COMPONENTS: locked source inputs require complete immutable pins"
-        )
 
 
-def _component_lock(value, files):
-    _object(value, ("schema", "mode", "components"))
-    if value["schema"] != "rapp-local-components/1":
-        raise PackageError("E_COMPONENTS: unsupported component lock")
-    _enum(value["mode"], {"template", "locked"}, "component lock mode")
-    _list(value["components"], "components", 1, 32)
-    by_id = {}
-    for component in value["components"]:
-        _object(
-            component, ("id", "source", "images", "inputs", "dependencies", "licenses")
+def _registry_reference(value):
+    if (
+        not isinstance(value, str)
+        or re.fullmatch(r"[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}", value) is None
+    ):
+        raise PackageError(
+            "E_COMPONENTS: registry image requires an immutable OCI digest"
         )
-        name = component["id"]
+    repository = value.split("@", 1)[0]
+    first = repository.split("/", 1)[0]
+    if (
+        "/" in repository
+        and ("." in first or ":" in first or first == "localhost")
+        and first not in {"ghcr.io", "docker.io", "registry-1.docker.io"}
+    ):
+        raise PackageError("E_COMPONENTS: unqualified registry")
+
+
+def _native_path(value):
+    path = relative_path(value)
+    if any(
+        part.lower() in {"secrets", "credentials"} for part in path.parts
+    ) or value.lower().endswith((".key", ".pem", "copilot.env", "credentials.json")):
+        raise PackageError("E_PATH: private custody is not a public build input")
+    return value
+
+
+def _native_artifact(value):
+    _object(value, ("url", "sha256", "bytes", "license"))
+    _native_url(value["url"])
+    if (
+        not _sha(value["sha256"])
+        or type(value["bytes"]) is not int
+        or not 1 <= value["bytes"] <= MAX_PUBLIC_INPUT_BYTES
+    ):
+        raise PackageError("E_COMPONENTS: invalid public artifact commitment")
+    _text(value["license"], "artifact license")
+
+
+def _native_files(rows, files, prefix):
+    _list(rows, "pinned recipe files", 1, 64)
+    selected = {}
+    for row in rows:
+        _object(row, ("path", "target", "bytes", "sha256"))
+        path, target = _native_path(row["path"]), _native_path(row["target"])
+        outer = prefix + path
         if (
-            not isinstance(name, str)
-            or re.fullmatch(r"[a-z][a-z0-9-]*", name) is None
-            or name in by_id
+            outer not in files
+            or type(row["bytes"]) is not int
+            or not 0 <= row["bytes"] <= MAX_SUPPORT_FILE_BYTES
+            or not _sha(row["sha256"])
+            or row["bytes"] != len(files[outer])
+            or row["sha256"] != digest(files[outer])
+            or target.casefold() in {name.casefold() for name in selected}
         ):
-            raise PackageError("E_COMPONENTS: invalid or duplicate component identity")
-        by_id[name] = component
-        _list(component["inputs"], "component inputs")
-        for source in [component["source"], *component["inputs"]]:
-            _public_input(source, locked=value["mode"] == "locked")
-        _strings(component["dependencies"], "component dependencies")
-        _list(component["images"], "component images", 1, 32)
-        for image in component["images"]:
-            _object(
-                image,
-                ("role", "platform", "reference", "build_recipe", "observed_image_id"),
+            raise PackageError(
+                "E_COMPONENTS: missing, changed or colliding scoped build input"
             )
-            _text(image["role"], "image role")
-            _enum(
-                image["platform"],
-                {"linux/arm64", "linux/amd64"},
-                "guest image platform",
-            )
-            reference = image["reference"]
-            if reference is not None and (
-                not isinstance(reference, str)
-                or re.fullmatch(r"[^\s@]+@sha256:[0-9a-f]{64}", reference) is None
-            ):
-                raise PackageError("E_COMPONENTS: registry images require digest pins")
-            recipe = image["build_recipe"]
-            if recipe is not None:
-                relative_path(recipe)
-                if recipe not in files:
-                    raise PackageError("E_CLOSURE: image build recipe is not pinned")
-            observed = image["observed_image_id"]
-            if observed is not None and (
-                not isinstance(observed, str)
-                or re.fullmatch(r"sha256:[0-9a-f]{64}", observed) is None
-            ):
-                raise PackageError("E_COMPONENTS: invalid observed local image ID")
-            if value["mode"] == "locked" and reference is None and recipe is None:
+        selected[target] = files[outer]
+    return selected
+
+
+def _compact_json(value):
+    return (
+        json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+    ).encode()
+
+
+def _native_dependencies(blob, kind):
+    document = _json(blob)
+    optional = {
+        "wheels": ("resolver", "resolver_lock_sha256", "source_commit", "target"),
+        "system": ("architecture", "package_index_observations", "role", "verified_by"),
+        "models": ("nas_files_written", "paid_calls", "source"),
+        "npm": (
+            "application",
+            "artifact_count",
+            "build_base_libc",
+            "intended_platform",
+            "lockfile",
+            "lockfile_sha256",
+            "selection",
+            "service",
+            "source_commit",
+            "target",
+        ),
+    }
+    _object(document, ("artifacts",), optional[kind])
+    _list(document["artifacts"], "public dependencies", 1, 1024)
+    for key, value in document.items():
+        if key == "artifacts":
+            continue
+        if key in ("resolver_lock_sha256", "lockfile_sha256"):
+            if not _sha(value):
                 raise PackageError(
-                    "E_COMPONENTS: locked image requires a digest or a pinned build recipe"
+                    "E_COMPONENTS: invalid dependency inventory commitment"
                 )
-        licenses = component["licenses"]
-        _object(licenses, ("status", "files", "note"))
-        _enum(licenses["status"], {"pending", "reviewed"}, "license review")
-        _text(licenses["note"], "license note")
-        _strings(licenses["files"], "license files")
-        for path in licenses["files"]:
-            relative_path(path)
-            if path not in files:
-                raise PackageError("E_CLOSURE: license input is not pinned")
-    for name, component in by_id.items():
-        if any(dep not in by_id or dep == name for dep in component["dependencies"]):
-            raise PackageError("E_COMPONENTS: unresolved component dependency")
-    active, visited = set(), set()
+        elif key == "source_commit":
+            if (
+                not isinstance(value, str)
+                or re.fullmatch(r"[0-9a-f]{40}", value) is None
+            ):
+                raise PackageError("E_COMPONENTS: invalid dependency source revision")
+        elif key in ("artifact_count", "paid_calls"):
+            if (
+                type(value) is not int
+                or value < 0
+                or key == "artifact_count"
+                and value != len(document["artifacts"])
+            ):
+                raise PackageError("E_COMPONENTS: invalid dependency observation count")
+        elif key == "nas_files_written":
+            if type(value) is not bool:
+                raise PackageError("E_COMPONENTS: invalid historical input observation")
+        elif key == "package_index_observations":
+            _list(value, "package index observations", 0, 64)
+            for observation in value:
+                _object(observation, ("file", "sha256"))
+                _native_path(observation["file"])
+                if not _sha(observation["sha256"]):
+                    raise PackageError("E_COMPONENTS: unpinned package index")
+        else:
+            _text(value, "dependency provenance")
+    fields = {
+        "wheels": (("filename", "package", "sha256", "url", "version"), ("bytes",)),
+        "system": (
+            (
+                "architecture",
+                "bytes",
+                "filename",
+                "package",
+                "sha256",
+                "url",
+                "version",
+            ),
+            (),
+        ),
+        "models": (("path", "sha256", "url"), ("bytes",)),
+        "npm": (
+            ("integrity", "package_path", "sha512_hex", "url", "version"),
+            ("bytes", "cpu", "libc", "optional", "os"),
+        ),
+    }
+    for row in document["artifacts"]:
+        _object(row, *fields[kind])
+        _native_url(row["url"])
+        if kind == "npm":
+            sha = row["sha512_hex"]
+            if (
+                not isinstance(sha, str)
+                or re.fullmatch(r"[0-9a-f]{128}", sha) is None
+                or row["integrity"]
+                != "sha512-" + base64.b64encode(bytes.fromhex(sha)).decode()
+            ):
+                raise PackageError("E_COMPONENTS: invalid npm integrity commitment")
+            _native_path(row["package_path"])
+        else:
+            if not _sha(row["sha256"]):
+                raise PackageError("E_COMPONENTS: unpinned public dependency")
+            _native_path(row["path" if kind == "models" else "filename"])
+        if row.get("bytes") is not None and (
+            type(row["bytes"]) is not int
+            or not 1 <= row["bytes"] <= MAX_PUBLIC_INPUT_BYTES
+        ):
+            raise PackageError("E_COMPONENTS: invalid dependency size")
+        for key in ("cpu", "libc", "os"):
+            if key in row and row[key] is not None:
+                _strings(row[key], "optional dependency platform")
+        if "optional" in row and type(row["optional"]) is not bool:
+            raise PackageError("E_COMPONENTS: optional dependency flag must be boolean")
+        for key in ("package", "version", "architecture"):
+            if key in row:
+                _text(row[key], "dependency identity")
 
-    def visit(name):
-        if name in active:
-            raise PackageError("E_COMPONENTS: cyclic component dependencies")
-        if name in visited:
-            return
-        active.add(name)
-        for dependency in by_id[name]["dependencies"]:
-            visit(dependency)
-        active.remove(name)
-        visited.add(name)
 
-    for name in by_id:
-        visit(name)
+def _component_lock(value, files, prefix):
+    _object(
+        value,
+        ("schema", "profile", "artifacts", "components", "applications"),
+        ("input_sets",),
+    )
+    if value["schema"] != "rapp-dock-components/1":
+        raise PackageError("E_COMPONENTS: unsupported component lock")
+    profile = value["profile"]
+    _object(
+        profile,
+        (
+            "host",
+            "docker_context",
+            "guest_platforms",
+            "amd64_emulation_required",
+            "assurance",
+            "fresh_machine_acceptance",
+            "bit_identical_rebuilds_claimed",
+        ),
+    )
+    if (
+        profile["host"] != "darwin/arm64"
+        or profile["docker_context"] != "desktop-linux"
+        or type(profile["amd64_emulation_required"]) is not bool
+        or profile["bit_identical_rebuilds_claimed"] is not False
+        or profile["assurance"]
+        != "locked-public-inputs-and-local-image-observations-not-signed-builds"
+        or profile["fresh_machine_acceptance"] != "pending"
+    ):
+        raise PackageError(
+            "E_COMPONENTS: unsupported or overstated native host profile"
+        )
+    _strings(profile["guest_platforms"], "native guest platforms")
+    if not profile["guest_platforms"] or set(profile["guest_platforms"]) - {
+        "linux/amd64",
+        "linux/arm64",
+    }:
+        raise PackageError("E_COMPONENTS: unsupported native guest platform")
+    for name, limit, minimum in (
+        ("artifacts", 64, 0),
+        ("components", 64, 1),
+        ("applications", 6, 1),
+        ("input_sets", 16, 0),
+    ):
+        selected = value.get(name, {})
+        if not isinstance(selected, dict) or not minimum <= len(selected) <= limit:
+            raise PackageError(
+                "E_COMPONENTS: invalid or excessive native declaration map"
+            )
+        for identifier in selected:
+            pattern = (
+                r"[a-z][a-z0-9._-]{0,127}"
+                if name == "artifacts"
+                else r"[a-z][a-z0-9-]{0,63}"
+            )
+            if (
+                not isinstance(identifier, str)
+                or re.fullmatch(pattern, identifier) is None
+            ):
+                raise PackageError("E_COMPONENTS: invalid native identity")
+    for artifact in value["artifacts"].values():
+        _native_artifact(artifact)
+    groups = {}
+    for name, group in value.get("input_sets", {}).items():
+        _object(group, ("source", "files", "dependencies"))
+        _native_artifact(group["source"])
+        selected = _native_files(group["files"], files, prefix)
+        _list(group["dependencies"], "input-set dependencies", 0, 16)
+        for dependency in group["dependencies"]:
+            _object(dependency, ("role", "manifest", "kind", "target"))
+            _enum(
+                dependency["role"],
+                {"backend", "frontend", "renderer"},
+                "input-set role",
+            )
+            _enum(
+                dependency["kind"],
+                {"npm", "wheels", "system", "models"},
+                "dependency inventory kind",
+            )
+            _native_path(dependency["target"])
+            if (
+                not isinstance(dependency["manifest"], str)
+                or dependency["manifest"] not in selected
+            ):
+                raise PackageError(
+                    "E_COMPONENTS: dependency inventory is outside its verified helper snapshot"
+                )
+            _native_dependencies(selected[dependency["manifest"]], dependency["kind"])
+        groups[name] = selected
+    environments = set()
+    for component in value["components"].values():
+        _object(
+            component,
+            (
+                "kind",
+                "platform",
+                "env",
+                "reference",
+                "recipe",
+                "observed_image_ids",
+                "source",
+                "license",
+                "blockers",
+            ),
+        )
+        _enum(
+            component["kind"],
+            {"registry", "dockerfile", "openshorts-offline", "blocked-build"},
+            "native component kind",
+        )
+        _enum(
+            component["platform"],
+            {"linux/amd64", "linux/arm64"},
+            "native component platform",
+        )
+        if (
+            component["platform"] not in profile["guest_platforms"]
+            or component["platform"] == "linux/amd64"
+            and not profile["amd64_emulation_required"]
+        ):
+            raise PackageError(
+                "E_COMPONENTS: required guest/emulation was omitted from the profile"
+            )
+        if (
+            not isinstance(component["env"], str)
+            or re.fullmatch(r"RAPP_DOCK_IMAGE_[A-Z0-9_]+", component["env"]) is None
+            or component["env"] in environments
+        ):
+            raise PackageError(
+                "E_COMPONENTS: invalid or duplicate component environment"
+            )
+        environments.add(component["env"])
+        for field in ("source", "license"):
+            _text(component[field], "component provenance")
+        _strings(component["blockers"], "component blockers")
+        _strings(component["observed_image_ids"], "observed local image IDs")
+        if any(
+            re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
+            for item in component["observed_image_ids"]
+        ):
+            raise PackageError("E_COMPONENTS: invalid observed local image ID")
+        kind, recipe = component["kind"], component["recipe"]
+        if kind == "registry":
+            _registry_reference(component["reference"])
+            if recipe is not None or component["observed_image_ids"]:
+                raise PackageError(
+                    "E_COMPONENTS: registry identity is not a derived local build"
+                )
+        elif component["reference"] is not None:
+            raise PackageError(
+                "E_COMPONENTS: derived images are not fabricated registry artifacts"
+            )
+        if kind == "blocked-build":
+            if (
+                recipe is not None
+                or component["observed_image_ids"]
+                or not component["blockers"]
+            ):
+                raise PackageError(
+                    "E_COMPONENTS: an authoring placeholder needs an explicit build blocker"
+                )
+        elif kind == "dockerfile":
+            _object(recipe, ("files", "bases", "artifacts"))
+            selected = _native_files(recipe["files"], files, prefix)
+            if "Dockerfile" not in selected:
+                raise PackageError("E_COMPONENTS: missing locked Dockerfile")
+            _list(recipe["bases"], "build base images", 1, 64)
+            for reference in recipe["bases"]:
+                _registry_reference(reference)
+            try:
+                text = selected["Dockerfile"].decode("utf-8")
+            except UnicodeError as exc:
+                raise PackageError("E_COMPONENTS: invalid Dockerfile encoding") from exc
+            bases = []
+            forbidden = False
+            for line in text.splitlines():
+                words = line.split()
+                if (
+                    line[:4].upper() == "FROM"
+                    and len(words) > 1
+                    and words[0].upper() == "FROM"
+                ):
+                    bases.append(words[1])
+                stripped = line.lstrip(" \t")
+                forbidden |= bool(words and words[0].upper() == "ADD")
+                forbidden |= stripped.startswith("#") and stripped[1:].lstrip(
+                    " \t"
+                ).lower().startswith("syntax=")
+            if bases != recipe["bases"] or forbidden:
+                raise PackageError("E_COMPONENTS: unlocked Dockerfile input")
+            _list(recipe["artifacts"], "recipe artifacts", 0, 64)
+            targets = {target.casefold() for target in selected}
+            for artifact in recipe["artifacts"]:
+                _object(artifact, ("artifact", "member", "target"))
+                if (
+                    not isinstance(artifact["artifact"], str)
+                    or artifact["artifact"] not in value["artifacts"]
+                ):
+                    raise PackageError("E_COMPONENTS: undeclared recipe archive")
+                target = _native_path(artifact["target"])
+                if target.casefold() in targets:
+                    raise PackageError("E_COMPONENTS: colliding archive build target")
+                targets.add(target.casefold())
+                if artifact["member"] is not None:
+                    _native_path(artifact["member"])
+        elif kind == "openshorts-offline":
+            _object(
+                recipe,
+                ("role", "input_set", "input_set_sha256", "dockerfile_sha256", "bases"),
+            )
+            _enum(
+                recipe["role"], {"backend", "frontend", "renderer"}, "OpenShorts role"
+            )
+            group = (
+                value.get("input_sets", {}).get(recipe["input_set"])
+                if isinstance(recipe["input_set"], str)
+                else None
+            )
+            if (
+                component["platform"] != "linux/amd64"
+                or group is None
+                or not _sha(recipe["input_set_sha256"])
+                or digest(_compact_json(group)) != recipe["input_set_sha256"]
+                or not _sha(recipe["dockerfile_sha256"])
+            ):
+                raise PackageError(
+                    "E_COMPONENTS: missing or changed OpenShorts input-set commitment"
+                )
+            _list(recipe["bases"], "OpenShorts bases", 1, 64)
+            for reference in recipe["bases"]:
+                _registry_reference(reference)
+            if recipe["role"] == "backend":
+                dockerfile = groups[recipe["input_set"]].get(
+                    "qualification/Dockerfile.backend-offline"
+                )
+                if (
+                    dockerfile is None
+                    or digest(dockerfile) != recipe["dockerfile_sha256"]
+                ):
+                    raise PackageError(
+                        "E_COMPONENTS: changed OpenShorts backend Dockerfile"
+                    )
+            # Frontend/renderer are deterministic transformations of these pinned
+            # inputs. The verified materializer rechecks their generated digests
+            # at explicit build time; admission never executes publisher code.
+    for app, services in value["applications"].items():
+        if (
+            app not in LOCAL_APPS
+            or not isinstance(services, dict)
+            or not 1 <= len(services) <= 64
+        ):
+            raise PackageError("E_COMPONENTS: invalid application/service map")
+        for name, component in services.items():
+            if (
+                not isinstance(name, str)
+                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", name) is None
+                or not isinstance(component, str)
+                or component not in value["components"]
+            ):
+                raise PackageError("E_COMPONENTS: unresolved application component")
 
 
 def _host_profiles(value):
@@ -1511,9 +1864,7 @@ def _readiness_evidence(value):
 
 def _crosscheck_declarations(m, documents):
     local = m["local_docker"]
-    component_ids = {
-        component["id"] for component in documents["componentLock"]["components"]
-    }
+    component_ids = set(documents["componentLock"]["applications"])
     jobs = {job["id"]: job for job in documents["jobContracts"]["jobs"]}
     for job in jobs.values():
         if job["application"] not in component_ids or not job["id"].startswith(
@@ -1548,7 +1899,13 @@ def _crosscheck_declarations(m, documents):
             raise PackageError(
                 "E_STATE: unqualified recreation must retain container layers"
             )
-    if documents["componentLock"]["mode"] == "template" or evidence["synthetic"]:
+    if (
+        any(
+            component["kind"] == "blocked-build"
+            for component in documents["componentLock"]["components"].values()
+        )
+        or evidence["synthetic"]
+    ):
         if (
             readiness["candidate"] != "experimental"
             or readiness["fresh_install"] != "pending"
@@ -1583,9 +1940,12 @@ def require_installable(m, files):
     verify_closure(m, files)
     if _local(m):
         documents = _verify_local_declarations(m, files)
-        if documents["componentLock"]["mode"] != "locked":
+        if any(
+            component["kind"] == "blocked-build"
+            for component in documents["componentLock"]["components"].values()
+        ):
             raise PackageError(
-                "E_COMPONENTS_TEMPLATE: template input pins are not installable; use a locked candidate"
+                "E_COMPONENTS_TEMPLATE: blocked-build placeholders are not installable"
             )
         return documents
     return None
@@ -2142,7 +2502,7 @@ def _source_layout(m, files):
         return {PurePosixPath(name).name: files[name] for name in m["agents"]}
     loader = m["local_docker"]["loader"]
     names = [loader["entrypoint"], loader["descriptor"]]
-    names.extend(name for name in files if name.startswith(loader["support"]))
+    names.extend(name for name in files if name.startswith(loader["support"] + "/"))
     return {name[len("singleton/") :]: files[name] for name in names}
 
 
