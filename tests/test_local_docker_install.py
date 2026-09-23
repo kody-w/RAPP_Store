@@ -2397,6 +2397,18 @@ def test_detach_refuses_changed_or_extra_owned_sources_before_stop(
 
 
 def real_bootstrap_fixture():
+    store_entrypoint = os.environ.get("RAPP_SCOTTY_STORE_ENTRYPOINT")
+    if store_entrypoint:
+        path = Path(store_entrypoint)
+        if ".brainstem" in path.parts:
+            pytest.fail("never use a live installed entrypoint as fixture input")
+        source = package._read_regular(path)
+        assert (
+            package.digest(source)
+            == "586627ce417774dd06cb487e012729e6cd68a988733391960cac1b44c98f878d"
+        )
+        package._portable_agent(ast.parse(source), path.name)
+        return source
     value = os.environ.get("RAPP_SCOTTY_TEST_BOOTSTRAP")
     if not value:
         pytest.skip(
@@ -2484,6 +2496,9 @@ def test_generated_hatcher_in_isolated_exact_grail_loads_one_scotty_and_reinstal
         "RAPP_INSTALL_TEST_STATE": str(state),
         "RAPP_DOCK_HOME": str(state),
         "RAPP_DOCK_NAMESPACE": "rapp-dock-th",
+        "S2_BOOTSTRAP_MODE": "actual-first-store-delegate-586627ce"
+        if os.environ.get("RAPP_SCOTTY_STORE_ENTRYPOINT")
+        else "real-loader-body-with-fixture-delegate",
     }
     docker = shutil.which("docker")
     if docker:
@@ -2530,3 +2545,4 @@ def test_generated_hatcher_in_isolated_exact_grail_loads_one_scotty_and_reinstal
         for call in proof["docker_commands"]
     )
     assert proof["buildx_probe"] == "fixture-only-not-live"
+    assert proof["bootstrap"] == env["S2_BOOTSTRAP_MODE"]

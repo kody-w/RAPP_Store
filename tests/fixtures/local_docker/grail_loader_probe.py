@@ -155,7 +155,7 @@ print(
             "runtime": "unchanged-Grail-0.6.16",
             "package_sha256": sha,
             "agents": ["Scotty"],
-            "bootstrap": "real-scoped-loader-with-fixture-BasicAgent-delegate",
+            "bootstrap": os.environ["S2_BOOTSTRAP_MODE"],
             "application": "synthetic-only",
             "jobs_verified": False,
             "import_effects": False,
