@@ -13,6 +13,14 @@ import lib_rapp
 from test_receiver import _bundle_payload, _federation_payload
 from test_zoo_v2_release import _valid_audit
 
+# Keyed on the validator's declared contracts, never on its error text: the
+# complete application contract is optional in this tree.
+COMPLETE_SCHEMA = getattr(lib_rapp, "SCHEMA_APPLICATION", None)
+if COMPLETE_SCHEMA:
+    from test_application_contract import complete_application  # noqa: F401  (fixture)
+needs_complete_contract = pytest.mark.skipif(
+    not COMPLETE_SCHEMA, reason="the complete application contract is not in this tree")
+
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = importlib.util.spec_from_file_location("submission_pr", ROOT / ".github/workflows/rapplication_pr.py")
 prflow = importlib.util.module_from_spec(SPEC)
@@ -419,11 +427,65 @@ def test_unreviewed_nonentrypoint_bundle_bytes_refuse_before_promotion(client, m
     assert not (client.root / "apps").exists()
 
 
-def test_unsupported_modern_contract_cannot_enter_legacy_publication(client, make_rapp_dir):
-    event = event_for(client, _bundle_payload(make_rapp_dir(schema="rapp-application/2.0"), "alice"))
+@pytest.mark.parametrize("schema", ["rapp-application/2.0", "rapp-application/3.0"])
+def test_unqualified_contract_refusal_is_the_validators_own_report(client, make_rapp_dir, schema):
+    event = event_for(client, _bundle_payload(make_rapp_dir(schema=schema), "alice"))
     ok, report = prflow.prepare(client.root, event, "stage")
     assert not ok
-    assert "SCHEMA" in report.upper()
-    assert "require a reviewed" in report
+    assert (ok, report) == prflow.receiver.process(
+        event, client.root / prflow.stage_path(32), client.root / "index.json")
+    if schema == COMPLETE_SCHEMA:
+        assert "E_CONTRACT" in report and "E_MANIFEST_SCHEMA" not in report
+    else:
+        assert "E_MANIFEST_SCHEMA" in report
+    assert not (client.root / "staging/issue-32/_pending.json").exists()
     assert not (client.root / ".ci-work/candidate.json").exists()
     assert not client.prs
+
+
+@needs_complete_contract
+def test_complete_application_source_zip_refuses_before_staging(client, complete_application):
+    directory, _ = complete_application
+    event = event_for(client, _bundle_payload(directory, "alice"))
+    ok, report = prflow.prepare(client.root, event, "stage")
+    assert not ok and "E_APPLICATION_FEDERATION_ONLY" in report
+    assert not (client.root / "staging").exists()
+    assert not (client.root / ".ci-work/candidate.json").exists()
+    assert not client.prs
+
+
+@needs_complete_contract
+def test_complete_application_federation_promotes_only_the_reviewed_commit(
+        client, complete_application, fake_fetcher, monkeypatch):
+    directory, manifest = complete_application
+    reviewed, moved = "b" * 40, "c" * 40
+    raw = "https://raw.githubusercontent.com/alice/example"
+    commits = "https://api.github.com/repos/alice/example/commits/"
+    blob = (directory / "manifest.json").read_bytes()
+    routes = {raw + "/main/my_thing/manifest.json": blob, raw + f"/{reviewed}/my_thing/manifest.json": blob,
+              commits + "main": json.dumps({"sha": reviewed}), commits + reviewed: json.dumps({"sha": reviewed})}
+    routes.update({raw + f"/{reviewed}/my_thing/{name}": (directory / name).read_bytes()
+                   for name in manifest["files"]})
+    monkeypatch.setattr(lib_rapp, "_default_fetcher", lambda: fake_fetcher(routes))
+    event = event_for(client, _federation_payload("alice/example", "main", "my_thing", manifest))
+    approved = reviewed_stage(client, event)
+    staged = prflow.promoter.find_pending(client.root / prflow.stage_path(32), 32)["entry"]
+    assert staged["source"]["ref"] == staged["source"]["commit_sha"] == reviewed
+    # The publisher's branch moves after review; promotion must keep the reviewed pin.
+    routes[raw + "/main/my_thing/manifest.json"] = b"changed after review"
+    routes[commits + "main"] = json.dumps({"sha": moved})
+    ok, report = prflow.prepare(client.root, approved, "promotion")
+    assert ok, report
+    pr = prflow.open_pr(client, approved, "promotion")
+    prflow.verify_candidate(client, pr)
+    client.passing_checks(pr)
+    assert json.loads(git(client.remote, "show", "main:index.json"))["rapplications"] == []
+    client.owner_merge(pr)
+    prflow.complete(client, pr["number"])
+    assert client.issues[32]["state"] == "closed"
+    assert "promoted" in {x["name"] for x in client.issues[32]["labels"]}
+    assert json.loads((client.root / "index.json").read_text())["rapplications"] == [staged]
+    assert staged["application_url"] == raw + f"/{reviewed}/my_thing/manifest.json"
+    assert "singleton_url" not in staged
+    assert not (client.root / "apps").exists() and not (client.root / "api").exists()
+    assert len(client.prs) == 2

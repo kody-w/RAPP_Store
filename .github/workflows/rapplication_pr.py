@@ -68,9 +68,7 @@ def prepare(root, event, phase):
     if phase == "stage":
         ok, report = receiver.process(event, staging, catalog)
         if not ok:
-            if "E_MANIFEST_SCHEMA" in report and "rapp-application/2.0" in report:
-                report += ("\nComplete `rapp-application/2.0` submissions require a reviewed "
-                           "application/source PR, not this legacy issue publication lane.\n")
+            # The validator owns each schema's refusal codes and submission-lane guidance.
             return ok, report
         item = promoter.find_pending(staging, number)
         if (item["mode"] == "federation"
