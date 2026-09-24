@@ -1,0 +1,60 @@
+{
+  "application": "scrapling",
+  "services": ["scrapling"],
+  "source_image_services": ["scrapling"],
+  "dockerfile_service": {
+    "scrapling": {
+      "entrypoint": ["uv", "run", "--offline", "--no-sync", "scrapling"],
+      "command": ["--help"]
+    }
+  },
+  "images": {
+    "scrapling": {
+      "reference": "ghcr.io/d4vinci/scrapling@sha256:65fc31598af6cc5053c63b5f5205524a94964d82fd33b24b6c96c7cb0be35ada",
+      "platform": "linux/amd64",
+      "source_revision": "333fa22b7a5821194ce66b59b11f4b16a6484f02",
+      "discovery_reference": "ghcr.io/d4vinci/scrapling:latest",
+      "note": "The v0.4.15 registry tag was absent. The observed manifest is version 0.4.15 and its OCI revision matches the pinned source; only its digest is executable."
+    }
+  },
+  "overrides": {
+    "scrapling": {
+      "command": ["mcp", "--http", "--host", "0.0.0.0", "--port", "8000", "--allowed-host", "localhost:18000", "--allowed-host", "127.0.0.1:18000", "--allowed-host", "scrapling:8000"],
+      "environment": {
+        "UV_OFFLINE": "1",
+        "UV_NO_SYNC": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DO_NOT_TRACK": "1"
+      },
+      "ports": [{"host_ip": "127.0.0.1", "published": "18000", "target": 8000, "protocol": "tcp"}],
+      "volumes": [
+        {"type": "bind", "source": "@PRIVATE_ROOT@/workspaces/scrapling/artifacts", "target": "/data", "bind": {"create_host_path": false}}
+      ],
+      "shm_size": "256m",
+      "healthcheck": {
+        "test": ["CMD", "/app/.venv/bin/python", "-c", "import socket; socket.create_connection(('127.0.0.1',8000),3).close()"],
+        "interval": "30s", "timeout": "5s", "retries": 3, "start_period": "30s"
+      }
+    }
+  },
+  "credential_environment": {"scrapling": ["SCRAPLING_MCP_AUTH_TOKEN"]},
+  "limits": {"scrapling": {"memory_mib": 1536, "cpus": 1.5, "pids": 256}},
+  "networks": {"default": {"driver": "bridge", "internal": true}},
+  "admission": {
+    "start_mode": "on-demand",
+    "heavy_group": "nas-heavy",
+    "max_active_heavy_stacks": 1,
+    "max_concurrent_jobs": 1,
+    "memory_ceiling_mib": 1536,
+    "host_reserve_mib": 2048,
+    "disk_budget_gib": 20,
+    "offload_allowed": false
+  },
+  "render_blockers": [],
+  "runtime_gates": [
+    "Private RAPP-Dock native share, ACLs and scoped directories must be owner-approved and verified on the NAS.",
+    "MCP requires a non-placeholder custody token. Do not use --no-auth; TCP health is only a liveness check, not an authenticated MCP test.",
+    "No public-site crawling is possible on the default internal network. Approve per-job targets, access rights, crawl bounds and a separately enforced egress policy first.",
+    "No browser/model downloads or image build are performed by this recipe; qualify the prebuilt browser image on the NAS."
+  ]
+}

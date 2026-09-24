@@ -1,0 +1,63 @@
+{
+  "application": "open-seo",
+  "commit": "84e4705503ceaef54d1b284c167de9942563cdae",
+  "compose_projection": "upstream/compose.projection.json",
+  "files": [
+    {
+      "local": "upstream/compose.yaml.source",
+      "sha256": "cf63e4a93508654297a2f86b5225cdd43befd2a621232b56b01dc69b375a48ef",
+      "upstream_path": "compose.yaml"
+    },
+    {
+      "local": "upstream/Dockerfile.selfhost.source",
+      "sha256": "3cfe3cb087b97e55f95705143663f0a8bb9f1df6ffe7bc2050ab9e8566ac1994",
+      "upstream_path": "Dockerfile.selfhost"
+    },
+    {
+      "local": "upstream/LICENSE",
+      "sha256": "c23e0aa0cdc924726993ffc8eb96e5283a7e8aaa7e068f1200277eb6df0f0f06",
+      "upstream_path": "LICENSE"
+    },
+    {
+      "local": "upstream/compose.projection.json",
+      "sha256": "9c2188e43f5adaa47b6a12248ab16435565389e6acb35eaf88a9d396d36b441c",
+      "transform": "PyYAML safe_load, JSON sort_keys; inert complete official manifest, not executable inputs",
+      "upstream_path": "compose.yaml"
+    }
+  ],
+  "manifest_path": "compose.yaml",
+  "note": "Source evidence only. Official defaults must never be used as deployment credentials. No upstream code was executed.",
+  "observed_on": "2026-09-21",
+  "release_hint": "v0.1.9",
+  "repository": "https://github.com/every-app/open-seo",
+  "reviewed_source_files": [
+    {
+      "path": "Dockerfile.selfhost",
+      "sha256": "3cfe3cb087b97e55f95705143663f0a8bb9f1df6ffe7bc2050ab9e8566ac1994"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "c23e0aa0cdc924726993ffc8eb96e5283a7e8aaa7e068f1200277eb6df0f0f06"
+    },
+    {
+      "path": "README.md",
+      "sha256": "597dff1b0c28f833817f2f25b609dc39dce8f8c8bc53c6c31eebb0a7a8b5bde0"
+    },
+    {
+      "path": "compose.yaml",
+      "sha256": "cf63e4a93508654297a2f86b5225cdd43befd2a621232b56b01dc69b375a48ef"
+    },
+    {
+      "path": "docker-entrypoint.sh",
+      "sha256": "28a0998aac455c5d1916e71d1bf485b7e57e29b67588c794372e8c9ef94cf8d7"
+    },
+    {
+      "path": "docs/SELF_HOSTING_DOCKER.md",
+      "sha256": "eacc084ca95df46ce1b1411a12d15368d1b772205a0920723116fbe36251f3a5"
+    },
+    {
+      "path": "src/routes/api/health.ts",
+      "sha256": "f445cf5b225dda7d1ef45e049bd0358af008005c713712b8fd9806bf4c8888ce"
+    }
+  ]
+}

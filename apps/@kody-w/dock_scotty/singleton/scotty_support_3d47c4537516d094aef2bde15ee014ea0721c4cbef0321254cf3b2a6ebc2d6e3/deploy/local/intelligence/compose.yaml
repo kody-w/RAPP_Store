@@ -1,0 +1,66 @@
+services:
+  intelligence:
+    image: ${RAPP_DOCK_IMAGE_INTELLIGENCE:?Materialize locked public images first}
+    platform: linux/arm64
+    pull_policy: never
+    user: "10001:10001"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 2
+    mem_limit: 1536m
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 8s
+    env_file:
+      - path: ${RAPP_DOCK_COPILOT_ENV:?Private Copilot env file is required}
+        required: true
+        format: raw
+      - path: ${RAPP_DOCK_INTELLIGENCE_KEYS_ENV:?Adapter must prepare private app keys}
+        required: true
+    environment:
+      RAPP_DOCK_AI_MODEL: ${RAPP_DOCK_AI_MODEL:-gpt-5-mini}
+      INTELLIGENCE_MODELS: ${RAPP_DOCK_AI_MODEL:-gpt-5-mini}
+      INTELLIGENCE_STATE: /state
+      INTELLIGENCE_DEADLINE_SECONDS: ${RAPP_DOCK_AI_DEADLINE_SECONDS:-120}
+      INTELLIGENCE_QUEUE_WAIT_SECONDS: ${RAPP_DOCK_AI_QUEUE_WAIT_SECONDS:-90}
+      INTELLIGENCE_QUEUE_SIZE: "24"
+    ports:
+      - "127.0.0.1:${RAPP_DOCK_PORT:?Controller must assign the loopback port}:8080"
+    volumes:
+      - intelligence-state:/state
+    networks:
+      default: {}
+      ai:
+        aliases: [intelligence]
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE:?Controller namespace is required}
+      rapp.dock.application: intelligence
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read(4096)"
+      interval: 10s
+      timeout: 4s
+      start_period: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: "3"
+
+networks:
+  default: {}
+  ai:
+    external: true
+    name: ${RAPP_DOCK_AI_NETWORK:?Controller must create its internal AI network}
+
+volumes:
+  intelligence-state:
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE:?Controller namespace is required}
+      rapp.dock.application: intelligence

@@ -1,0 +1,109 @@
+{
+  "application": "openshorts",
+  "commit": "0db0a3a04ba06b3dc74a670f38e335910c294249",
+  "compose_projection": "upstream/compose.projection.json",
+  "files": [
+    {
+      "local": "upstream/docker-compose.yml.source",
+      "sha256": "4897b20839a8afbd107bcc40f8a39644febc1f11a1d80c5df20db416748a0192",
+      "upstream_path": "docker-compose.yml"
+    },
+    {
+      "local": "upstream/Dockerfile.source",
+      "sha256": "f8039b1e6553ea8237124ae80f11e4fd180aab7ae8cbc3cd8907dcdd8060e881",
+      "upstream_path": "Dockerfile"
+    },
+    {
+      "local": "upstream/dashboard/Dockerfile.source",
+      "sha256": "f319cd3a417e3152710b7b37b708351c199aaec0509060ed4f15ce23e9f159d7",
+      "upstream_path": "dashboard/Dockerfile"
+    },
+    {
+      "local": "upstream/render-service/Dockerfile.source",
+      "sha256": "dca4d63813f6595284b516792313757f443249d3fd639c940a7290ce59d72326",
+      "upstream_path": "render-service/Dockerfile"
+    },
+    {
+      "local": "upstream/LICENSE",
+      "sha256": "600e97e951834767c07845af65b79dfc727b5d993a51079c238d447ce9c2c669",
+      "upstream_path": "LICENSE"
+    },
+    {
+      "local": "upstream/compose.projection.json",
+      "sha256": "ea24ba3ec7cf1524083185186b93a4ccd8f7d13e63098cbe1d9845962386f7cb",
+      "transform": "PyYAML safe_load, JSON sort_keys; inert complete official manifest, not executable inputs",
+      "upstream_path": "docker-compose.yml"
+    }
+  ],
+  "manifest_path": "docker-compose.yml",
+  "note": "Source evidence only. Official defaults must never be used as deployment credentials. No upstream code was executed.",
+  "observed_on": "2026-09-21",
+  "release_hint": null,
+  "repository": "https://github.com/mutonby/openshorts",
+  "reviewed_source_files": [
+    {
+      "path": ".env.example",
+      "sha256": "b3f706f72580c028dab4055c8c0629dfb11a976b16f275044b670e47cf4cdf64"
+    },
+    {
+      "path": "Dockerfile",
+      "sha256": "f8039b1e6553ea8237124ae80f11e4fd180aab7ae8cbc3cd8907dcdd8060e881"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "600e97e951834767c07845af65b79dfc727b5d993a51079c238d447ce9c2c669"
+    },
+    {
+      "path": "README.md",
+      "sha256": "138dbc278061e20c23870275650ea298263cc6b3305915fdede48582fc8ce3d5"
+    },
+    {
+      "path": "app.py",
+      "sha256": "19e30d8479fbbcfc49bfc10e33cb609c2a6c7f78509170fdcbca36a204d56c0f"
+    },
+    {
+      "path": "cloud/config.py",
+      "sha256": "c49ed4b520ac6b722109f89deded3e8eb5ff9104c46e6fee08cb8e9c151d723d"
+    },
+    {
+      "path": "dashboard/Dockerfile",
+      "sha256": "f319cd3a417e3152710b7b37b708351c199aaec0509060ed4f15ce23e9f159d7"
+    },
+    {
+      "path": "dashboard/nginx.conf",
+      "sha256": "71a664b65adcba7d6a093035a682c63d48832f07f3763845cc6402b405a15115"
+    },
+    {
+      "path": "dashboard/vite.config.js",
+      "sha256": "19c554a7bef1b072b34daa8098ff66ce8905f1293eccb63a05f5c1c6423d865c"
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "4897b20839a8afbd107bcc40f8a39644febc1f11a1d80c5df20db416748a0192"
+    },
+    {
+      "path": "main.py",
+      "sha256": "231cb2b7f237d6f2ee3f9d2abd29c4d70218d9cf0501f559be42ce8b22e7bfb2"
+    },
+    {
+      "path": "mcp_server.py",
+      "sha256": "2d7e900990de60b888a05fabf7d2d0954542df3540996a44011122f7799e65c4"
+    },
+    {
+      "path": "render-service/Dockerfile",
+      "sha256": "dca4d63813f6595284b516792313757f443249d3fd639c940a7290ce59d72326"
+    },
+    {
+      "path": "render-service/src/server.ts",
+      "sha256": "1c6f5ff82b208b3ec373e653f531f61a93b13a97709ca3624285bc3c849500f8"
+    },
+    {
+      "path": "s3_uploader.py",
+      "sha256": "4a478185a59ee910a349006bb934aff6057832a8de590efba3070154dc84303a"
+    },
+    {
+      "path": "transcribe_backends.py",
+      "sha256": "8ebeac26ca98c0e24a1b6551ccfc6bfe08e49ddaaab5defb789b120a3e66b3c4"
+    }
+  ]
+}

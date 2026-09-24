@@ -1,0 +1,57 @@
+{
+  "services": {
+    "backend": {
+      "build": ".",
+      "container_name": "openshorts-backend",
+      "ports": [
+        "8000:8000"
+      ],
+      "restart": "unless-stopped",
+      "volumes": [
+        ".:/app",
+        "/app/__pycache__",
+        "./output:/app/output"
+      ]
+    },
+    "frontend": {
+      "build": {
+        "context": "./dashboard",
+        "target": "dev"
+      },
+      "container_name": "openshorts-frontend",
+      "depends_on": [
+        "backend"
+      ],
+      "ports": [
+        "5175:5173"
+      ],
+      "restart": "unless-stopped",
+      "volumes": [
+        "./dashboard:/app",
+        "/app/node_modules"
+      ]
+    },
+    "renderer": {
+      "build": {
+        "context": ".",
+        "dockerfile": "render-service/Dockerfile"
+      },
+      "container_name": "openshorts-renderer",
+      "depends_on": [
+        "backend"
+      ],
+      "environment": [
+        "REMOTION_BUNDLE_PATH=/app/remotion",
+        "OUTPUT_DIR=/output",
+        "PORT=3100"
+      ],
+      "ports": [
+        "3100:3100"
+      ],
+      "restart": "unless-stopped",
+      "volumes": [
+        "./output:/output"
+      ]
+    }
+  }
+}

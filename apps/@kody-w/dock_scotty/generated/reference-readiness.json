@@ -1,0 +1,28 @@
+{
+  "schema": "rapp-reference-readiness/1",
+  "basis": "owner-reported sanitized qualification summary",
+  "scope": "tested Apple Silicon reference profile with some amd64 guests under emulation",
+  "applies_to_this_candidate": false,
+  "dify": {
+    "recreation": "qualified",
+    "scope": "full container down/recreate on the tested reference profile",
+    "read_only_roles": 15,
+    "custody": "explicit",
+    "preserved": ["datasets", "documents", "indexing", "credentials"],
+    "fresh_answer_after_recreation": true,
+    "native_plugin": "not-installed"
+  },
+  "openshorts": {
+    "recreation": "qualified",
+    "scope": "drained completed state only",
+    "read_only_renderer": true,
+    "authenticated_ingress": true,
+    "completed_clip_hashes_preserved": true,
+    "fresh_render_after_recreation": true,
+    "in_flight_renderer_memory": "not-recoverable",
+    "public_cold_rebuild": "blocked on npm/PyPI retrieval"
+  },
+  "fresh_machine_install": "pending",
+  "presenton_native_generation": "opt-in",
+  "qualification_note": "These reference-profile facts do not qualify the synthetic template or a newly assembled source candidate. No private paths, identifiers, credentials, receipts or outputs are included."
+}

@@ -1100,7 +1100,9 @@ delete volumes, daemon-prune, or substitute a bare singleton.
 
 ### 15.3 Readiness and truthful listing language
 
-The main authoring template is
+The real, installable RAPP Dock / Scotty application is
+[`apps/@kody-w/dock_scotty/`](./apps/@kody-w/dock_scotty/README.md). The main
+authoring template is
 [`samples/dock_scotty/`](./samples/dock_scotty/README.md). It is **unlisted,
 experimental, synthetic authoring material**, not a deployed app or runnable
 release. Its first-card disclosure is:

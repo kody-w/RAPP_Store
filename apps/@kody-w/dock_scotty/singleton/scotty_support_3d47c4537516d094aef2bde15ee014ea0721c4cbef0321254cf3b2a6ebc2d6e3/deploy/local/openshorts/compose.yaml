@@ -1,0 +1,236 @@
+services:
+  backend:
+    image: ${RAPP_DOCK_IMAGE_OPENSHORTS_BACKEND:?Materialize locked public images first}
+    pull_policy: never
+    platform: linux/amd64
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    entrypoint: ["python", "/opt/rapp/backend_entrypoint.py"]
+    command: []
+    restart: "no"
+    mem_limit: 4g
+    memswap_limit: 4g
+    cpus: "2"
+    pids_limit: 256
+    stop_grace_period: 20s
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: openshorts
+    env_file:
+      - ${RAPP_DOCK_SECRETS}/openshorts-backend.env
+    environment:
+      BILLING_ENABLED: "false"
+      GEMINI_API_KEY: ""
+      GOOGLE_API_KEY: ""
+      FAL_KEY: ""
+      ELEVENLABS_API_KEY: ""
+      UPLOAD_POST_API_KEY: ""
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_S3_BUCKET: ""
+      AWS_S3_PUBLIC_BUCKET: ""
+      AWS_EC2_METADATA_DISABLED: "true"
+      PROXY_URL: ""
+      STATIC_PROXY_URLS: ""
+      YOUTUBE_COOKIES: ""
+      DISABLE_YOUTUBE_URL: "true"
+      MAX_CONCURRENT_JOBS: "1"
+      CLIP_WORKERS: "1"
+      ASR_GPU_CONCURRENCY: "1"
+      TRANSNETV2_DEVICE: cpu
+      FFMPEG_ENCODER: x264
+      AUTO_LAYOUT: "0"
+      SCREENCAST_LAYOUT: "0"
+      SPLIT_LAYOUT: "0"
+      SPEAKER_SIGNAL: "0"
+      SPEAKER_CUT: "0"
+      PUNCH_IN: "0"
+      HOOK_GROUNDING: "0"
+      AUTO_HOOK: "0"
+      AUTO_CAPTIONS: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      MPLCONFIGDIR: /app/.cache/matplotlib
+      XDG_CACHE_HOME: /app/.cache
+      OMP_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      RENDER_SERVICE_URL: http://renderer:3100
+      DRAIN_TIMEOUT_SECONDS: "5"
+      PROXY_DRAIN_SECONDS: "1"
+      HARD_EXIT_SECONDS: "10"
+      DEBUG_LOGS: "false"
+    volumes:
+      - output:/app/output
+      - uploads:/app/uploads
+      - type: bind
+        source: ./backend_entrypoint.py
+        target: /opt/rapp/backend_entrypoint.py
+        read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=536870912
+      - /app/.cache:rw,nosuid,nodev,size=268435456,uid=1000,gid=1000
+    networks:
+      private:
+        aliases: [openshorts-native]
+      intelligence: {}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://openshorts-native:8000/health/ready"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 6
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+  renderer:
+    image: ${RAPP_DOCK_IMAGE_OPENSHORTS_RENDERER:?Materialize locked public images first}
+    pull_policy: never
+    platform: linux/amd64
+    user: "1000:1000"
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    restart: "no"
+    mem_limit: 3g
+    memswap_limit: 3g
+    cpus: "1.75"
+    pids_limit: 256
+    stop_grace_period: 10s
+    shm_size: 256m
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: openshorts
+    environment:
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      REMOTION_BUNDLE_PATH: /app/remotion
+      OUTPUT_DIR: /output
+      PORT: "3100"
+      NODE_OPTIONS: --max-old-space-size=1536
+      XDG_CACHE_HOME: /tmp/chromium-cache
+    volumes:
+      - output:/output
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=536870912
+      - /app/remotion/node_modules/.cache:rw,nosuid,nodev,size=268435456,uid=1000,gid=1000
+      - /home/node/.cache:rw,nosuid,nodev,size=134217728,uid=1000,gid=1000
+    networks: [private]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 180s
+      retries: 6
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+  frontend:
+    image: ${RAPP_DOCK_IMAGE_OPENSHORTS_FRONTEND:?Materialize locked public images first}
+    pull_policy: never
+    platform: linux/amd64
+    user: "101:101"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    restart: "no"
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: "0.125"
+    pids_limit: 128
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: openshorts
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    depends_on:
+      backend: {condition: service_healthy}
+      renderer: {condition: service_healthy}
+    tmpfs:
+      - /var/cache/nginx:rw,nosuid,nodev,size=16777216,uid=101,gid=101
+      - /var/run:rw,nosuid,nodev,size=1048576,uid=101,gid=101
+    networks: [private]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+  ingress:
+    image: ${RAPP_DOCK_IMAGE_OPENSHORTS_BACKEND:?Materialize locked public images first}
+    pull_policy: never
+    platform: linux/amd64
+    user: "1000:1000"
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    restart: "no"
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: "0.125"
+    pids_limit: 32
+    stop_grace_period: 10s
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: openshorts
+    entrypoint: ["python", "-B", "/opt/rapp/ingress.py"]
+    command: []
+    env_file:
+      - ${RAPP_DOCK_SECRETS}/openshorts-ingress.env
+    environment:
+      OPENSHORTS_PUBLIC_PORT: ${RAPP_DOCK_PORT}
+    volumes:
+      - type: bind
+        source: ./ingress.py
+        target: /opt/rapp/ingress.py
+        read_only: true
+    depends_on:
+      frontend: {condition: service_healthy}
+    networks: [private, ingress]
+    ports:
+      - target: 8080
+        published: "${RAPP_DOCK_PORT}"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8080/health',headers={'Host':'127.0.0.1:'+os.environ['OPENSHORTS_PUBLIC_PORT']}); urllib.request.urlopen(r,timeout=3).read(1024)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+networks:
+  # Docker Desktop does not forward host ports for an internal-only container.
+  # Only the narrow, app-key-authenticated edge joins this publication bridge.
+  ingress:
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+  private:
+    internal: true
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+  intelligence:
+    external: true
+    name: ${RAPP_DOCK_AI_NETWORK}
+
+volumes:
+  output:
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: openshorts
+  uploads:
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: openshorts

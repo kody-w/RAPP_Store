@@ -1,0 +1,61 @@
+{
+  "application": "open-seo",
+  "services": ["open-seo"],
+  "source_image_services": ["open-seo"],
+  "images": {
+    "open-seo": {
+      "reference": "ghcr.io/every-app/open-seo@sha256:db1e0677c5417ef0ed1ee9ec7c392dcaa0b27805eff3f4a4253cdafc448cddb3",
+      "platform": "linux/amd64",
+      "source_revision": "84e4705503ceaef54d1b284c167de9942563cdae",
+      "discovery_reference": "ghcr.io/every-app/open-seo:v0.1.9"
+    }
+  },
+  "overrides": {
+    "open-seo": {
+      "environment": {
+        "CLOUDFLARE_INCLUDE_PROCESS_ENV": "true",
+        "PORT": "3001",
+        "ALLOWED_HOST": "localhost",
+        "AUTH_MODE": "local_noauth",
+        "OPENSEO_TELEMETRY_DISABLED": "1",
+        "DO_NOT_TRACK": "1",
+        "VITE_SHOW_DEVTOOLS": "false",
+        "OPENROUTER_API_KEY": "",
+        "OPENROUTER_MODEL": "",
+        "GOOGLE_CLIENT_ID": "",
+        "GOOGLE_CLIENT_SECRET": "",
+        "BETTER_AUTH_SECRET": "",
+        "NODE_OPTIONS": "--max-old-space-size=1536"
+      },
+      "ports": [{"host_ip": "127.0.0.1", "published": "18001", "target": 3001, "protocol": "tcp"}],
+      "volumes": [
+        {"type": "bind", "source": "@PRIVATE_ROOT@/workspaces/open-seo/state", "target": "/app/.wrangler", "bind": {"create_host_path": false}}
+      ],
+      "healthcheck": {
+        "test": ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(async r=>{if(!r.ok || (await r.json()).status!=='ok')process.exit(1)}).catch(()=>process.exit(1))"],
+        "interval": "30s", "timeout": "10s", "retries": 3, "start_period": "300s"
+      }
+    }
+  },
+  "credential_environment": {"open-seo": ["DATAFORSEO_API_KEY"]},
+  "limits": {"open-seo": {"memory_mib": 2048, "cpus": 1.5, "pids": 256}},
+  "networks": {"default": {"driver": "bridge", "internal": true}},
+  "admission": {
+    "start_mode": "on-demand",
+    "heavy_group": "nas-heavy",
+    "max_active_heavy_stacks": 1,
+    "max_concurrent_jobs": 1,
+    "memory_ceiling_mib": 2048,
+    "host_reserve_mib": 2048,
+    "disk_budget_gib": 10,
+    "offload_allowed": false
+  },
+  "render_blockers": [],
+  "runtime_gates": [
+    "DataForSEO is required and paid. No credential, spend approval, data egress or real-data operation is supplied or authorized here.",
+    "The official entrypoint runs local migrations and a frontend build at first start. Measure first-start memory and duration on the NAS before admission.",
+    "AUTH_MODE=local_noauth is deliberately only loopback reachable. LAN access requires a separately approved authenticated ingress; never widen the bind.",
+    "The default network denies outbound access, including DataForSEO and telemetry. Real SEO jobs remain blocked until exact endpoint and budget approval.",
+    "Private share, ACLs, credential custody, backups and persistent-state ownership still require NAS qualification."
+  ]
+}

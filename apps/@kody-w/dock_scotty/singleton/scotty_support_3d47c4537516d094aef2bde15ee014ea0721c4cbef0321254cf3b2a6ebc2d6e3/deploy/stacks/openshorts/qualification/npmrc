@@ -1,0 +1,7 @@
+registry=https://registry.npmjs.org/
+audit=false
+fund=false
+ignore-scripts=true
+fetch-retries=0
+fetch-timeout=30000
+progress=false

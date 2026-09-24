@@ -233,6 +233,7 @@
   .badge.surface-ui   { background: rgba(247,120,186,.13); color: var(--pink); }
   .badge.surface-svc  { background: var(--green-bg); color: var(--green); }
   .badge.surface-eggs { background: var(--purple-bg); color: var(--purple); }
+  .badge.tag { background: transparent; color: var(--text-dim, #9aa4af); border: 1px solid currentColor; }
   .badge.kind-agent   { background: rgba(88,166,255,.18); color: var(--accent); }
   .badge.kind-rapp    { background: rgba(247,120,186,.18); color: var(--pink); }
   .badge.kind-sense   { background: rgba(188,140,255,.18); color: var(--purple); }
@@ -423,21 +424,20 @@
   </div>
 </section>
 
-<section class="hero" aria-label="Main rapplication authoring template">
+<section class="hero" aria-label="RAPP Dock / Scotty complete application">
   <div class="hero-card">
-    <div class="eyebrow">Main authoring template · experimental · unlisted</div>
+    <div class="eyebrow">Complete application · experimental · @kody-w</div>
     <h2>RAPP Dock / Scotty</h2>
-    <p>One chat-operated application, five journeys: collect web sources, make editable decks,
-      manage SEO projects, answer from documents and render captioned shorts.</p>
+    <p>Scotty runs five real open-source apps in local Docker from chat or its UI: scrape web pages (Scrapling),
+      make editable decks (Presenton), create SEO projects (OpenSEO, paid data off), answer from your documents (Dify)
+      and cut captioned shorts (OpenShorts).</p>
     <p>Local application execution; Copilot cloud inference; tested on Apple Silicon with some amd64 guests under emulation.</p>
-    <p class="note">Development reference profile, not a fresh-install claim or minimum specification.
-      Synthetic authoring sample, not an installable release. Fresh-machine installation remains pending.
-      Copilot uses your entitlement/credits; other paid providers are disabled.</p>
-    <p class="note">On the tested reference profile, Dify full recreation is qualified (15 read-only roles,
-      explicit custody, preserved data/credentials, fresh answer). OpenShorts recreation is qualified for drained
-      completed state (read-only renderer, authenticated ingress, preserved clips, fresh render), not in-flight memory.
-      OpenShorts public cold rebuild remains blocked on npm/PyPI retrieval. These facts do not qualify this template.</p>
-    <a class="btn" href="https://github.com/kody-w/RAPP_Store/blob/main/samples/dock_scotty/README.md">Explore the template</a>
+    <p class="note">Installed five-job acceptance passed on the previous build; this build was installed fresh from the
+      Store files and re-ran a scrape and a deck. Needs Docker Desktop with Buildx and your own Copilot sign-in;
+      other paid providers are disabled. OpenShorts public cold rebuild remains blocked on npm/PyPI retrieval,
+      so OpenShorts needs its locked images already present.</p>
+    <a class="btn" href="https://github.com/kody-w/RAPP_Store/blob/main/apps/@kody-w/dock_scotty/README.md">Get RAPP Dock</a>
+    <a class="btn ghost" href="https://github.com/kody-w/RAPP_Store/blob/main/samples/dock_scotty/README.md">Authoring template</a>
   </div>
 </section>
 
@@ -749,6 +749,7 @@ function normalizeRapp(r) {
     sha256:  r.singleton_sha256 || null,
     filename: r.singleton_filename || null,
     sub_label: r.tagline || (r.category || ''),
+    tags: Array.isArray(r.tags) ? r.tags.filter(t => typeof t === 'string').slice(0, 12) : [],
     _orig: r,
   };
 }
@@ -821,7 +822,10 @@ function normalizePrototype(p, generation, generationUrl) {
 }
 function surfacesFor(r, desktop = null) {
   const out = [];
-  if (applicationDeclared(r)) return ['chat', 'complete-package'];
+  if (applicationDeclared(r)) {
+    const ui = r.application && typeof r.application.ui === 'string' && r.application.ui;
+    return ui ? ['chat', 'ui', 'complete-package'] : ['chat', 'complete-package'];
+  }
   if (desktop)      out.push('macos');
   if (r.ui_url)      out.push('ui');
   if (r.service_url) out.push('service');
@@ -882,7 +886,7 @@ function visibleItems() {
   if (q) {
     items = items.filter(r => {
       const hay = [r.name, r.id, r.publisher, r.tagline, r.summary,
-                    r.category, r.tier, ...(r.surfaces || [])]
+                    r.category, r.tier, ...(r.surfaces || []), ...(r.tags || [])]
                   .join(' ').toLowerCase();
       return hay.includes(q);
     });
@@ -985,6 +989,7 @@ function makeCard(r) {
       r.tier && r.tier !== 'community' ? el('span', { class: `badge tier-${r.tier}`, text: r.tier }) : null,
       ...(r.surfaces || []).map(s =>
         el('span', { class: `badge surface-${s.replace('service','svc')}`, text: s })),
+      ...(r.tags || []).slice(0, 6).map(t => el('span', { class: 'badge tag', text: '#' + t })),
     ]),
   ]);
 }
@@ -1145,6 +1150,7 @@ function openModal(r) {
     r.tier ? el('span', { class: `badge tier-${r.tier}`, text: r.tier }) : null,
     ...(r.surfaces || []).map(s =>
       el('span', { class: `badge surface-${s.replace('service','svc')}`, text: s })),
+    ...(r.tags || []).map(t => el('span', { class: 'badge tag', text: '#' + t })),
   ]));
 
   if (r.kind === 'prototype') {

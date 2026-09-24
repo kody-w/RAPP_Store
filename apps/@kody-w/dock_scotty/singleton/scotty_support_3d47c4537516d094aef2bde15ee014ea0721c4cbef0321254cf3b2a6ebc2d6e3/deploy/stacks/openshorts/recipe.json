@@ -1,0 +1,121 @@
+{
+  "application": "openshorts",
+  "services": ["backend", "frontend", "renderer"],
+  "source_image_services": ["backend", "frontend", "renderer"],
+  "qualification_inputs": "qualification/inputs.lock.json",
+  "qualification_result": "qualification/result.json",
+  "images": {
+    "backend": {
+      "reference": null, "platform": "linux/amd64",
+      "blocker": "An exact-source local amd64 OCI backend now exists and passed real offline model/API qualification; see qualification/result.json. The NAS recipe does not assume that a local archive is an upstream registry image or an enrolled NAS release."
+    },
+    "frontend": {
+      "reference": null, "platform": "linux/amd64",
+      "blocker": "The real production frontend was built offline from the exact source/lock and pinned as a local OCI artifact. Parent artifact enrollment and NAS runtime qualification remain required; no public registry image is invented."
+    },
+    "renderer": {
+      "reference": null, "platform": "linux/amd64",
+      "blocker": "The pinned offline renderer/Chromium image produced a verified real video through the full local stack. Its local OCI artifact is not yet an adopted NAS registry/image input; see qualification/result.json."
+    }
+  },
+  "overrides": {
+    "backend": {
+      "command": ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-graceful-shutdown", "15"],
+      "environment": {
+        "BILLING_ENABLED": "false",
+        "MAX_CONCURRENT_JOBS": "1",
+        "ASR_GPU_CONCURRENCY": "1",
+        "TRANSCRIBE_BACKEND": "whisper",
+        "WHISPER_DEVICE": "cpu",
+        "WHISPER_COMPUTE": "int8",
+        "FFMPEG_ENCODER": "x264",
+        "RENDER_SERVICE_URL": "http://renderer:3100",
+        "HF_HOME": "/app/.cache/huggingface",
+        "HF_HUB_OFFLINE": "1",
+        "HF_HUB_DISABLE_TELEMETRY": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "AWS_ACCESS_KEY_ID": "",
+        "AWS_SECRET_ACCESS_KEY": "",
+        "AWS_S3_BUCKET": "",
+        "AWS_S3_PUBLIC_BUCKET": "",
+        "AWS_EC2_METADATA_DISABLED": "true",
+        "GEMINI_API_KEY": "",
+        "GOOGLE_API_KEY": "",
+        "ELEVENLABS_API_KEY": "",
+        "FAL_KEY": "",
+        "UPLOAD_POST_API_KEY": "",
+        "LLM_BASE_URL": "",
+        "LLM_MODEL": "",
+        "LLM_API_KEY": "",
+        "DEBUG_LOGS": "false",
+        "RATE_LIMIT_ENABLED": "1"
+      },
+      "ports": [],
+      "volumes": [
+        {"type": "bind", "source": "@PRIVATE_ROOT@/workspaces/openshorts/output", "target": "/app/output", "bind": {"create_host_path": false}},
+        {"type": "bind", "source": "@PRIVATE_ROOT@/workspaces/openshorts/uploads", "target": "/app/uploads", "bind": {"create_host_path": false}},
+        {"type": "bind", "source": "@PRIVATE_ROOT@/workspaces/openshorts/models/huggingface", "target": "/app/.cache/huggingface", "read_only": true, "bind": {"create_host_path": false}}
+      ],
+      "healthcheck": {
+        "test": ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health/ready"],
+        "interval": "30s", "timeout": "5s", "retries": 3, "start_period": "60s"
+      }
+    },
+    "frontend": {
+      "environment": {},
+      "ports": [{"host_ip": "127.0.0.1", "published": "18002", "target": 80, "protocol": "tcp"}],
+      "volumes": [
+        {"type": "bind", "source": "@PRIVATE_ROOT@/releases/openshorts/private-nginx.conf", "target": "/etc/nginx/conf.d/default.conf", "read_only": true, "bind": {"create_host_path": false}}
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"],
+        "interval": "30s", "timeout": "5s", "retries": 3, "start_period": "30s"
+      }
+    },
+    "renderer": {
+      "environment": {
+        "REMOTION_BUNDLE_PATH": "/app/remotion",
+        "OUTPUT_DIR": "/output",
+        "PORT": "3100"
+      },
+      "ports": [],
+      "volumes": [
+        {"type": "bind", "source": "@PRIVATE_ROOT@/workspaces/openshorts/output", "target": "/output", "bind": {"create_host_path": false}}
+      ],
+      "shm_size": "256m",
+      "healthcheck": {
+        "test": ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"],
+        "interval": "30s", "timeout": "5s", "retries": 3, "start_period": "180s"
+      }
+    }
+  },
+  "credential_environment": {},
+  "limits": {
+    "backend": {"memory_mib": 4096, "cpus": 2, "pids": 512},
+    "frontend": {"memory_mib": 128, "cpus": 0.25, "pids": 128},
+    "renderer": {"memory_mib": 1280, "cpus": 1.25, "pids": 512}
+  },
+  "networks": {"default": {"driver": "bridge", "internal": true}},
+  "admission": {
+    "start_mode": "on-demand",
+    "heavy_group": "nas-heavy",
+    "max_active_heavy_stacks": 1,
+    "max_concurrent_jobs": 1,
+    "memory_ceiling_mib": 5504,
+    "host_reserve_mib": 2048,
+    "disk_budget_gib": 100,
+    "offload_allowed": false
+  },
+  "render_blockers": [
+    "Mac qualification now succeeded for all three real linux/amd64 images, pinned public dependencies/models, actual upload/MCP/rendering and offline inference. This NAS recipe stays blocked until exact local OCI artifacts are adopted through the parent's reviewed artifact/enrollment surface.",
+    "The N5095 NAS CPU instruction set and approximately 7.55GiB Docker budget remain untested for this dependency closure. Mac emulation on the explicitly approved 32GiB/16CPU host is not NAS compatibility or capacity proof."
+  ],
+  "runtime_gates": [
+    "Self-hosted MCP has no API-key authentication. It has no host port and the frontend explicitly denies /mcp; only a reviewed internal SDK adapter may call it.",
+    "S3 helpers return without uploading when AWS keys are empty. Keys and bucket names are explicitly blank, instance metadata is disabled, all networks are internal, and gallery/social/publish routes are denied at the loopback frontend.",
+    "No external Gemini, synthetic actor, voice, Upload-Post, paid proxy or local LLM endpoint is authorized. Jobs requiring them must fail, not silently fall back.",
+    "The renderer accepts asynchronous jobs without its own queue bound. The SDK must enforce one job across backend and renderer; do not expose renderer directly.",
+    "Upstream cleanup can remove job outputs. Commit selected artifacts into the workspace before cleanup, and approve retention and backup separately.",
+    "Source-qualified local OCI images, model checksums and real CPU artifact validation are recorded for the approved Mac slice. NAS apply still requires its own measured capacity/ISA decision, exact artifact adoption, license review and private ACLs."
+  ]
+}

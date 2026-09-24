@@ -1,0 +1,20 @@
+{
+  "mode": "stub",
+  "network_allowed": false,
+  "paid_budget_microunits": 0,
+  "application_inventory": "deploy/stacks/paid-integrations.json",
+  "entries": [
+    {
+      "id": "scotty-inference",
+      "application": "scotty",
+      "provider": "current-grail-github-copilot-api",
+      "operation": "current-grail-conversation-and-tool-routing",
+      "status": "stubbed",
+      "input_classes": ["selected-conversation-context", "sanitized-tool-results"],
+      "credential_reference": null,
+      "endpoint": null,
+      "model": null,
+      "cost": "unknown-until-native-account-and-usage-approval"
+    }
+  ]
+}

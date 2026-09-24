@@ -1,0 +1,19 @@
+--- a/render-service/src/render-worker.ts
++++ b/render-service/src/render-worker.ts
+@@ -45,6 +45,7 @@
+ 
+     // Select the composition with the provided input props
+     const composition = await selectComposition({
++      browserExecutable: process.env.PUPPETEER_EXECUTABLE_PATH,
+       serveUrl: bundleLocation,
+       id: "ShortVideo",
+       inputProps: props,
+@@ -63,6 +64,8 @@
+ 
+     // Render the video
+     await renderMedia({
++      browserExecutable: process.env.PUPPETEER_EXECUTABLE_PATH,
++      concurrency: 1,
+       composition,
+       serveUrl: bundleLocation,
+       codec: "h264",

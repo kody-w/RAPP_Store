@@ -29,12 +29,27 @@ def _tree_digest(root: pathlib.Path) -> str:
     return h.hexdigest()
 
 
+def _legacy_apps_only(directory, names):
+    # Complete rapp-application/2.0 apps are projected only by the scoped
+    # --application-only path; the full legacy producer refuses them by design.
+    ignored = []
+    for name in names:
+        manifest = pathlib.Path(directory) / name / "manifest.json"
+        if manifest.is_file():
+            try:
+                if json.loads(manifest.read_text()).get("schema") == "rapp-application/2.0":
+                    ignored.append(name)
+            except ValueError:
+                pass
+    return ignored
+
+
 def test_two_builds_are_byte_identical(tmp_path):
-    # Isolated copy: apps/ + the producer, no .git — exercises the
+    # Isolated copy: legacy apps/ + the producer, no .git — exercises the
     # deterministic fallback stamp as well as the zip member stamps.
     work = tmp_path / "store"
     (work / "scripts").mkdir(parents=True)
-    shutil.copytree(_REPO / "apps", work / "apps", symlinks=False)
+    shutil.copytree(_REPO / "apps", work / "apps", symlinks=False, ignore=_legacy_apps_only)
     shutil.copy(_REPO / "scripts" / "build_pokedex_api.py", work / "scripts")
 
     digests = []
@@ -49,6 +64,19 @@ def test_two_builds_are_byte_identical(tmp_path):
         "producer output drifted between two identical runs — a wall-clock "
         "or ordering dependency crept back in"
     )
+
+
+def test_full_legacy_build_refuses_the_real_complete_application_before_writes(tmp_path):
+    work = tmp_path / "store"
+    (work / "scripts").mkdir(parents=True)
+    shutil.copytree(_REPO / "apps", work / "apps", symlinks=False)
+    shutil.copy(_REPO / "scripts" / "build_pokedex_api.py", work / "scripts")
+    assert (work / "apps" / "@kody-w" / "dock_scotty" / "manifest.json").is_file()
+    result = subprocess.run([sys.executable, "scripts/build_pokedex_api.py"], cwd=work,
+                            capture_output=True, text=True, timeout=300)
+    assert result.returncode != 0
+    assert "E_APPLICATION_SCOPED" in result.stderr
+    assert not (work / "api").exists()
 
 
 def test_scoped_native_projection_is_deterministic_and_preserves_other_bytes(tmp_path, native_release):

@@ -1,0 +1,138 @@
+{
+  "schema": "rapp-local-jobs/1",
+  "jobs": [
+    {
+      "id": "scrapling.scrape",
+      "application": "scrapling",
+      "journey": "web-research",
+      "mode": "native-collection-gateway-summary",
+      "input_schema": {
+        "type": "object", "additionalProperties": false, "required": ["url"],
+        "properties": {
+          "url": {"type": "string", "minLength": 1, "maxLength": 2048},
+          "fetch_mode": {"type": "string", "enum": ["auto", "http", "browser"], "default": "auto"}
+        }
+      },
+      "outputs": [
+        {"name": "source.md", "kind": "artifact", "media_type": "text/markdown", "required": true},
+        {"name": "summary.md", "kind": "artifact", "media_type": "text/markdown", "required": false},
+        {"name": "metadata.json", "kind": "artifact", "media_type": "application/json", "required": true}
+      ],
+      "providers": ["copilot"],
+      "limitations": ["Public HTTP(S) destinations only; network policy applies to redirects and subresources.", "A summary-provider failure may leave collection partial, not falsely successful."]
+    },
+    {
+      "id": "presenton.deck",
+      "application": "presenton",
+      "journey": "editable-deck",
+      "mode": "gateway-authored-presenton-exported",
+      "input_schema": {
+        "type": "object", "additionalProperties": false, "required": ["prompt"],
+        "properties": {
+          "prompt": {"type": "string", "minLength": 1, "maxLength": 8000},
+          "slides": {"type": "integer", "minimum": 1, "maximum": 12, "default": 6}
+        }
+      },
+      "outputs": [
+        {"name": "deck.pptx", "kind": "artifact", "media_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation", "required": true},
+        {"name": "deck.pdf", "kind": "artifact", "media_type": "application/pdf", "required": true},
+        {"name": "slide-content.json", "kind": "artifact", "media_type": "application/json", "required": true}
+      ],
+      "providers": ["copilot"],
+      "limitations": ["Default is not native Presenton AI generation.", "External image providers are disabled; output files must be checked, not inferred from a successful request."]
+    },
+    {
+      "id": "open-seo.project_create",
+      "application": "open-seo",
+      "journey": "seo-project",
+      "mode": "native-project-paid-data-disabled",
+      "input_schema": {
+        "type": "object", "additionalProperties": false, "required": ["url"],
+        "properties": {
+          "url": {"type": "string", "minLength": 1, "maxLength": 2048},
+          "title": {"type": "string", "minLength": 1, "maxLength": 200}
+        }
+      },
+      "outputs": [
+        {"name": "project", "kind": "native-record", "media_type": "application/json", "required": true},
+        {"name": "project.json", "kind": "artifact", "media_type": "application/json", "required": true}
+      ],
+      "providers": [],
+      "limitations": ["DataForSEO and other paid metrics are disabled.", "Informational follow-ups inspect the original project; they do not launch another job.", "No traffic or competitor performance is invented."]
+    },
+    {
+      "id": "dify.knowledge_build",
+      "application": "dify",
+      "journey": "knowledge-answer",
+      "mode": "economy-indexing-gateway-grounded",
+      "input_schema": {
+        "type": "object", "additionalProperties": false, "required": ["input_paths"],
+        "properties": {
+          "input_paths": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"type": "string"}},
+          "title": {"type": "string", "minLength": 1, "maxLength": 40, "description": "Optional; derived from input file names when omitted."},
+          "question": {"type": "string", "minLength": 1, "maxLength": 250, "description": "Include the original document question in this build job; omission requests indexing only."}
+        }
+      },
+      "outputs": [
+        {"name": "knowledge-base", "kind": "native-record", "media_type": "application/json", "required": true},
+        {"name": "knowledge-base.json", "kind": "artifact", "media_type": "application/json", "required": true},
+        {"name": "answer.md", "kind": "artifact", "media_type": "text/markdown", "required": false}
+      ],
+      "providers": ["copilot"],
+      "limitations": ["Local Markdown/text inputs are sealed before use.", "Economy keyword retrieval, not paid embeddings or the native Dify model plugin.", "Full recreation remains pending; stop retains current layers and data."]
+    },
+    {
+      "id": "dify.knowledge_answer",
+      "application": "dify",
+      "journey": "knowledge-answer",
+      "mode": "economy-retrieval-gateway-grounded",
+      "input_schema": {
+        "type": "object", "additionalProperties": false, "required": ["knowledge_base_id", "question"],
+        "properties": {
+          "knowledge_base_id": {"type": "string", "minLength": 36, "maxLength": 36},
+          "question": {"type": "string", "minLength": 1, "maxLength": 250}
+        }
+      },
+      "outputs": [
+        {"name": "answer.md", "kind": "artifact", "media_type": "text/markdown", "required": true},
+        {"name": "knowledge-base.json", "kind": "artifact", "media_type": "application/json", "required": true}
+      ],
+      "providers": ["copilot"],
+      "limitations": ["Follow-up questions use an existing native knowledge-base identifier.", "Missing retrieval support produces an honest insufficient-evidence answer; citations are not invented."]
+    },
+    {
+      "id": "openshorts.clips",
+      "application": "openshorts",
+      "journey": "captioned-shorts",
+      "mode": "gateway-selected-native-rendered",
+      "input_schema": {
+        "type": "object", "additionalProperties": false, "required": ["source_path"],
+        "properties": {
+          "source_path": {"type": "string", "minLength": 1, "maxLength": 4096},
+          "clip_count": {"type": "integer", "minimum": 1, "maximum": 5, "default": 3}
+        }
+      },
+      "outputs": [
+        {"name": "clip-<index>.mp4", "kind": "artifact", "media_type": "video/mp4", "required": true},
+        {"name": "transcript.json", "kind": "artifact", "media_type": "application/json", "required": true},
+        {"name": "source-ranges.json", "kind": "artifact", "media_type": "application/json", "required": true},
+        {"name": "gateway-requests.json", "kind": "artifact", "media_type": "application/json", "required": false}
+      ],
+      "providers": ["copilot"],
+      "limitations": ["Local 45-second to 10-minute video must contain speech.", "Silent/vision features, paid Gemini and publishing are disabled.", "App-window usage attribution is not exact per-job billing.", "Persisted clip files do not make the native in-memory job map durable."]
+    },
+    {
+      "id": "intelligence.chat",
+      "application": "intelligence",
+      "journey": "diagnostic",
+      "mode": "tool-free-copilot-diagnostic",
+      "input_schema": {
+        "type": "object", "additionalProperties": false, "required": ["prompt"],
+        "properties": {"prompt": {"type": "string", "minLength": 1, "maxLength": 4000}}
+      },
+      "outputs": [{"name": "answer.md", "kind": "artifact", "media_type": "text/markdown", "required": true}],
+      "providers": ["copilot"],
+      "limitations": ["Diagnostic only, not a sixth application journey.", "Tools are disabled; cloud inference consumes adopter Copilot usage."]
+    }
+  ]
+}

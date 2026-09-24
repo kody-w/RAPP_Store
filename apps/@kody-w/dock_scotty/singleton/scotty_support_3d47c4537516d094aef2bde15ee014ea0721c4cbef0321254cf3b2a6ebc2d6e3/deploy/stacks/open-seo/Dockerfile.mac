@@ -1,0 +1,32 @@
+FROM ghcr.io/every-app/open-seo@sha256:115fed7fab257b37a963200f6cc68e2ec9f0605bae01594ced85865e58e289c7
+
+LABEL org.opencontainers.image.source="https://github.com/every-app/open-seo" \
+      org.opencontainers.image.revision="84e4705503ceaef54d1b284c167de9942563cdae" \
+      io.rapp.dock.role="open-seo-native-mac-qualification"
+
+ENV CLOUDFLARE_INCLUDE_PROCESS_ENV=true \
+    PORT=3001 \
+    ALLOWED_HOST=localhost \
+    AUTH_MODE=local_noauth \
+    OPENSEO_TELEMETRY_DISABLED=1 \
+    DO_NOT_TRACK=1 \
+    VITE_SHOW_DEVTOOLS=false \
+    WRANGLER_SEND_METRICS=false \
+    COREPACK_HOME=/opt/corepack \
+    COREPACK_ENABLE_NETWORK=0 \
+    CI=true \
+    HOME=/tmp
+
+USER 0:0
+RUN mkdir -p /opt/corepack \
+    && cp -a /root/.cache/node/corepack/. /opt/corepack/ \
+    && chmod -R a+rX /opt/corepack
+RUN NODE_OPTIONS=--max-old-space-size=6144 pnpm run build \
+    && env | grep -E '^(VITE_|AUTH_MODE|BYPASS_EMAIL_VERIFICATION|POSTHOG_PUBLIC_KEY|POSTHOG_HOST|TURNSTILE_SITE_KEY|POSTHOG_SOURCEMAPS)' \
+       | sort | sha256sum | cut -d' ' -f1 > dist/.openseo-build-env \
+    && test -s dist/.openseo-build-env \
+    && mkdir -p /app/.wrangler \
+    && chown -R 10001:10001 /app/.wrangler
+
+ENV NODE_OPTIONS=--max-old-space-size=1536
+USER 10001:10001
