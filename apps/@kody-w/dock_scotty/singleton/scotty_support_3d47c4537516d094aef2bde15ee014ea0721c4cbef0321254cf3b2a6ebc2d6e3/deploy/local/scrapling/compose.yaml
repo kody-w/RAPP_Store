@@ -1,0 +1,128 @@
+services:
+  scrapling:
+    image: ${RAPP_DOCK_IMAGE_SCRAPLING:?Materialize locked public images first}
+    platform: linux/amd64
+    pull_policy: never
+    user: "10001:10001"
+    init: true
+    entrypoint: ["/app/.venv/bin/python", "/rapp/server.py"]
+    command: []
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1536m
+    cpus: 1.5
+    pids_limit: 256
+    shm_size: 128m
+    env_file:
+      - path: "${RAPP_DOCK_SECRETS}/scrapling.env"
+    environment:
+      RAPP_DOCK_NAMESPACE: "${RAPP_DOCK_NAMESPACE}"
+      RAPP_DOCK_TEST_FIXTURE: "${RAPP_DOCK_TEST_FIXTURE:-}"
+      HOME: /runtime
+      TMPDIR: /runtime
+      TMP: /runtime
+      TEMP: /runtime
+      XDG_RUNTIME_DIR: /runtime
+      PYTHONDONTWRITEBYTECODE: "1"
+      PLAYWRIGHT_BROWSERS_PATH: /opt/ms-playwright
+      UV_OFFLINE: "1"
+      UV_NO_SYNC: "1"
+      DO_NOT_TRACK: "1"
+    tmpfs:
+      - /runtime:rw,nosuid,nodev,size=268435456,uid=10001,gid=10001,mode=0700
+    volumes:
+      - .:/rapp:ro
+    networks: [sandbox]
+    depends_on:
+      egress:
+        condition: service_started
+      browser:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+    labels:
+      rapp.dock.namespace: "${RAPP_DOCK_NAMESPACE}"
+  browser:
+    image: ${RAPP_DOCK_IMAGE_PRESENTON:?Materialize locked public images first}
+    platform: linux/arm64
+    pull_policy: never
+    user: "10001:10001"
+    init: true
+    entrypoint: ["/opt/venv/bin/python", "-B", "/rapp/browser.py"]
+    command: []
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 128
+    shm_size: 128m
+    environment:
+      HOME: /runtime
+      TMPDIR: /runtime
+      TMP: /runtime
+      TEMP: /runtime
+      XDG_RUNTIME_DIR: /runtime
+      PYTHONDONTWRITEBYTECODE: "1"
+    tmpfs:
+      - /runtime:rw,nosuid,nodev,size=268435456,uid=10001,gid=10001,mode=0700
+    volumes:
+      - ./browser.py:/rapp/browser.py:ro
+    networks: [sandbox]
+    depends_on: [egress]
+    healthcheck:
+      test: ["CMD", "/opt/venv/bin/python", "-B", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9222/json/version',timeout=2).read(4096)"]
+      interval: 5s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "2m", max-file: "2"}
+    labels:
+      rapp.dock.namespace: "${RAPP_DOCK_NAMESPACE}"
+  egress:
+    image: ${RAPP_DOCK_IMAGE_SCRAPLING:?Materialize locked public images first}
+    platform: linux/amd64
+    pull_policy: never
+    user: "10001:10001"
+    entrypoint: ["/app/.venv/bin/python", "/rapp/egress_proxy.py"]
+    command: []
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    environment:
+      RAPP_DOCK_PORT: "${RAPP_DOCK_PORT}"
+      RAPP_DOCK_NAMESPACE: "${RAPP_DOCK_NAMESPACE}"
+      RAPP_DOCK_TEST_FIXTURE: "${RAPP_DOCK_TEST_FIXTURE:-}"
+      PYTHONDONTWRITEBYTECODE: "1"
+      HOME: /runtime
+      TMPDIR: /runtime
+    volumes:
+      - ./egress_proxy.py:/rapp/egress_proxy.py:ro
+      - ./url_policy.py:/rapp/url_policy.py:ro
+    ports: ["127.0.0.1:${RAPP_DOCK_PORT}:8000"]
+    networks: [sandbox, egress]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "2m", max-file: "2"}
+    labels:
+      rapp.dock.namespace: "${RAPP_DOCK_NAMESPACE}"
+networks:
+  sandbox:
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+    labels:
+      rapp.dock.namespace: "${RAPP_DOCK_NAMESPACE}"
+  egress:
+    labels:
+      rapp.dock.namespace: "${RAPP_DOCK_NAMESPACE}"

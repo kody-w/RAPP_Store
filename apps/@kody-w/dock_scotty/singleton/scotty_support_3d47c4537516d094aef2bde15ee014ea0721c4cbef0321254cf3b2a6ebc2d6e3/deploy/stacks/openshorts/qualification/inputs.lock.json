@@ -1,0 +1,79 @@
+{
+  "format_version": 1,
+  "application": "openshorts",
+  "platform": "linux/amd64",
+  "source": {
+    "repository": "https://github.com/mutonby/openshorts",
+    "commit": "0db0a3a04ba06b3dc74a670f38e335910c294249",
+    "archive_url": "https://codeload.github.com/mutonby/openshorts/tar.gz/0db0a3a04ba06b3dc74a670f38e335910c294249",
+    "archive_sha256": "27b08af87770eddf4cae7f3ad6ddae79756317b45103df93b9b52a8775f1cf0c",
+    "archive_bytes": 88330293,
+    "source_date_epoch": 1789955819,
+    "git_archive_comment": "0db0a3a04ba06b3dc74a670f38e335910c294249"
+  },
+  "dockerfile_frontend": "docker/dockerfile@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e",
+  "base_image_evidence": {
+    "file": "public-proof/base-images.json",
+    "sha256": "294c63e550f704f0d07cec1aa8434f363799507dd1fa53b2b5c2ed3f48190677",
+    "resolved_count": 5
+  },
+  "source_files": [
+    {"path": "requirements.txt", "sha256": "aeba75689b79a6494ea30d1816b86f255a9d87c4f238d9c7f50b37b4171bb860"},
+    {"path": "requirements-billing.txt", "sha256": "39d4826553494fcec551b364263ddd059f517d43c964a8e1d9a0b70de4320e63"},
+    {"path": "dashboard/package.json", "sha256": "da86cce94b4e22958033cf348c0fed2dc20410d1b706a05a9f0f742d717dd8f2"},
+    {"path": "dashboard/package-lock.json", "sha256": "0e866e91ba182628a2a54f7d8400f76cb00c6ee8e979f5bd0f4c2980be4cc84d"},
+    {"path": "render-service/package.json", "sha256": "cda75edb32b074978408602d44e23b9c23a402b72a15ba0caca2e55bc65cb708"},
+    {"path": "render-service/package-lock.json", "sha256": "45d6cc637811fc0c49c8e358746b117f7077d663939aa3d162c20231e31f91d4"},
+    {"path": "remotion/package.json", "sha256": "1118c8fe0e4e61d77cdbbabb6ef221537e689bcd674830a2826a4373edbe5eba"}
+  ],
+  "candidate_files": [
+    {"path": "qualification/Dockerfile.frontend", "sha256": "f98d68fe908023d3a6be8c3bbe21b834b3873bdcfe11354bc3110cfb4616efcd"},
+    {"path": "qualification/npmrc", "sha256": "c480ab957d8cd698435cddd8cf376d0efb48bcaa7d22820ee0b20920535dc258"},
+    {"path": "qualification/frontend.dockerignore", "sha256": "78b83692abcd91229e97523322b164f7b04f301f49b1062771d3add4d84adaeb"},
+    {"path": "private-nginx.conf", "sha256": "63b940e701a998d1c8e59f792c7283cd94fbd5b3fcff29a051ba62c82c4f51bc"}
+  ],
+  "current_qualification": "result.json",
+  "complete_offline_closure": "offline-locks/",
+  "reviewed_dependencies": {
+    "bgutil": {
+      "repository": "https://github.com/Brainicism/bgutil-ytdlp-pot-provider",
+      "commit": "37169ee2656e08c5c2e5dc9df4c598c0cb4c88a8",
+      "release_hint": "2.0.0",
+      "node_requirement": ">=22",
+      "server_package_sha256": "599f86e61b4419751ce1384d455fd66405031666c05619f5c4534d07bf6d3942",
+      "server_lock_sha256": "240e3d9786a808919545f0877ffdcc2c1dc0391c2f80e9f03c376fbc6e7c7342",
+      "license": "GPL-3.0-only",
+      "official_image": "brainicism/bgutil-ytdlp-pot-provider@sha256:79b7d390e024f3308a0b8fe2041be7e4e4d6a8c30ad6052a89bc51d210c385f1",
+      "official_image_platform": "linux/amd64",
+      "official_image_assurance": "publisher-metadata-unsigned",
+      "official_image_observation": "public-proof/bgutil-image.json",
+      "runtime_proof": "public-proof/bgutil-runtime.json",
+      "qualification": "Official image has the matching source-revision label and passed real offline health. The final backend imports the pinned plugin, its actual legacy script_path resolver selects the correct server_home, and the actual generate_once.js reports version 2.0.0. No token generation or external media request was made; see public-proof/backend-helper-contract.json."
+    },
+    "torch_cpu": {
+      "version": "2.11.0+cpu",
+      "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+      "sha256": "8a56a8c95531ef0e454510ba8bbd9d11dc7a9000337265210b10f6bfeacdd485",
+      "downloaded": true,
+      "qualification": "Official CPU wheel, torchvision 0.26.0+cpu and all 110 pinned transitive wheels installed offline with hashes and pip check. Actual YOLO, MediaPipe, TransNetV2 and Whisper CPU inference passed; see result.json."
+    },
+    "transnetv2_pytorch": {
+      "version": "1.0.5",
+      "filename": "transnetv2_pytorch-1.0.5-py3-none-any.whl",
+      "sha256": "9f8e72085526aaa95383d219b6750b1fa45b865fd10d840cafa12ef78ab3bf27",
+      "bytes": 32720474,
+      "downloaded": true,
+      "qualification": "Bundled 30,506,391-byte weights were observed in the hash-verified wheel. Direct TransNetV2 inference on a real synthetic video passed offline without invoking fallback; see public-proof/backend-model-proof.json."
+    },
+    "whisper_small": {
+      "repository": "https://huggingface.co/Systran/faster-whisper-small",
+      "commit": "536b0662742c02347bc0e980a01041f333bce120",
+      "model_bin_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+      "model_bin_bytes": 483546902,
+      "config_sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828",
+      "declared_license": "MIT",
+      "model_downloaded": true,
+      "qualification": "All four model files hash-verified and immutable in the runtime image. Real local_files_only int8 transcription recovered the expected locally synthesized sentence; see offline-locks/backend-models.lock.json and public-proof/backend-model-proof.json."
+    }
+  }
+}

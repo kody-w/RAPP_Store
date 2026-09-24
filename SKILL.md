@@ -32,7 +32,9 @@ reusable agent without either application contract belongs in RAR.
 
 ### Start here: Dock / Scotty
 
-The main new-application example is
+The real, installable Dock application is
+[`apps/@kody-w/dock_scotty/`](./apps/@kody-w/dock_scotty/README.md).
+The main new-application authoring example is
 [`samples/dock_scotty/`](./samples/dock_scotty/README.md), implementing the
 proposed [`local-docker/1` extension](./SPEC.md#15-complete-chat-operated-applications).
 It shows one bot, five application journeys, complete file-locked references,

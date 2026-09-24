@@ -1,0 +1,343 @@
+[
+  {
+    "discovered_ref": "ghcr.io/d4vinci/scrapling:v0.4.15",
+    "status": "unresolved",
+    "blocker": "HTTP Error 404: Not Found"
+  },
+  {
+    "discovered_ref": "ghcr.io/d4vinci/scrapling:latest",
+    "image": "ghcr.io/d4vinci/scrapling@sha256:65fc31598af6cc5053c63b5f5205524a94964d82fd33b24b6c96c7cb0be35ada",
+    "index_digest": "sha256:1bacbc8ec90b3090d462e12f6555e241daf0dfeb684ab326ffa09d52d8226e69",
+    "platform": "linux/amd64",
+    "labels": {
+      "io.modelcontextprotocol.server.name": "io.github.D4Vinci/Scrapling",
+      "org.opencontainers.image.created": "2026-08-23T19:43:29.543Z",
+      "org.opencontainers.image.description": "An undetectable, powerful, flexible, high-performance Python library that makes Web Scraping easy and effortless as it should be!",
+      "org.opencontainers.image.documentation": "https://scrapling.readthedocs.io/en/latest/",
+      "org.opencontainers.image.licenses": "BSD",
+      "org.opencontainers.image.revision": "333fa22b7a5821194ce66b59b11f4b16a6484f02",
+      "org.opencontainers.image.source": "https://github.com/D4Vinci/Scrapling",
+      "org.opencontainers.image.title": "Scrapling",
+      "org.opencontainers.image.url": "https://scrapling.readthedocs.io/en/latest/",
+      "org.opencontainers.image.vendor": "D4Vinci",
+      "org.opencontainers.image.version": "0.4.15"
+    },
+    "entrypoint": [
+      "uv",
+      "run",
+      "scrapling"
+    ],
+    "cmd": [
+      "--help"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "pyd4vinci/scrapling:latest",
+    "image": "pyd4vinci/scrapling@sha256:65fc31598af6cc5053c63b5f5205524a94964d82fd33b24b6c96c7cb0be35ada",
+    "index_digest": "sha256:1bacbc8ec90b3090d462e12f6555e241daf0dfeb684ab326ffa09d52d8226e69",
+    "platform": "linux/amd64",
+    "labels": {
+      "io.modelcontextprotocol.server.name": "io.github.D4Vinci/Scrapling",
+      "org.opencontainers.image.created": "2026-08-23T19:43:29.543Z",
+      "org.opencontainers.image.description": "An undetectable, powerful, flexible, high-performance Python library that makes Web Scraping easy and effortless as it should be!",
+      "org.opencontainers.image.documentation": "https://scrapling.readthedocs.io/en/latest/",
+      "org.opencontainers.image.licenses": "BSD",
+      "org.opencontainers.image.revision": "333fa22b7a5821194ce66b59b11f4b16a6484f02",
+      "org.opencontainers.image.source": "https://github.com/D4Vinci/Scrapling",
+      "org.opencontainers.image.title": "Scrapling",
+      "org.opencontainers.image.url": "https://scrapling.readthedocs.io/en/latest/",
+      "org.opencontainers.image.vendor": "D4Vinci",
+      "org.opencontainers.image.version": "0.4.15"
+    },
+    "entrypoint": [
+      "uv",
+      "run",
+      "scrapling"
+    ],
+    "cmd": [
+      "--help"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "ghcr.io/every-app/open-seo:v0.1.9",
+    "image": "ghcr.io/every-app/open-seo@sha256:db1e0677c5417ef0ed1ee9ec7c392dcaa0b27805eff3f4a4253cdafc448cddb3",
+    "index_digest": "sha256:babc731b51d2fb89fe8ab1f7acc5abed07977f035c18f628ac48142f5ade1bf2",
+    "platform": "linux/amd64",
+    "labels": {
+      "org.opencontainers.image.created": "2026-09-17T19:20:07.862Z",
+      "org.opencontainers.image.description": "Open source alternative to Semrush and Ahrefs",
+      "org.opencontainers.image.licenses": "MIT",
+      "org.opencontainers.image.revision": "84e4705503ceaef54d1b284c167de9942563cdae",
+      "org.opencontainers.image.source": "https://github.com/every-app/open-seo",
+      "org.opencontainers.image.title": "open-seo",
+      "org.opencontainers.image.url": "https://github.com/every-app/open-seo",
+      "org.opencontainers.image.version": "0.1.9"
+    },
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "sh",
+      "docker-entrypoint.sh"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "ghcr.io/presenton/presenton:latest",
+    "image": "ghcr.io/presenton/presenton@sha256:85ce734e08a74809991c28a7d0491f553c4ef410ef3e2a7e593e069e2d2d9d62",
+    "index_digest": "sha256:ddf0d1f26397764856acdf94489dbbae5a2c0644a280723fd80bc7a80de338ba",
+    "platform": "linux/amd64",
+    "labels": {
+      "com.docker.compose.project": "presenton-3",
+      "com.docker.compose.service": "production",
+      "com.docker.compose.version": "2.34.0"
+    },
+    "entrypoint": null,
+    "cmd": [
+      "node",
+      "/app/start.js"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "busybox:1.37.0",
+    "image": "busybox@sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+    "index_digest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0",
+    "platform": "linux/amd64",
+    "labels": {},
+    "entrypoint": null,
+    "cmd": [
+      "sh"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "langgenius/dify-api:1.17.1",
+    "image": "langgenius/dify-api@sha256:04f435a2e366c73f1ccefe9e7fbdaa2ac6440bdcde268d5d20f19c3ba7e7dcdb",
+    "index_digest": "sha256:ceede5b903afaa20348f7ad80ebf847379dc56d886a99b9ec6a08913dacd7732",
+    "platform": "linux/amd64",
+    "labels": {
+      "org.opencontainers.image.created": "2026-09-10T09:25:34.752Z",
+      "org.opencontainers.image.description": "Build Agentic workflows, RAG pipelines, with rich AI model and tool support on one collaborative workspace. Deploy on cloud, VPC, or self-hosted, so teams move from prototype to production without rebuilding the stack.",
+      "org.opencontainers.image.licenses": "NOASSERTION",
+      "org.opencontainers.image.revision": "8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "org.opencontainers.image.source": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.title": "dify",
+      "org.opencontainers.image.url": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.version": "1.17.1"
+    },
+    "entrypoint": [
+      "/bin/bash",
+      "/entrypoint.sh"
+    ],
+    "cmd": null,
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "langgenius/dify-web:1.17.1",
+    "image": "langgenius/dify-web@sha256:c4baeb297722671a23317b17d2af669f50b36f6239d1d976832a77b2057344e5",
+    "index_digest": "sha256:6353fe8e04481aaef873ef7317507bfa9ac862572118fd037563a71bff9f4d08",
+    "platform": "linux/amd64",
+    "labels": {
+      "maintainer": "takatost@gmail.com",
+      "org.opencontainers.image.created": "2026-09-10T09:25:35.188Z",
+      "org.opencontainers.image.description": "Build Agentic workflows, RAG pipelines, with rich AI model and tool support on one collaborative workspace. Deploy on cloud, VPC, or self-hosted, so teams move from prototype to production without rebuilding the stack.",
+      "org.opencontainers.image.licenses": "NOASSERTION",
+      "org.opencontainers.image.revision": "8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "org.opencontainers.image.source": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.title": "dify",
+      "org.opencontainers.image.url": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.version": "1.17.1"
+    },
+    "entrypoint": [
+      "/bin/sh",
+      "./entrypoint.sh"
+    ],
+    "cmd": null,
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "postgres:15-alpine",
+    "image": "postgres@sha256:25d430274d8a31184f9435cc5b2f56aff254952065bbbcac0c51acedb5a1d1e7",
+    "index_digest": "sha256:f7d23353e1b15400d22ebe31189f4d314b87a4c129cc400c8c2d8d4ca127bf81",
+    "platform": "linux/amd64",
+    "labels": {},
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "postgres"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "redis:6-alpine",
+    "image": "redis@sha256:f144fc965e3a2f3027a6c66bce596c8b780096380dad0b71d6245fa1a32bbe23",
+    "index_digest": "sha256:b362b5dff9d14d961dc3352db4776aba6a8c53ca2661d7c74ad2c121f82cdaea",
+    "platform": "linux/amd64",
+    "labels": {},
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "redis-server"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "langgenius/dify-sandbox:0.2.15",
+    "image": "langgenius/dify-sandbox@sha256:942acde5b90350498f71c9f89fe1c0a578578c51521d6683783e073528b6a26a",
+    "index_digest": "sha256:750e1111426ef31a9217b81c98cccfb750f17b182af3221102e420afa9f0928e",
+    "platform": "linux/amd64",
+    "labels": {
+      "com.docker.dhi.chain-id": "sha256:7efbdde9cf436e03e485e5dc10f52441b687fab78304e3aed7955f762ff2f096",
+      "com.docker.dhi.compliance": "cis",
+      "com.docker.dhi.created": "2026-04-25T22:28:26Z",
+      "com.docker.dhi.date.end-of-life": "2030-10-31",
+      "com.docker.dhi.date.release": "2025-10-07",
+      "com.docker.dhi.definition": "image/python/debian-13/3.14-sfw-ent-dev",
+      "com.docker.dhi.distro": "debian-13",
+      "com.docker.dhi.entitlement": "public",
+      "com.docker.dhi.flavor": "sfw-ent",
+      "com.docker.dhi.name": "dhi/python",
+      "com.docker.dhi.package-manager": "apt",
+      "com.docker.dhi.shell": "bash",
+      "com.docker.dhi.title": "Python 3.14.x / Socket Firewall Enterprise (sfw-ent, dev)",
+      "com.docker.dhi.url": "https://dhi.io/catalog/python",
+      "com.docker.dhi.variant": "dev",
+      "com.docker.dhi.version": "3.14.4-debian13-sfw-ent-dev"
+    },
+    "entrypoint": [
+      "/entrypoint.sh"
+    ],
+    "cmd": null,
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "langgenius/dify-agent-local-sandbox:1.17.1",
+    "image": "langgenius/dify-agent-local-sandbox@sha256:b9b52ce81ca7ec49c721909602f8549046c715a9d4cea9c6a843102c4684fa27",
+    "index_digest": "sha256:f4d404c9dcdf80bd72f65e84c3f2bbd1f3404fd4b363db837176da8aaf771b1d",
+    "platform": "linux/amd64",
+    "labels": {
+      "org.opencontainers.image.created": "2026-09-10T09:25:39.348Z",
+      "org.opencontainers.image.description": "Build Agentic workflows, RAG pipelines, with rich AI model and tool support on one collaborative workspace. Deploy on cloud, VPC, or self-hosted, so teams move from prototype to production without rebuilding the stack.",
+      "org.opencontainers.image.licenses": "NOASSERTION",
+      "org.opencontainers.image.revision": "8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "org.opencontainers.image.source": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.title": "dify",
+      "org.opencontainers.image.url": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.version": "1.17.1"
+    },
+    "entrypoint": [
+      "/usr/bin/tini",
+      "-g",
+      "--"
+    ],
+    "cmd": [
+      "shellctl",
+      "serve",
+      "--listen",
+      "0.0.0.0:5004"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "langgenius/dify-plugin-daemon:0.6.10-local",
+    "image": "langgenius/dify-plugin-daemon@sha256:0b8f1f1e766826352d868aaf8c9eeeee8e37a3a3b023044ed8ab0d145f853cdf",
+    "index_digest": "sha256:34412a22d1e1d1a6c73727fef88cffbcdd9be7a21bf9ad3076b4bf5c1b88fd9b",
+    "platform": "linux/amd64",
+    "labels": {
+      "org.opencontainers.image.version": "24.04"
+    },
+    "entrypoint": [
+      "/usr/bin/tini",
+      "-g",
+      "--"
+    ],
+    "cmd": [
+      "/bin/bash",
+      "-c",
+      "/app/commandline migrate && exec /app/main"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "langgenius/dify-agent-backend:1.17.1",
+    "image": "langgenius/dify-agent-backend@sha256:d6f83ac95ed674974e66f0dddcf65b89d52d26a584f12aca2edd3560ce5eb184",
+    "index_digest": "sha256:a30c039bbead65d7fd8baf8c53fc867373f515c5721e46070ce03ed04c5f1e32",
+    "platform": "linux/amd64",
+    "labels": {
+      "org.opencontainers.image.created": "2026-09-10T09:25:34.861Z",
+      "org.opencontainers.image.description": "Build Agentic workflows, RAG pipelines, with rich AI model and tool support on one collaborative workspace. Deploy on cloud, VPC, or self-hosted, so teams move from prototype to production without rebuilding the stack.",
+      "org.opencontainers.image.licenses": "NOASSERTION",
+      "org.opencontainers.image.revision": "8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "org.opencontainers.image.source": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.title": "dify",
+      "org.opencontainers.image.url": "https://github.com/langgenius/dify",
+      "org.opencontainers.image.version": "1.17.1"
+    },
+    "entrypoint": null,
+    "cmd": [
+      "uvicorn",
+      "dify_agent.server.app:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "5050"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "ubuntu/squid:latest",
+    "image": "ubuntu/squid@sha256:8fafd41d6ddceb295d26eea9938321d825ac5351c7e46cf6a8aa5d093b8ed1ce",
+    "index_digest": "sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029",
+    "platform": "linux/amd64",
+    "labels": {
+      "maintainer": "Ubuntu Server team <ubuntu-server@lists.ubuntu.com>",
+      "org.opencontainers.image.ref.name": "ubuntu",
+      "org.opencontainers.image.version": "24.04"
+    },
+    "entrypoint": [
+      "entrypoint.sh"
+    ],
+    "cmd": [
+      "-f",
+      "/etc/squid/squid.conf",
+      "-NYC"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "nginx:stable",
+    "image": "nginx@sha256:3d2f995522ddb52c3a4eb8008b8fa26f184f7146851df1da831f88885ac40aae",
+    "index_digest": "sha256:0aa2d81d65bc0cac0407e738b8f07d312c8685a84225fcb4db7bcbdd8c9bdf11",
+    "platform": "linux/amd64",
+    "labels": {
+      "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+    },
+    "entrypoint": [
+      "/docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "nginx",
+      "-g",
+      "daemon off;"
+    ],
+    "status": "resolved"
+  },
+  {
+    "discovered_ref": "cr.weaviate.io/semitechnologies/weaviate:1.39.2",
+    "status": "unresolved",
+    "blocker": "HTTP Error 429: Too Many Requests"
+  },
+  {
+    "discovered_ref": "pgvector/pgvector:pg16",
+    "image": "pgvector/pgvector@sha256:eac621400b7b7ff52493883e41e930e3d104695fea5b68cc0c42370cf7880067",
+    "index_digest": "sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b",
+    "platform": "linux/amd64",
+    "labels": {},
+    "status": "resolved"
+  }
+]

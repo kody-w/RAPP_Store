@@ -8,9 +8,16 @@ Native macOS release downloads remain an independent optional distribution.
 Existing integrations load into a brainstem; native applications install separately. Browse the
 [store](https://kody-w.github.io/RAPP_Store/) or [Pokédex API](#pokédex-api).
 
-## Main authoring template: RAPP Dock / Scotty
+## RAPP Dock / Scotty
 
-[**Start with the Dock / Scotty template**](./samples/dock_scotty/README.md):
+[**RAPP Dock / Scotty**](./apps/@kody-w/dock_scotty/README.md) is the real,
+installable complete application: Scotty runs Scrapling, Presenton, OpenSEO,
+Dify and OpenShorts in local Docker from chat or its UI. Installed five-job
+acceptance passed on its previous build, and this build was installed fresh
+from the Store files and re-ran a scrape and a deck.
+
+To author your own complete application, start from the
+[authoring template](./samples/dock_scotty/README.md):
 one visible bot operates five application journeys through Brainstem chat,
 with declared components, typed jobs, providers, owned state, preserving
 lifecycle and portable results. An agent is the entrypoint, not the whole app.

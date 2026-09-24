@@ -1,0 +1,299 @@
+{
+  "schema": "rapp-dock-components/1",
+  "profile": {
+    "host": "darwin/arm64",
+    "docker_context": "desktop-linux",
+    "guest_platforms": ["linux/arm64", "linux/amd64"],
+    "amd64_emulation_required": true,
+    "assurance": "locked-public-inputs-and-local-image-observations-not-signed-builds",
+    "fresh_machine_acceptance": "pending",
+    "bit_identical_rebuilds_claimed": false
+  },
+  "artifacts": {
+    "copilot-cli-linux-arm64-1.0.88": {
+      "url": "https://github.com/github/copilot-cli/releases/download/v1.0.88/copilot-linux-arm64.tar.gz",
+      "sha256": "e263f5f9eb0db5dddf5775ac98c437e27743857ce0ba310f08f2338aebd1107d",
+      "bytes": 102094753,
+      "license": "Official GitHub Copilot CLI release; adopter subscription and license terms apply."
+    },
+    "openshorts-source": {
+      "url": "https://codeload.github.com/mutonby/openshorts/tar.gz/0db0a3a04ba06b3dc74a670f38e335910c294249",
+      "sha256": "27b08af87770eddf4cae7f3ad6ddae79756317b45103df93b9b52a8775f1cf0c",
+      "bytes": 88330293,
+      "license": "OpenShorts upstream LICENSE and cloud LICENSE; Remotion and model terms also apply."
+    }
+  },
+  "input_sets": {
+    "openshorts-public": {
+      "source": {
+        "url": "https://codeload.github.com/mutonby/openshorts/tar.gz/0db0a3a04ba06b3dc74a670f38e335910c294249",
+        "sha256": "27b08af87770eddf4cae7f3ad6ddae79756317b45103df93b9b52a8775f1cf0c",
+        "bytes": 88330293,
+        "license": "OpenShorts upstream LICENSE and cloud LICENSE; Remotion and model terms also apply."
+      },
+      "files": [
+        {"path":"deploy/stacks/openshorts/private-nginx.conf","target":"private-nginx.conf","bytes":1138,"sha256":"63b940e701a998d1c8e59f792c7283cd94fbd5b3fcff29a051ba62c82c4f51bc"},
+        {"path":"deploy/stacks/openshorts/qualification/prepare_offline.py","target":"qualification/prepare_offline.py","bytes":5483,"sha256":"7466c3f3d3c3db664c4e344c1f06884b12b2267fdcdd1b78f3bfae1927853fed"},
+        {"path":"deploy/stacks/openshorts/qualification/prepare_context.py","target":"qualification/prepare_context.py","bytes":4664,"sha256":"6c6798af282504b178b762ddfea3f331c1183fdbef11c1eac40ff872fced30bc"},
+        {"path":"deploy/stacks/openshorts/qualification/inputs.lock.json","target":"qualification/inputs.lock.json","bytes":5331,"sha256":"44ac236e9abf95ca34a4067fd7c5e4d2f2532d0d63647a82227f4fa8a7072335"},
+        {"path":"deploy/stacks/openshorts/qualification/Dockerfile.frontend","target":"qualification/Dockerfile.frontend","bytes":1271,"sha256":"f98d68fe908023d3a6be8c3bbe21b834b3873bdcfe11354bc3110cfb4616efcd"},
+        {"path":"deploy/stacks/openshorts/qualification/npmrc","target":"qualification/npmrc","bytes":131,"sha256":"c480ab957d8cd698435cddd8cf376d0efb48bcaa7d22820ee0b20920535dc258"},
+        {"path":"deploy/stacks/openshorts/qualification/frontend.dockerignore","target":"qualification/frontend.dockerignore","bytes":235,"sha256":"78b83692abcd91229e97523322b164f7b04f301f49b1062771d3add4d84adaeb"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-npm-lock.mjs","target":"qualification/offline-npm-lock.mjs","bytes":2327,"sha256":"930bee2c68059a6f0e8ab21afd6a398bab3f0785aca9233f379ee81125a89056"},
+        {"path":"deploy/stacks/openshorts/qualification/frontend-build.sh","target":"qualification/frontend-build.sh","bytes":365,"sha256":"6d593483bc9b8cb8d73955fb6ce4b7aa33ab1e106b4c9f2d2e33fc39061884c5"},
+        {"path":"deploy/stacks/openshorts/qualification/frontend-artifacts.json","target":"qualification/frontend-artifacts.json","bytes":134388,"sha256":"594d650326bcba310d6e12376a00b401f0f2f5ee71b0718215a56f1dade70125"},
+        {"path":"deploy/stacks/openshorts/qualification/Dockerfile.backend-offline","target":"qualification/Dockerfile.backend-offline","bytes":3047,"sha256":"b9abf439595e43f56b15af790590f405b33c3d546ffb66e41417493a2ee45674"},
+        {"path":"deploy/stacks/openshorts/qualification/Dockerfile.renderer-offline","target":"qualification/Dockerfile.renderer-offline","bytes":1369,"sha256":"807416b9eb485bd13856d8a2da3a8e32b3337e2427eedf71103acea63db560d2"},
+        {"path":"deploy/stacks/openshorts/qualification/renderer-browser.patch","target":"qualification/renderer-browser.patch","bytes":598,"sha256":"864e4d045ae6e394bde8225c8fa83d1e2d450109ce3dc3ddb6358b58ffd59280"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/backend-requirements.lock","target":"qualification/offline-locks/backend-requirements.lock","bytes":10660,"sha256":"5aeb39b082e123e1137db19832a4a785c767fe14794fd6d0850391b3f4eefe26"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/backend-artifacts.json","target":"qualification/offline-locks/backend-artifacts.json","bytes":43043,"sha256":"cd8d6ce729dd5ecf2f0824263e9446567eb339d8300514e1034985b235522c8d"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/backend-models.lock.json","target":"qualification/offline-locks/backend-models.lock.json","bytes":1586,"sha256":"df051fbc6a59f8f54713a4a34250dcb82ceee11a8d769e5080f9d7e7167ee6a2"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/backend-system-packages.lock.json","target":"qualification/offline-locks/backend-system-packages.lock.json","bytes":86211,"sha256":"a77f7bb00c3a6835f9e69841a5006326d46acaaf0fda321eb06850e42612b793"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/renderer-system-packages.lock.json","target":"qualification/offline-locks/renderer-system-packages.lock.json","bytes":101245,"sha256":"067c5f3e59629909b47b2734633f493f7784e6830030a1970ed11b26f3884909"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/render-service/package.json","target":"qualification/offline-locks/render-service/package.json","bytes":672,"sha256":"4a87d10e42a31c8aab03ac751f1b9101b00d45d0be5d238f0ec9b932ee256ffd"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/render-service/package-lock.json","target":"qualification/offline-locks/render-service/package-lock.json","bytes":145446,"sha256":"d5a08c85751b75b416782df02c6f7ab87c9cf53cae7543c6d90b0dc1726be8bb"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/render-service/artifact-manifest.json","target":"qualification/offline-locks/render-service/artifact-manifest.json","bytes":143011,"sha256":"b031d38835c1175e983a1f9617265a88b39fb0f39c0b73fe83a8b3eba3737935"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/remotion/package.json","target":"qualification/offline-locks/remotion/package.json","bytes":639,"sha256":"b29e3aa1c73e70f54d9d6fdbf893fad7fb7d77e2ca2d85ef3c39df6e37ade8dd"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/remotion/package-lock.json","target":"qualification/offline-locks/remotion/package-lock.json","bytes":107470,"sha256":"efcfb89d3f8e6739b3930b403ad735e456ad964a47d171e3cce702601cb5d7a2"},
+        {"path":"deploy/stacks/openshorts/qualification/offline-locks/remotion/artifact-manifest.json","target":"qualification/offline-locks/remotion/artifact-manifest.json","bytes":106845,"sha256":"d0ac83ba756b2f1d99ec0dbed5803ec3985f26679b1896c194e8a47dc75c3950"}
+      ],
+      "dependencies": [
+        {"role":"backend","manifest":"qualification/offline-locks/backend-artifacts.json","kind":"wheels","target":"wheelhouse"},
+        {"role":"backend","manifest":"qualification/offline-locks/backend-system-packages.lock.json","kind":"system","target":"backend-system-packages"},
+        {"role":"backend","manifest":"qualification/offline-locks/backend-models.lock.json","kind":"models","target":"backend-models"},
+        {"role":"renderer","manifest":"qualification/offline-locks/renderer-system-packages.lock.json","kind":"system","target":"renderer-system-packages"},
+        {"role":"renderer","manifest":"qualification/offline-locks/render-service/artifact-manifest.json","kind":"npm","target":"locked-tarballs"},
+        {"role":"renderer","manifest":"qualification/offline-locks/remotion/artifact-manifest.json","kind":"npm","target":"locked-tarballs"},
+        {"role":"frontend","manifest":"qualification/frontend-artifacts.json","kind":"npm","target":"locked-tarballs"}
+      ]
+    }
+  },
+  "components": {
+    "intelligence": {
+      "kind": "dockerfile",
+      "platform": "linux/arm64",
+      "env": "RAPP_DOCK_IMAGE_INTELLIGENCE",
+      "reference": null,
+      "recipe": {
+        "files": [
+          {"path": "deploy/local/intelligence/Dockerfile", "target": "Dockerfile", "sha256": "ce69c200cca666c53a84c102990cfba3b8611ee29ee363ed7c2fb0f71b474fff", "bytes": 724},
+          {"path": "deploy/local/intelligence/server.py", "target": "server.py", "sha256": "1af5d8408114322cec863242b9729ab5d9aee23226adec3a5247e33db8c56f5d", "bytes": 56081},
+          {"path": "deploy/local/intelligence/schema.py", "target": "schema.py", "sha256": "9fa7295740d01a3da93525494c2f3de937067e9210ec1febbaa0af6df752541f", "bytes": 11512}
+        ],
+        "bases": ["python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9"],
+        "artifacts": [{"artifact": "copilot-cli-linux-arm64-1.0.88", "member": "copilot", "target": "copilot"}]
+      },
+      "observed_image_ids": ["sha256:8f0e39b511597f8d559959e40932d723e7f9c9469f7b8e9f68de9997fa206857"],
+      "source": "https://github.com/github/copilot-cli/releases/tag/v1.0.88; gateway source is file-locked in this package",
+      "license": "Official Copilot CLI terms; Python base licenses retained in image",
+      "blockers": []
+    },
+    "scrapling": {
+      "kind": "dockerfile",
+      "platform": "linux/amd64",
+      "env": "RAPP_DOCK_IMAGE_SCRAPLING",
+      "reference": null,
+      "recipe": {
+        "files": [{"path": "deploy/stacks/scrapling/Dockerfile.mac", "target": "Dockerfile", "sha256": "d91f483cb6e1ff66fac55a3638ca0bb53b527b5738d4da56b41e473ade880130", "bytes": 668}],
+        "bases": ["ghcr.io/d4vinci/scrapling@sha256:65fc31598af6cc5053c63b5f5205524a94964d82fd33b24b6c96c7cb0be35ada"],
+        "artifacts": []
+      },
+      "observed_image_ids": ["sha256:e9d8096a6e4db29c3b82233e8c2d83014d23dfdc9a31ac1f5d32504fc0b00a72"],
+      "source": "https://github.com/D4Vinci/Scrapling/tree/333fa22b7a5821194ce66b59b11f4b16a6484f02",
+      "license": "deploy/stacks/scrapling/upstream/LICENSE",
+      "blockers": []
+    },
+    "presenton": {
+      "kind": "dockerfile",
+      "platform": "linux/arm64",
+      "env": "RAPP_DOCK_IMAGE_PRESENTON",
+      "reference": null,
+      "recipe": {
+        "files": [
+          {"path": "deploy/stacks/presenton/Dockerfile.mac", "target": "Dockerfile", "sha256": "2772d3d744c613344cc3854d21c0246109d0aafca1001cc8b17b1268ccdcbce0", "bytes": 1172},
+          {"path": "deploy/stacks/presenton/offline_entrypoint.py", "target": "offline_entrypoint.py", "sha256": "1e673ccf417440558b087b0bc88be44c49f22674c41d1b5df48d77f6d8079baa", "bytes": 2344}
+        ],
+        "bases": ["ghcr.io/presenton/presenton@sha256:205b416b0b6f6813d7f91042a74bcf6df4e31533034aba2659aa91f4c3d0af7d"],
+        "artifacts": []
+      },
+      "observed_image_ids": ["sha256:9c69a775b4ef15929867e19bc168f8df865484998db286f683e4c0f08ff917ce"],
+      "source": "https://github.com/presenton/presenton/tree/e33a91bc674eb51a96f5fdc66f61436bb2606748",
+      "license": "deploy/stacks/presenton/upstream/LICENSE and NOTICE",
+      "blockers": []
+    },
+    "open-seo": {
+      "kind": "dockerfile",
+      "platform": "linux/arm64",
+      "env": "RAPP_DOCK_IMAGE_OPEN_SEO",
+      "reference": null,
+      "recipe": {
+        "files": [{"path": "deploy/stacks/open-seo/Dockerfile.mac", "target": "Dockerfile", "sha256": "797b66f048a41b5f54d6f4aa5fb7af432ac5fbd2b9236146e91e89fcaac1a9a1", "bytes": 1243}],
+        "bases": ["ghcr.io/every-app/open-seo@sha256:115fed7fab257b37a963200f6cc68e2ec9f0605bae01594ced85865e58e289c7"],
+        "artifacts": []
+      },
+      "observed_image_ids": ["sha256:5a1072f69b9f817e1a16cb35527d7ace79c7c1b4be6a86744e6620179976cf0a"],
+      "source": "https://github.com/every-app/open-seo/tree/84e4705503ceaef54d1b284c167de9942563cdae",
+      "license": "deploy/stacks/open-seo/upstream/LICENSE",
+      "blockers": []
+    },
+    "dify-agent-backend": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_DIFY_AGENT_BACKEND",
+      "reference": "langgenius/dify-agent-backend@sha256:d6f83ac95ed674974e66f0dddcf65b89d52d26a584f12aca2edd3560ce5eb184",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/langgenius/dify/tree/8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "license": "deploy/stacks/dify/upstream/LICENSE", "blockers": []
+    },
+    "dify-api": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_DIFY_API",
+      "reference": "langgenius/dify-api@sha256:04f435a2e366c73f1ccefe9e7fbdaa2ac6440bdcde268d5d20f19c3ba7e7dcdb",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/langgenius/dify/tree/8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "license": "deploy/stacks/dify/upstream/LICENSE", "blockers": []
+    },
+    "dify-local-sandbox": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_DIFY_LOCAL_SANDBOX",
+      "reference": "langgenius/dify-agent-local-sandbox@sha256:b9b52ce81ca7ec49c721909602f8549046c715a9d4cea9c6a843102c4684fa27",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/langgenius/dify/tree/8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "license": "deploy/stacks/dify/upstream/LICENSE", "blockers": []
+    },
+    "dify-plugin": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_DIFY_PLUGIN",
+      "reference": "langgenius/dify-plugin-daemon@sha256:0b8f1f1e766826352d868aaf8c9eeeee8e37a3a3b023044ed8ab0d145f853cdf",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/langgenius/dify-plugin-daemon",
+      "license": "Publisher image license notices apply", "blockers": []
+    },
+    "dify-sandbox": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_DIFY_SANDBOX",
+      "reference": "langgenius/dify-sandbox@sha256:942acde5b90350498f71c9f89fe1c0a578578c51521d6683783e073528b6a26a",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/langgenius/dify-sandbox",
+      "license": "Publisher image license notices apply", "blockers": []
+    },
+    "dify-web": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_DIFY_WEB",
+      "reference": "langgenius/dify-web@sha256:c4baeb297722671a23317b17d2af669f50b36f6239d1d976832a77b2057344e5",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/langgenius/dify/tree/8387590ace4a094de812b7847fc6a4c3a27cd52b",
+      "license": "deploy/stacks/dify/upstream/LICENSE", "blockers": []
+    },
+    "postgres": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_POSTGRES",
+      "reference": "postgres@sha256:25d430274d8a31184f9435cc5b2f56aff254952065bbbcac0c51acedb5a1d1e7",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/docker-library/postgres",
+      "license": "PostgreSQL and base-image license notices apply", "blockers": []
+    },
+    "pgvector": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_PGVECTOR",
+      "reference": "pgvector/pgvector@sha256:eac621400b7b7ff52493883e41e930e3d104695fea5b68cc0c42370cf7880067",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/pgvector/pgvector",
+      "license": "PostgreSQL license and base-image license notices apply", "blockers": []
+    },
+    "redis": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_REDIS",
+      "reference": "redis@sha256:f144fc965e3a2f3027a6c66bce596c8b780096380dad0b71d6245fa1a32bbe23",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/docker-library/redis",
+      "license": "Pinned publisher image license notices apply; no generic Redis license claim", "blockers": []
+    },
+    "squid": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_SQUID",
+      "reference": "ubuntu/squid@sha256:8fafd41d6ddceb295d26eea9938321d825ac5351c7e46cf6a8aa5d093b8ed1ce",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://hub.docker.com/r/ubuntu/squid",
+      "license": "Squid GPL and Ubuntu package license notices apply", "blockers": []
+    },
+    "nginx": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_NGINX",
+      "reference": "nginx@sha256:3d2f995522ddb52c3a4eb8008b8fa26f184f7146851df1da831f88885ac40aae",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://github.com/nginx/docker-nginx",
+      "license": "NGINX BSD and base-image license notices apply", "blockers": []
+    },
+    "busybox": {
+      "kind": "registry", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_BUSYBOX",
+      "reference": "busybox@sha256:66a6306db78bf2dbf3487f293aa8d6990d8e506fdffab9cc43fe422becf886e4",
+      "recipe": null, "observed_image_ids": [],
+      "source": "https://registry-1.docker.io/v2/library/busybox/manifests/sha256:66a6306db78bf2dbf3487f293aa8d6990d8e506fdffab9cc43fe422becf886e4",
+      "license": "BusyBox GPL-2.0; publisher source obligations apply", "blockers": []
+    },
+    "openshorts-backend": {
+      "kind": "openshorts-offline", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_OPENSHORTS_BACKEND",
+      "reference": null,
+      "recipe": {
+        "role": "backend", "input_set": "openshorts-public",
+        "input_set_sha256": "c70495b45db4e7ad974866dad5c45c0ebcb79606d2b759cfb3c30237be28ac68",
+        "dockerfile_sha256": "b9abf439595e43f56b15af790590f405b33c3d546ffb66e41417493a2ee45674",
+        "bases": [
+          "brainicism/bgutil-ytdlp-pot-provider@sha256:79b7d390e024f3308a0b8fe2041be7e4e4d6a8c30ad6052a89bc51d210c385f1",
+          "denoland/deno@sha256:6e4bc7aed62e400bb3f1bbea561da91e7abc02e1dbc5c3db38af78c3624f2760",
+          "python@sha256:174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761"
+        ]
+      },
+      "observed_image_ids": ["sha256:4a56f0b89ff27a34f84a6805de868a69336381b8b399c2033bbba01c8bc25b1b"],
+      "source": "https://github.com/mutonby/openshorts/tree/0db0a3a04ba06b3dc74a670f38e335910c294249",
+      "license": "OpenShorts LICENSE; cloud LICENSE; model and dependency license terms also apply",
+      "blockers": [
+        "Reference Mac: anonymous TLS GET of the pinned absl_py-2.5.0 wheel on files.pythonhosted.org timed out; native curl independently failed with code 35 (socket not connected).",
+        "Public source archive, a Debian package and Whisper config were fetched and verified, but the complete wheel/model closure and offline backend rebuild remain unqualified. No NAS or private archive fallback."
+      ]
+    },
+    "openshorts-renderer": {
+      "kind": "openshorts-offline", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_OPENSHORTS_RENDERER",
+      "reference": null,
+      "recipe": {
+        "role": "renderer", "input_set": "openshorts-public",
+        "input_set_sha256": "c70495b45db4e7ad974866dad5c45c0ebcb79606d2b759cfb3c30237be28ac68",
+        "dockerfile_sha256": "6d25a96ed31bf46b208029b611194e94698394c96760a667297e0fcf931c30f3",
+        "bases": [
+          "node@sha256:fc3faf127a182135fd956e68d570b1932a758f8008866d8dd6e131cf89de9605",
+          "node@sha256:fc3faf127a182135fd956e68d570b1932a758f8008866d8dd6e131cf89de9605"
+        ]
+      },
+      "observed_image_ids": ["sha256:1b812546be9714ae3e588aed31535b99ce203070d5c82c8d45c07419e9d3d4d0"],
+      "source": "https://github.com/mutonby/openshorts/tree/0db0a3a04ba06b3dc74a670f38e335910c294249",
+      "license": "OpenShorts LICENSE and Remotion-4.0.447-LICENSE.md; base/package licenses apply",
+      "blockers": [
+        "Reference Mac: the shared registry.npmjs.org tarball transport failed with native curl code 35 and SSL unexpected EOF in an isolated pinned Python Docker build.",
+        "The complete public npm closure and offline renderer compilation/rebuild remain unqualified. Existing local image identity is not a fresh-machine public build."
+      ]
+    },
+    "openshorts-frontend": {
+      "kind": "openshorts-offline", "platform": "linux/amd64", "env": "RAPP_DOCK_IMAGE_OPENSHORTS_FRONTEND",
+      "reference": null,
+      "recipe": {
+        "role": "frontend", "input_set": "openshorts-public",
+        "input_set_sha256": "c70495b45db4e7ad974866dad5c45c0ebcb79606d2b759cfb3c30237be28ac68",
+        "dockerfile_sha256": "1e637d0de5eea86a98c662b3f106acd6a8efe808e09a8315fd757afadce223cb",
+        "bases": [
+          "node@sha256:929b04d7c782f04f615cf785488fed452b6569f87c73ff666ad553a7554f0006",
+          "nginx@sha256:7396be67b6f53012a5cf955fa9040619294c25ccacf11e22af5de1b572fc756e"
+        ]
+      },
+      "observed_image_ids": ["sha256:e095b50fc57efbdc5137902598a3806e6b96d1379d23d4b9068e97b2f571fde2"],
+      "source": "https://github.com/mutonby/openshorts/tree/0db0a3a04ba06b3dc74a670f38e335910c294249",
+      "license": "OpenShorts LICENSE and frontend dependency license notices apply",
+      "blockers": [
+        "Reference Mac: anonymous TLS GET of @alloc/quick-lru-5.2.0.tgz from registry.npmjs.org stalled in urllib, failed with native curl code 35, and failed with SSL unexpected EOF in an isolated pinned Python Docker build.",
+        "The public source archive verified, but the complete npm closure and offline frontend compilation/rebuild remain unqualified. No NAS or private compiled archive fallback."
+      ]
+    }
+  },
+  "applications": {
+    "intelligence": {"intelligence": "intelligence"},
+    "scrapling": {"scrapling": "scrapling", "browser": "presenton", "egress": "scrapling"},
+    "presenton": {"presenton": "presenton", "ingress": "presenton"},
+    "open-seo": {"open-seo": "open-seo", "ingress": "open-seo"},
+    "dify": {
+      "agent_backend": "dify-agent-backend", "agent_ssrf_proxy": "squid", "api": "dify-api",
+      "db_postgres": "postgres", "init_permissions": "busybox", "local_sandbox": "dify-local-sandbox",
+      "nginx": "nginx", "pgvector": "pgvector", "plugin_daemon": "dify-plugin", "redis": "redis",
+      "sandbox": "dify-sandbox", "ssrf_proxy": "squid", "web": "dify-web",
+      "worker": "dify-api", "worker_beat": "dify-api"
+    },
+    "openshorts": {"backend": "openshorts-backend", "renderer": "openshorts-renderer", "frontend": "openshorts-frontend", "ingress": "openshorts-backend"}
+  }
+}

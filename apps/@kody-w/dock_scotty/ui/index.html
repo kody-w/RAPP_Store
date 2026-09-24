@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAPP Dock · Scotty</title>
+<style>
+  :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#9aa4af;
+          --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  a { color:var(--accent); }
+  .skip { position:absolute; left:-999px; top:0; background:var(--accent); color:#000; padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; top:8px; }
+  header, main { max-width:1100px; margin:0 auto; padding:16px 20px; }
+  header { border-bottom:1px solid var(--line); }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:18px; margin:0 0 10px; }
+  h3 { font-size:15px; margin:0 0 8px; }
+  nav ul { list-style:none; display:flex; flex-wrap:wrap; gap:6px 16px; margin:8px 0 0; padding:0; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin:16px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px; }
+  form { border:1px solid var(--line); border-radius:8px; padding:12px; margin:0; }
+  fieldset { border:0; margin:0; padding:0; }
+  legend { font-weight:600; padding:0; margin-bottom:6px; }
+  label { display:block; font-size:13px; color:var(--dim); margin:8px 0 3px; }
+  input, select, textarea { width:100%; background:#0b0f14; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; font:inherit; }
+  textarea { min-height:78px; resize:vertical; }
+  button { background:#21262d; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 12px; font:inherit; cursor:pointer; margin:8px 6px 0 0; }
+  button.primary { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  :focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  .note { color:var(--dim); font-size:13px; margin:6px 0 0; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  code, pre { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px; }
+  code { word-break:break-all; }
+  pre { background:#0b0f14; border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; max-height:360px; white-space:pre-wrap; word-break:break-word; }
+  .badge { display:inline-block; border-radius:999px; padding:1px 9px; font-size:12px; font-weight:600; border:1px solid var(--line); }
+  .s-running, .s-succeeded, .s-observed { color:var(--ok); border-color:var(--ok); }
+  .s-queued, .s-partially-running, .s-partial, .s-not-started, .s-stopped { color:var(--warn); border-color:var(--warn); }
+  .s-failed, .s-refused, .s-blocked, .s-cancelled, .s-interrupted, .s-unknown, .s-not-installed { color:var(--bad); border-color:var(--bad); }
+  .error { border:1px solid var(--bad); background:rgba(248,81,73,.08); border-radius:6px; padding:8px 10px; margin-top:8px; }
+  .ok { border:1px solid var(--ok); background:rgba(63,185,80,.08); border-radius:6px; padding:8px 10px; margin-top:8px; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  details summary { cursor:pointer; color:var(--dim); margin-top:8px; }
+  ol.activity { margin:0; padding-left:20px; font-size:13px; max-height:220px; overflow:auto; }
+  .kv { display:grid; grid-template-columns:max-content 1fr; gap:2px 12px; font-size:14px; margin:6px 0; }
+  .kv dt { color:var(--dim); }
+  .kv dd { margin:0; word-break:break-word; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <h1>RAPP Dock · Scotty</h1>
+  <p class="note">Five local Docker apps operated by Scotty: Scrapling, Presenton, OpenSEO, Dify and OpenShorts.
+    Every button here calls a real Scotty action through your Brainstem host. Copilot usage is billed to your own
+    Copilot entitlement; other paid providers stay disabled.</p>
+  <p id="host-state" role="status">Waiting for the Brainstem host…</p>
+  <nav aria-label="Sections">
+    <ul>
+      <li><a href="#status">Status</a></li>
+      <li><a href="#jobs">Run a job</a></li>
+      <li><a href="#operation">Operation progress</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#history">History and lineage</a></li>
+      <li><a href="#activity-log">Activity</a></li>
+    </ul>
+  </nav>
+</header>
+<main id="main">
+
+<section id="status" aria-labelledby="status-h">
+  <h2 id="status-h">Docker and application status</h2>
+  <div>
+    <button type="button" id="refresh-status" class="primary">Refresh status</button>
+    <button type="button" id="stop-all">Stop all Dock apps (keeps data)</button>
+  </div>
+  <div id="status-summary" aria-live="polite"></div>
+  <table id="apps-table">
+    <caption class="sr-only">Application status</caption>
+    <thead><tr><th scope="col">Application</th><th scope="col">State</th><th scope="col">Services</th><th scope="col">Local links</th><th scope="col">Actions</th></tr></thead>
+    <tbody><tr><td colspan="5" class="note">Select “Refresh status” to observe Docker.</td></tr></tbody>
+  </table>
+  <div id="status-error"></div>
+  <details id="logs-box" hidden><summary id="logs-title">Logs</summary><pre id="logs-out"></pre></details>
+</section>
+
+<section id="jobs" aria-labelledby="jobs-h">
+  <h2 id="jobs-h">Run a job</h2>
+  <p class="note">Local files must be inside the Dock <code>inputs</code> folder, your Desktop, Documents, Downloads,
+    Movies, Music or Pictures folders, or a root enrolled in the Dock's private <code>input-roots.json</code>.
+    Scotty refuses anything else and lists the allowed roots.</p>
+  <div class="grid">
+    <form id="f-scrapling" data-job="scrapling.scrape">
+      <fieldset>
+        <legend>Scrape a web page · Scrapling</legend>
+        <label for="scr-url">Public URL (required)</label>
+        <input id="scr-url" name="url" type="url" required maxlength="2048" placeholder="https://example.com">
+        <label for="scr-mode">Fetch mode</label>
+        <select id="scr-mode" name="fetch_mode"><option value="auto">auto</option><option value="http">http</option><option value="browser">browser</option></select>
+        <button type="submit" class="primary">Scrape</button>
+      </fieldset>
+      <p class="note">Collects the page natively and adds a cited AI summary. Private network destinations are refused.</p>
+    </form>
+
+    <form id="f-presenton" data-job="presenton.deck">
+      <fieldset>
+        <legend>Make a deck from text · Presenton</legend>
+        <label for="pre-prompt">Deck content (required)</label>
+        <textarea id="pre-prompt" name="prompt" required maxlength="8000" placeholder="Paste notes or describe the deck"></textarea>
+        <label for="pre-slides">Slides (1–12)</label>
+        <input id="pre-slides" name="slides" type="number" min="1" max="12" value="6">
+        <button type="submit" class="primary">Make deck</button>
+      </fieldset>
+      <p class="note">The gateway writes the slides; Presenton exports an editable PPTX and a PDF.</p>
+    </form>
+
+    <form id="f-openseo" data-job="open-seo.project_create">
+      <fieldset>
+        <legend>Create an SEO project · OpenSEO</legend>
+        <label for="seo-url">Site URL (required)</label>
+        <input id="seo-url" name="url" type="url" required maxlength="2048" placeholder="https://example.com">
+        <label for="seo-title">Project title (optional)</label>
+        <input id="seo-title" name="title" type="text" maxlength="200">
+        <button type="submit" class="primary">Create project</button>
+      </fieldset>
+      <p class="note">Paid data is off: DataForSEO metrics, traffic and competitor data are not fetched. An existing project is reused.</p>
+    </form>
+
+    <form id="f-dify" data-job="dify.knowledge_build">
+      <fieldset>
+        <legend>Answer from your documents · Dify</legend>
+        <label for="dify-paths">Document paths, one per line (1–8, required)</label>
+        <textarea id="dify-paths" name="input_paths" required placeholder="/path/to/your/Documents/notes.md"></textarea>
+        <label for="dify-question">Question (asked in the same job)</label>
+        <input id="dify-question" name="question" type="text" maxlength="250">
+        <label for="dify-title">Knowledge base title (optional)</label>
+        <input id="dify-title" name="title" type="text" maxlength="40">
+        <button type="submit" class="primary">Enroll and answer</button>
+      </fieldset>
+      <p class="note">Economy keyword indexing with a gateway-grounded, cited answer. No paid embeddings.</p>
+    </form>
+
+    <form id="f-dify-ask" data-job="dify.knowledge_answer">
+      <fieldset>
+        <legend>Ask an enrolled knowledge base · Dify</legend>
+        <label for="ask-kb">Knowledge base ID (from an enroll result)</label>
+        <input id="ask-kb" name="knowledge_base_id" type="text" required minlength="36" maxlength="36">
+        <label for="ask-question">Question (required)</label>
+        <input id="ask-question" name="question" type="text" required maxlength="250">
+        <button type="submit" class="primary">Ask</button>
+      </fieldset>
+    </form>
+
+    <form id="f-openshorts" data-job="openshorts.clips">
+      <fieldset>
+        <legend>Captioned clips from a local video · OpenShorts</legend>
+        <label for="os-path">Local video path (required)</label>
+        <input id="os-path" name="source_path" type="text" required maxlength="4096" placeholder="/path/to/your/Movies/talk.mp4">
+        <label for="os-count">Clips (1–5)</label>
+        <input id="os-count" name="clip_count" type="number" min="1" max="5" value="3">
+        <button type="submit" class="primary">Make clips</button>
+      </fieldset>
+      <p class="note">Spoken video, 45 seconds to 10 minutes. AI picks the moments; OpenShorts renders vertical captioned clips.</p>
+    </form>
+  </div>
+  <div id="jobs-error"></div>
+</section>
+
+<section id="operation" aria-labelledby="op-h">
+  <h2 id="op-h">Operation progress</h2>
+  <form id="f-track">
+    <label for="track-id">Operation ID</label>
+    <input id="track-id" name="operation_id" type="text" pattern="op-[0-9]{10}-[0-9a-f]{8}" placeholder="op-0000000000-00000000">
+    <button type="submit">Track this operation</button>
+  </form>
+  <div id="op-panel" aria-live="polite"><p class="note">No operation selected. Run a job or track an operation ID.</p></div>
+  <div>
+    <button type="button" id="op-poll" disabled>Check now</button>
+    <button type="button" id="op-stop-poll" disabled>Pause polling</button>
+    <button type="button" id="op-cancel" disabled>Cancel operation</button>
+    <button type="button" id="op-retry" disabled>Retry operation</button>
+    <button type="button" id="op-bundle" disabled>Bundle outputs</button>
+    <button type="button" id="op-lineage" disabled>Show lineage</button>
+  </div>
+  <div id="op-error"></div>
+</section>
+
+<section id="results" aria-labelledby="res-h">
+  <h2 id="res-h">Results</h2>
+  <p class="note">Only artifacts Scotty marks verified are listed. Paths are files on this computer.</p>
+  <div id="results-list"><p class="note">No completed results yet.</p></div>
+</section>
+
+<section id="history" aria-labelledby="hist-h">
+  <h2 id="hist-h">History and lineage</h2>
+  <p class="note">History and lineage read recorded evidence only; they never run new work.</p>
+  <div>
+    <label for="ops-app">Recent operations for</label>
+    <select id="ops-app" style="max-width:220px">
+      <option value="">All applications</option><option value="scrapling">scrapling</option><option value="presenton">presenton</option>
+      <option value="open-seo">open-seo</option><option value="dify">dify</option><option value="openshorts">openshorts</option>
+      <option value="intelligence">intelligence</option>
+    </select>
+    <button type="button" id="ops-refresh">Recent operations</button>
+  </div>
+  <div id="ops-list"></div>
+  <div class="grid">
+    <form id="f-history">
+      <fieldset>
+        <legend>History</legend>
+        <label for="h-day">Day (default today)</label>
+        <input id="h-day" name="day" type="date">
+        <label for="h-start">Or range start</label>
+        <input id="h-start" name="start_day" type="date">
+        <label for="h-end">Range end</label>
+        <input id="h-end" name="end_day" type="date">
+        <label for="h-tz">Timezone</label>
+        <input id="h-tz" name="timezone" type="text" maxlength="100">
+        <label for="h-app">Application</label>
+        <select id="h-app" name="application">
+          <option value="">All</option><option value="scrapling">scrapling</option><option value="presenton">presenton</option>
+          <option value="open-seo">open-seo</option><option value="dify">dify</option><option value="openshorts">openshorts</option>
+          <option value="intelligence">intelligence</option>
+        </select>
+        <label for="h-limit">Rows per page (1–20)</label>
+        <input id="h-limit" name="limit" type="number" min="1" max="20" value="10">
+        <button type="submit" class="primary">Show history</button>
+      </fieldset>
+    </form>
+    <form id="f-lineage">
+      <fieldset>
+        <legend>Lineage</legend>
+        <label for="l-op">Producing operation ID</label>
+        <input id="l-op" name="operation_id" type="text" required pattern="op-[0-9]{10}-[0-9a-f]{8}">
+        <label for="l-limit">Rows per page (1–20)</label>
+        <input id="l-limit" name="limit" type="number" min="1" max="20" value="10">
+        <button type="submit" class="primary">Show lineage</button>
+      </fieldset>
+    </form>
+  </div>
+  <div id="history-out" aria-live="polite"></div>
+  <div id="lineage-out" aria-live="polite"></div>
+</section>
+
+<section id="activity-log" aria-labelledby="act-h">
+  <h2 id="act-h">Activity</h2>
+  <ol class="activity" id="activity"></ol>
+</section>
+</main>
+
+<script>
+'use strict';
+(function () {
+  const APPS = ['scrapling', 'presenton', 'open-seo', 'dify', 'openshorts', 'intelligence'];
+  const ACTIVE = new Set(['queued', 'running']);
+  const INVOKE_TIMEOUT_MS = 60000;
+  const POLL_MS = 4000;
+  const state = { cartridge: null, op: null, pollTimer: null, polling: false, history: null, lineage: null, seenResults: new Set() };
+  const $ = (id) => document.getElementById(id);
+
+  function el(tag, attrs, children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs || {})) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === 'text') node.textContent = String(value);
+      else if (key === 'class') node.className = value;
+      else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+      else node.setAttribute(key, value === true ? '' : String(value));
+    }
+    for (const child of [].concat(children || [])) {
+      if (child === null || child === undefined || child === false) continue;
+      node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+    }
+    return node;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
+  function badge(status) {
+    const s = String(status || 'unknown');
+    return el('span', { class: 'badge s-' + s.replace(/[^a-z-]/g, ''), text: s });
+  }
+  function isLoopbackUrl(value) {
+    return typeof value === 'string' && /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:[0-9]{1,5})?(\/|$)/.test(value);
+  }
+  function linkOrText(value) {
+    return isLoopbackUrl(value)
+      ? el('a', { href: value, target: '_blank', rel: 'noopener noreferrer', text: value })
+      : el('code', { text: String(value) });
+  }
+  function kv(pairs) {
+    const dl = el('dl', { class: 'kv' });
+    for (const [k, v] of pairs) {
+      if (v === null || v === undefined || v === '') continue;
+      dl.appendChild(el('dt', { text: k }));
+      dl.appendChild(el('dd', {}, [v instanceof Node ? v : String(v)]));
+    }
+    return dl;
+  }
+  function rawDetails(value, label) {
+    return el('details', {}, [el('summary', { text: label || 'Raw Scotty result' }),
+      el('pre', { text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) })]);
+  }
+  function logActivity(text, bad) {
+    const item = el('li', { text: new Date().toLocaleTimeString() + ' · ' + text });
+    if (bad) item.style.color = 'var(--bad)';
+    const list = $('activity');
+    list.insertBefore(item, list.firstChild);
+    while (list.children.length > 60) list.removeChild(list.lastChild);
+  }
+
+  // Cartridge protocol (RAPP Store SPEC §9): request the cartridge, then rapp:invoke Scotty's perform(**args).
+  window.addEventListener('message', (ev) => {
+    if (ev.source !== window.parent) return;
+    const d = ev.data;
+    if (d && d.type === 'rapp:cartridge') {
+      state.cartridge = d;
+      const can = d.capabilities && d.capabilities.can_invoke_agent;
+      const tether = d.context && d.context.tether;
+      $('host-state').textContent = can === false
+        ? 'Connected to a host that reports it cannot invoke agents (can_invoke_agent: false). Open this UI from a Brainstem where Scotty is installed.'
+        : 'Connected to the Brainstem host' + (tether && tether.base ? ' (' + tether.base + ')' : '') + '.';
+    }
+  });
+  if (window.parent === window) {
+    $('host-state').textContent = 'This page is not inside a Brainstem host, so no Scotty action can run. Open it from the Brainstem where RAPP Dock is installed.';
+  } else {
+    window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+    setTimeout(() => {
+      if (!state.cartridge) $('host-state').textContent = 'No cartridge received from the host yet; actions will still be sent with rapp:invoke.';
+    }, 3000);
+  }
+
+  function invoke(args) {
+    return new Promise((resolve, reject) => {
+      if (window.parent === window) {
+        reject(new Error('Not running inside a Brainstem host; rapp:invoke has no receiver.'));
+        return;
+      }
+      const id = 'dock-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+      let timer = null;
+      const handler = (ev) => {
+        const d = ev.data;
+        if (ev.source !== window.parent || !d || d.id !== id || d.type !== 'rapp:invoke:result') return;
+        window.removeEventListener('message', handler);
+        clearTimeout(timer);
+        if (d.error !== undefined && d.error !== null) reject(new Error('Host error: ' + (typeof d.error === 'string' ? d.error : JSON.stringify(d.error))));
+        else resolve(d.result);
+      };
+      window.addEventListener('message', handler);
+      window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+      timer = setTimeout(() => {
+        window.removeEventListener('message', handler);
+        reject(new Error('No rapp:invoke:result from the host within ' + (INVOKE_TIMEOUT_MS / 1000) + ' s. Scotty may still be working; check Recent operations.'));
+      }, INVOKE_TIMEOUT_MS);
+    });
+  }
+
+  // Returns Scotty's parsed rapp-dock-result/1 envelope. Transport/parse failures throw with the true cause.
+  async function scotty(args, label) {
+    logActivity('→ ' + label);
+    let raw;
+    try {
+      raw = await invoke(args);
+    } catch (error) {
+      logActivity('✗ ' + label + ': ' + error.message, true);
+      throw error;
+    }
+    let env = raw;
+    if (typeof raw === 'string') {
+      try { env = JSON.parse(raw); } catch (_) {
+        const error = new Error('Scotty returned text that is not JSON: ' + raw.slice(0, 600));
+        logActivity('✗ ' + label + ': non-JSON reply', true);
+        throw error;
+      }
+    }
+    if (!env || typeof env !== 'object') {
+      const error = new Error('Scotty returned an unexpected value: ' + JSON.stringify(raw));
+      logActivity('✗ ' + label, true);
+      throw error;
+    }
+    const failed = ['failed', 'refused', 'blocked', 'cancelled', 'interrupted'].includes(env.status);
+    logActivity((failed ? '✗ ' : '✓ ') + label + ': ' + env.status + (env.error && env.error.code ? ' (' + env.error.code + ')' : ''), failed);
+    return env;
+  }
+
+  function errorBox(env) {
+    const err = env.error;
+    const parts = [el('strong', { text: (env.action || 'action') + ' → ' + (env.status || 'unknown') })];
+    if (err && typeof err === 'object') {
+      parts.push(el('div', {}, [el('code', { text: String(err.code || 'no-code') }), ' ', String(err.message || '')]));
+      const flags = [];
+      if (err.retryable !== undefined) flags.push('retryable: ' + err.retryable);
+      if (err.retry_scope) flags.push('retry scope: ' + err.retry_scope);
+      if (flags.length) parts.push(el('div', { class: 'note', text: flags.join(' · ') }));
+    }
+    if (env.message && (!err || env.message !== err.message)) parts.push(el('div', { text: env.message }));
+    const roots = env.result && env.result.allowed_input_roots;
+    if (Array.isArray(roots)) {
+      parts.push(el('div', { class: 'note', text: 'Allowed input roots:' }));
+      parts.push(el('ul', {}, roots.map((r) => el('li', {}, [el('code', { text: String(r) })]))));
+    }
+    if (env.result && env.result.expected_arguments) parts.push(rawDetails(env.result.expected_arguments, 'Expected arguments'));
+    return el('div', { class: 'error', role: 'alert' }, parts);
+  }
+  function showFailure(target, error) {
+    clear(target).appendChild(el('div', { class: 'error', role: 'alert', text: error.message || String(error) }));
+  }
+  function omitted(env) { return !!(env && env.result && typeof env.result === 'object' && env.result.details_omitted === true); }
+  function omittedNote(env) {
+    return omitted(env) ? el('p', { class: 'note', role: 'status', text: 'Scotty omitted some details to stay within its result size bound'
+      + (typeof env.result.artifact_count === 'number' ? ' (' + env.result.artifact_count + ' verified artifacts in the full record)' : '') + '.' }) : null;
+  }
+  function isProblem(env) { return ['failed', 'refused', 'blocked', 'cancelled', 'interrupted'].includes(env.status) || !!env.error; }
+
+  async function withBusy(buttons, work) {
+    const list = [].concat(buttons).filter(Boolean);
+    list.forEach((b) => { b.disabled = true; b.setAttribute('aria-busy', 'true'); });
+    try { return await work(); } finally { list.forEach((b) => { b.disabled = false; b.removeAttribute('aria-busy'); }); }
+  }
+
+  // ── Status ──────────────────────────────────────────────────────────
+  async function refreshStatus() {
+    const errorTarget = clear($('status-error'));
+    try {
+      const env = await withBusy($('refresh-status'), () => scotty({ action: 'dock_status' }, 'dock_status'));
+      renderStatus(env);
+      if (isProblem(env)) errorTarget.appendChild(errorBox(env));
+    } catch (error) { showFailure(errorTarget, error); }
+  }
+  function renderStatus(env) {
+    const result = env.result || {};
+    const summary = clear($('status-summary'));
+    const docker = result.docker_state || 'unknown';
+    const networks = result.networks || {};
+    summary.appendChild(kv([
+      ['Docker', badge(docker)],
+      ['Docker error', result.docker_error ? (result.docker_error.code + ': ' + result.docker_error.message) : null],
+      ['Networks', networks.state ? networks.state + (networks.error ? ' (' + networks.error + ')' : '') : null],
+      ['Namespace', result.namespace],
+      ['Active operations', Array.isArray(result.active_operations) ? String(result.active_operations.length) : null],
+      ['Admission paused', result.admission_paused === true ? 'yes' : null],
+      ['Observed', env.observed_at || result.observed_at],
+      ['Scotty says', env.message],
+    ]));
+    const note = omittedNote(env);
+    if (note) summary.appendChild(note);
+    const body = clear($('apps-table').tBodies[0]);
+    const rows = Array.isArray(result.applications) ? result.applications : [];
+    if (!rows.length) {
+      body.appendChild(el('tr', {}, [el('td', { colspan: '5', class: 'note', text: 'Scotty returned no application rows.' })]));
+    }
+    for (const app of rows) {
+      const name = String(app.application || '?');
+      const urls = app.urls && typeof app.urls === 'object' ? Object.entries(app.urls) : [];
+      const services = Array.isArray(app.services) ? app.services.length : app.services;
+      body.appendChild(el('tr', {}, [
+        el('th', { scope: 'row' }, [String(app.title || name), el('div', { class: 'note', text: name })]),
+        el('td', {}, [badge(app.state), app.error ? el('div', { class: 'note' }, [el('code', { text: String(app.error) })]) : null]),
+        el('td', { text: services === undefined ? '—' : String(services) }),
+        el('td', {}, urls.length ? urls.map(([k, v]) => el('div', {}, [k + ': ', linkOrText(v)])) : ['—']),
+        el('td', {}, [
+          el('button', { type: 'button', 'aria-label': 'Start ' + name, onclick: (e) => lifecycle('start', name, e.currentTarget), text: 'Start' }),
+          el('button', { type: 'button', 'aria-label': 'Stop ' + name, onclick: (e) => lifecycle('stop', name, e.currentTarget), text: 'Stop' }),
+          el('button', { type: 'button', 'aria-label': 'Show logs for ' + name, onclick: (e) => showLogs(name, e.currentTarget), text: 'Logs' }),
+        ]),
+      ]));
+    }
+  }
+  async function lifecycle(action, application, button) {
+    const errorTarget = clear($('status-error'));
+    const args = { action, wait_seconds: 3 };
+    if (application) args.application = application;
+    try {
+      const env = await withBusy(button, () => scotty(args, action + (application ? ' ' + application : ' all Dock apps')));
+      if (isProblem(env)) errorTarget.appendChild(errorBox(env));
+      if (env.operation_id) trackOperation(env);
+      else errorTarget.appendChild(el('div', { class: 'ok', text: env.message || (action + ': ' + env.status) }));
+    } catch (error) { showFailure(errorTarget, error); }
+  }
+  async function showLogs(application, button) {
+    const errorTarget = clear($('status-error'));
+    try {
+      const env = await withBusy(button, () => scotty({ action: 'logs', application }, 'logs ' + application));
+      if (isProblem(env)) { errorTarget.appendChild(errorBox(env)); return; }
+      $('logs-box').hidden = false;
+      $('logs-box').open = true;
+      $('logs-title').textContent = 'Logs · ' + application;
+      const r = env.result || {};
+      const text = typeof r.logs === 'string' ? r.logs : JSON.stringify(r, null, 2);
+      $('logs-out').textContent = text;
+    } catch (error) { showFailure(errorTarget, error); }
+  }
+
+  // ── Jobs ────────────────────────────────────────────────────────────
+  function jobArguments(form) {
+    const args = {};
+    for (const field of form.querySelectorAll('input, select, textarea')) {
+      const value = field.value.trim();
+      if (!field.name || value === '') continue;
+      if (field.name === 'input_paths') args.input_paths = value.split('\n').map((s) => s.trim()).filter(Boolean);
+      else if (field.type === 'number') args[field.name] = Number(value);
+      else args[field.name] = value;
+    }
+    return args;
+  }
+  async function runJob(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const job = form.dataset.job;
+    const errorTarget = clear($('jobs-error'));
+    if (!form.reportValidity()) return;
+    const args = { action: 'run', job, arguments: jobArguments(form), wait_seconds: 3 };
+    try {
+      const env = await withBusy(form.querySelector('button[type=submit]'), () => scotty(args, 'run ' + job));
+      if (isProblem(env) && !env.operation_id) { errorTarget.appendChild(errorBox(env)); return; }
+      trackOperation(env);
+      $('operation').scrollIntoView({ block: 'start' });
+    } catch (error) { showFailure(errorTarget, error); }
+  }
+  for (const form of document.querySelectorAll('form[data-job]')) form.addEventListener('submit', runJob);
+
+  // ── Operation progress (polls Scotty's operation action) ─────────────
+  function setOpButtons() {
+    const has = !!(state.op && state.op.operation_id);
+    const status = state.op ? state.op.status : null;
+    $('op-poll').disabled = !has;
+    $('op-stop-poll').disabled = !state.polling;
+    $('op-cancel').disabled = !has || !ACTIVE.has(status);
+    $('op-retry').disabled = !has || ACTIVE.has(status) || status === 'succeeded';
+    $('op-bundle').disabled = !has || status !== 'succeeded';
+    $('op-lineage').disabled = !has || ACTIVE.has(status);
+  }
+  function trackOperation(env) {
+    state.op = env;
+    renderOperation(env);
+    if (env.operation_id && ACTIVE.has(env.status)) startPolling(); else stopPolling();
+    if (env.status === 'succeeded' || env.status === 'partial') addResult(env);
+    setOpButtons();
+  }
+  function startPolling() {
+    stopPolling();
+    state.polling = true;
+    state.pollTimer = setTimeout(pollOnce, POLL_MS);
+    setOpButtons();
+  }
+  function stopPolling() {
+    if (state.pollTimer) clearTimeout(state.pollTimer);
+    state.pollTimer = null;
+    state.polling = false;
+    setOpButtons();
+  }
+  async function pollOnce() {
+    if (!state.op || !state.op.operation_id) return;
+    const errorTarget = clear($('op-error'));
+    try {
+      const env = await scotty({ action: 'operation', operation_id: state.op.operation_id, wait_seconds: 0 }, 'operation ' + state.op.operation_id);
+      if (!env.operation_id && isProblem(env)) { errorTarget.appendChild(errorBox(env)); stopPolling(); setOpButtons(); return; }
+      state.op = Object.assign({}, env, { job: env.job || state.op.job, operation_id: env.operation_id || state.op.operation_id });
+      renderOperation(state.op);
+      if (env.status === 'succeeded' || env.status === 'partial') addResult(state.op);
+      if (ACTIVE.has(env.status) && state.polling) state.pollTimer = setTimeout(pollOnce, POLL_MS);
+      else stopPolling();
+    } catch (error) {
+      showFailure(errorTarget, error);
+      if (state.polling) state.pollTimer = setTimeout(pollOnce, POLL_MS * 2);
+    }
+    setOpButtons();
+  }
+  function renderOperation(env) {
+    const panel = clear($('op-panel'));
+    const p = env.progress || {};
+    panel.appendChild(kv([
+      ['Operation', env.operation_id ? el('code', { text: env.operation_id }) : null],
+      ['Job', env.job],
+      ['Application', env.application],
+      ['Status', badge(env.status)],
+      ['Phase', p.phase],
+      ['Waiting for', p.wait_reason],
+      ['Progress', p.total ? p.completed + ' / ' + p.total + ' ' + (p.unit || '') : null],
+      ['Updated', p.updated_at || env.observed_at],
+      ['Scotty says', env.message],
+      ['Polling', state.polling || ACTIVE.has(env.status) ? 'every ' + POLL_MS / 1000 + ' s while queued or running' : 'stopped (terminal status)'],
+    ]));
+    if (isProblem(env)) panel.appendChild(errorBox(env));
+    const note = omittedNote(env);
+    if (note) panel.appendChild(note);
+    panel.appendChild(rawDetails(env));
+  }
+  $('f-track').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const id = $('track-id').value.trim();
+    const errorTarget = clear($('op-error'));
+    if (!/^op-[0-9]{10}-[0-9a-f]{8}$/.test(id)) { showFailure(errorTarget, new Error('Enter an operation ID like op-0000000000-00000000.')); return; }
+    try {
+      const env = await withBusy(event.currentTarget.querySelector('button'), () => scotty({ action: 'operation', operation_id: id, wait_seconds: 0 }, 'operation ' + id));
+      if (!env.operation_id) { errorTarget.appendChild(errorBox(env)); return; }
+      trackOperation(env);
+    } catch (error) { showFailure(errorTarget, error); }
+  });
+  $('op-poll').addEventListener('click', () => { if (state.pollTimer) clearTimeout(state.pollTimer); state.polling = true; pollOnce(); });
+  $('op-stop-poll').addEventListener('click', stopPolling);
+  $('op-cancel').addEventListener('click', (e) => opControl('cancel', e.currentTarget));
+  $('op-retry').addEventListener('click', (e) => opControl('retry', e.currentTarget));
+  $('op-bundle').addEventListener('click', async (e) => {
+    const errorTarget = clear($('op-error'));
+    try {
+      const env = await withBusy(e.currentTarget, () => scotty({ action: 'bundle', operation_id: state.op.operation_id }, 'bundle ' + state.op.operation_id));
+      if (isProblem(env)) { errorTarget.appendChild(errorBox(env)); return; }
+      addResult(Object.assign({}, env, { job: (state.op.job || '') + ' capsule' }), true);
+    } catch (error) { showFailure(errorTarget, error); }
+  });
+  $('op-lineage').addEventListener('click', () => { $('l-op').value = state.op.operation_id; runLineage(); $('history').scrollIntoView({ block: 'start' }); });
+  async function opControl(action, button) {
+    const errorTarget = clear($('op-error'));
+    const args = { action, operation_id: state.op.operation_id };
+    if (action === 'retry' || action === 'cancel') args.wait_seconds = 3;
+    try {
+      const env = await withBusy(button, () => scotty(args, action + ' ' + state.op.operation_id));
+      if (isProblem(env) && !env.operation_id) { errorTarget.appendChild(errorBox(env)); return; }
+      trackOperation(Object.assign({}, env, { operation_id: env.operation_id || state.op.operation_id }));
+    } catch (error) { showFailure(errorTarget, error); }
+  }
+
+  // ── Results ─────────────────────────────────────────────────────────
+  function scalarRows(result) {
+    const rows = [];
+    if (!result || typeof result !== 'object') return rows;
+    for (const [key, value] of Object.entries(result)) {
+      if (rows.length >= 16) break;
+      if (['string', 'number', 'boolean'].includes(typeof value)) rows.push([key, typeof value === 'string' && isLoopbackUrl(value) ? linkOrText(value) : String(value)]);
+    }
+    return rows;
+  }
+  function addResult(env, force) {
+    const key = (env.operation_id || '') + ':' + (env.action || '') + ':' + (env.artifacts || []).length;
+    if (!force && state.seenResults.has(key)) return;
+    state.seenResults.add(key);
+    const list = $('results-list');
+    if (list.querySelector('p.note')) clear(list);
+    const artifacts = Array.isArray(env.artifacts) ? env.artifacts : [];
+    const kb = env.result && (env.result.knowledge_base_id || (env.result.knowledge_base && env.result.knowledge_base.id));
+    if (typeof kb === 'string' && kb.length === 36) $('ask-kb').value = kb;
+    const table = el('table', {}, [
+      el('caption', { class: 'sr-only', text: 'Verified artifacts' }),
+      el('thead', {}, [el('tr', {}, ['Name', 'Path', 'Type', 'Bytes', 'SHA-256'].map((h) => el('th', { scope: 'col', text: h })))]),
+      el('tbody', {}, artifacts.length ? artifacts.map((a) => el('tr', {}, [
+        el('td', { text: String(a.name || a.role || '—') }),
+        el('td', {}, [el('code', { text: String(a.path || '—') }), a.url ? el('div', {}, [linkOrText(a.url)]) : null,
+          a.path ? el('button', { type: 'button', 'aria-label': 'Copy path ' + (a.name || ''), onclick: () => copy(a.path), text: 'Copy path' }) : null]),
+        el('td', { text: String(a.media_type || '—') }),
+        el('td', { text: a.bytes === undefined ? '—' : String(a.bytes) }),
+        el('td', {}, [el('code', { title: String(a.sha256 || ''), text: a.sha256 ? String(a.sha256).slice(0, 16) + '…' : '—' })]),
+      ])) : [el('tr', {}, [el('td', { colspan: '5', class: 'note', text: 'No verified artifacts were returned for this operation.' })])]),
+    ]);
+    const card = el('article', { class: env.status === 'succeeded' ? 'ok' : 'error' }, [
+      el('h3', {}, [String(env.job || env.action || 'result') + ' · ', badge(env.status)]),
+      kv([['Operation', env.operation_id ? el('code', { text: env.operation_id }) : null], ['Scotty says', env.message],
+        ['Receipt', env.provenance && env.provenance.receipt_path ? el('code', { text: env.provenance.receipt_path }) : null],
+        ['Verification', env.provenance && env.provenance.verification],
+        ['Model', env.provider && (env.provider.observed_model || env.provider.requested_model)],
+        ['Copilot calls', env.provider && env.provider.calls !== null && env.provider.calls !== undefined ? String(env.provider.calls) : null]]
+        .concat(scalarRows(env.result))),
+      omittedNote(env),
+      table,
+      rawDetails(env),
+    ]);
+    list.insertBefore(card, list.firstChild);
+  }
+  function copy(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(
+      () => logActivity('Copied path to the clipboard'), (error) => logActivity('Clipboard refused: ' + error.message, true));
+    else logActivity('Clipboard is unavailable in this host; select the path text instead.', true);
+  }
+
+  // ── History, lineage and recent operations ──────────────────────────
+  $('h-tz').value = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
+  function historyArgs(cursor) {
+    const f = $('f-history');
+    const args = { action: 'history' };
+    for (const name of ['day', 'start_day', 'end_day', 'timezone', 'application']) {
+      const v = f.elements[name].value.trim();
+      if (v) args[name] = v;
+    }
+    const limit = Number(f.elements.limit.value);
+    if (limit) args.limit = limit;
+    if (cursor) args.cursor = cursor;
+    return args;
+  }
+  async function runHistory(cursor) {
+    const out = clear($('history-out'));
+    const args = cursor && state.history ? Object.assign({}, state.history, { cursor }) : historyArgs();
+    if (!cursor) state.history = Object.assign({}, args);
+    try {
+      const env = await withBusy($('f-history').querySelector('button[type=submit]'), () => scotty(args, 'history'));
+      if (isProblem(env)) { out.appendChild(errorBox(env)); return; }
+      renderPage(out, env, 'History', runHistory);
+    } catch (error) { showFailure(out, error); }
+  }
+  async function runLineage(cursor) {
+    const out = clear($('lineage-out'));
+    const id = $('l-op').value.trim();
+    const args = cursor && state.lineage ? Object.assign({}, state.lineage, { cursor }) : { action: 'lineage', operation_id: id, limit: Number($('l-limit').value) || 10 };
+    if (!cursor) state.lineage = Object.assign({}, args);
+    try {
+      const env = await withBusy($('f-lineage').querySelector('button[type=submit]'), () => scotty(args, 'lineage ' + id));
+      if (isProblem(env)) { out.appendChild(errorBox(env)); return; }
+      renderPage(out, env, 'Lineage', runLineage);
+    } catch (error) { showFailure(out, error); }
+  }
+  function describeRow(row) {
+    if (!row || typeof row !== 'object') return String(row);
+    const parts = [];
+    for (const key of ['published_utc', 'finished_utc', 'kind', 'operation_id', 'job', 'outcome', 'status', 'relation',
+      'service', 'architecture', 'request_id']) {
+      if (row[key] !== undefined && row[key] !== null) parts.push(key + ': ' + row[key]);
+    }
+    if (typeof row.image_id === 'string') parts.push('image: ' + row.image_id.slice(0, 19) + '…');
+    const art = row.artifact;
+    if (art && typeof art === 'object') parts.push('artifact: ' + (art.path || art.name || JSON.stringify(art))
+      + (typeof art.bytes === 'number' ? ' (' + art.bytes + ' bytes)' : ''));
+    if (row.path) parts.push('path: ' + row.path);
+    if (row.sha256) parts.push('sha256: ' + String(row.sha256).slice(0, 16) + '…');
+    return parts.length ? parts.join(' · ') : JSON.stringify(row);
+  }
+  function renderPage(out, env, title, next) {
+    const r = env.result || {};
+    const coverage = r.coverage || {};
+    out.appendChild(el('h3', { text: title }));
+    out.appendChild(kv([
+      ['Status', r.status || env.status],
+      ['Operation', r.operation_id],
+      ['Job', r.job && typeof r.job === 'object' ? (r.job.job || r.job.id || r.job.name || JSON.stringify(r.job)) : r.job],
+      ['Job outcome', r.job && typeof r.job === 'object' ? r.job.outcome : null],
+      ['Model', r.job && r.job.provider ? [r.job.provider.runtime, r.job.provider.model, r.job.provider.model_evidence].filter(Boolean).join(' · ') : null],
+      ['Day', r.day], ['Timezone', r.timezone],
+      ['Rows', r.returned_rows !== undefined ? r.returned_rows + ' of ' + r.matched_rows : null],
+      ['Coverage complete', coverage.complete === undefined ? null : String(coverage.complete)],
+      ['Coverage notes', Array.isArray(coverage.reasons) && coverage.reasons.length ? coverage.reasons.join(', ') : null],
+      ['Outcomes', r.outcomes ? JSON.stringify(r.outcomes) : null],
+      ['Parents', r.parent_status],
+      ['Limitations', Array.isArray(r.limitations) ? r.limitations.join(', ') : null],
+      ['Scotty says', env.message],
+    ]));
+    const items = Array.isArray(r.items) ? r.items : [];
+    out.appendChild(items.length ? el('ol', {}, items.map((row) => el('li', {}, [el('code', { text: describeRow(row) })])))
+      : el('p', { class: 'note', text: 'No recorded rows for this query.' }));
+    if (r.next_cursor) out.appendChild(el('button', { type: 'button', onclick: () => next(r.next_cursor), text: 'Next page' }));
+    out.appendChild(rawDetails(env));
+  }
+  $('f-history').addEventListener('submit', (event) => { event.preventDefault(); runHistory(); });
+  $('f-lineage').addEventListener('submit', (event) => { event.preventDefault(); if (event.currentTarget.reportValidity()) runLineage(); });
+  $('ops-refresh').addEventListener('click', async (e) => {
+    const out = clear($('ops-list'));
+    try {
+      const app = $('ops-app').value;
+      const args = app ? { action: 'operations', application: app } : { action: 'operations' };
+      const env = await withBusy(e.currentTarget, () => scotty(args, 'operations' + (app ? ' ' + app : '')));
+      if (isProblem(env)) { out.appendChild(errorBox(env)); return; }
+      const ops = (env.result && Array.isArray(env.result.operations)) ? env.result.operations : [];
+      if (omitted(env)) out.appendChild(el('p', { class: 'note', role: 'status', text: 'Scotty omitted the operation list because it exceeded Scotty\'s result size bound'
+        + (app ? '.' : '. Choose one application to narrow it.') }));
+      if (!ops.length) { if (!omitted(env)) out.appendChild(el('p', { class: 'note', text: 'No recent operations recorded.' })); return; }
+      out.appendChild(el('table', {}, [
+        el('caption', { class: 'sr-only', text: 'Recent operations' }),
+        el('thead', {}, [el('tr', {}, ['Operation', 'Job / kind', 'Application', 'Status', 'Updated', ''].map((h) => el('th', { scope: 'col', text: h })))]),
+        el('tbody', {}, ops.map((op) => {
+          const id = op.id || op.operation_id;
+          return el('tr', {}, [
+            el('td', {}, [el('code', { text: String(id || '—') })]),
+            el('td', { text: String(op.name || op.job || op.kind || '—') }),
+            el('td', { text: String(op.application || '—') }),
+            el('td', {}, [badge(op.status)]),
+            el('td', { text: String(op.updated_at || op.finished || op.started || op.created || '—') }),
+            el('td', {}, id ? [
+              el('button', { type: 'button', 'aria-label': 'Track ' + id, onclick: () => { $('track-id').value = id; $('f-track').requestSubmit(); $('operation').scrollIntoView({ block: 'start' }); }, text: 'Track' }),
+              el('button', { type: 'button', 'aria-label': 'Lineage of ' + id, onclick: () => { $('l-op').value = id; runLineage(); }, text: 'Lineage' }),
+            ] : []),
+          ]);
+        })),
+      ]));
+    } catch (error) { showFailure(out, error); }
+  });
+
+  $('refresh-status').addEventListener('click', refreshStatus);
+  $('stop-all').addEventListener('click', (e) => lifecycle('stop', null, e.currentTarget));
+  setOpButtons();
+  window.__dockUi = { apps: APPS, scotty, refreshStatus };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "application": "scrapling",
+  "commit": "333fa22b7a5821194ce66b59b11f4b16a6484f02",
+  "compose_projection": null,
+  "files": [
+    {
+      "local": "upstream/Dockerfile.source",
+      "sha256": "733625cc28dffee7040c381d46aea662e10883b13676314a3e0767af3d2f47df",
+      "upstream_path": "Dockerfile"
+    },
+    {
+      "local": "upstream/LICENSE",
+      "sha256": "5c782ef0346e4fbfe0dc76fd435f181a0f1e4a1a7a6b13c169c6e74314ff5964",
+      "upstream_path": "LICENSE"
+    }
+  ],
+  "manifest_path": "Dockerfile",
+  "note": "Source evidence only. Official defaults must never be used as deployment credentials. No upstream code was executed.",
+  "observed_on": "2026-09-21",
+  "release_hint": "v0.4.15",
+  "repository": "https://github.com/D4Vinci/Scrapling",
+  "reviewed_source_files": [
+    {
+      "path": "Dockerfile",
+      "sha256": "733625cc28dffee7040c381d46aea662e10883b13676314a3e0767af3d2f47df"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "5c782ef0346e4fbfe0dc76fd435f181a0f1e4a1a7a6b13c169c6e74314ff5964"
+    },
+    {
+      "path": "README.md",
+      "sha256": "85c8c7f3c998a8fc2a0811d2b82aee9b17b271607349930e21f0c68491115564"
+    },
+    {
+      "path": "docs/ai/mcp-server.md",
+      "sha256": "d04c61095c503e71c271e855226be243332f6fd05d0604c24abbfcd45b0980bf"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "0d124f6e5af885e5b189fed7a3b7f0c7c87ee7e10fb145c6250906f286e45a27"
+    },
+    {
+      "path": "scrapling/cli.py",
+      "sha256": "837f703cbf6be2b1b739d2b9a238d1127de2713fc13d02e8d566d1ae2d8c83da"
+    },
+    {
+      "path": "scrapling/core/ai.py",
+      "sha256": "201765f03189620e579c5c069c00e067a1ee484e3b13b2c4107beaf1125cf78a"
+    }
+  ]
+}

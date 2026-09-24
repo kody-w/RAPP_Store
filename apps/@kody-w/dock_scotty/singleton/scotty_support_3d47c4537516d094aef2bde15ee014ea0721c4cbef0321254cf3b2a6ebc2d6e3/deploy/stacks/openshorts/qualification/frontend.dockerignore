@@ -1,0 +1,11 @@
+**
+!source/
+!source/dashboard/
+!source/dashboard/**
+source/dashboard/node_modules/
+source/dashboard/.env
+source/dashboard/.env.*
+!qualification/
+!qualification/Dockerfile.frontend
+!qualification/npmrc
+!qualification/private-nginx.conf

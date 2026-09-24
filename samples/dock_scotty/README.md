@@ -1,5 +1,9 @@
 # RAPP Dock / Scotty — main chat-operated rapplication template
 
+> **Looking for the working Dock app?** This directory is a synthetic authoring
+> fixture that deliberately does not run jobs. The real, installable
+> application is [`apps/@kody-w/dock_scotty/`](../../apps/@kody-w/dock_scotty/README.md).
+
 **Experimental · synthetic authoring sample · unlisted · not an installable
 release.** This example is a complete, hash-locked manifest/layout contract;
 its deliberately non-executing agent demonstrates the boundary without

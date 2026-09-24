@@ -1,0 +1,580 @@
+{
+  "id": "dock_scotty",
+  "name": "RAPP Dock / Scotty",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "category": "platform",
+  "tags": [
+    "rapplication",
+    "chat-operated",
+    "local-docker",
+    "ui",
+    "scrapling",
+    "presenton",
+    "openseo",
+    "dify",
+    "openshorts"
+  ],
+  "summary": "Scotty runs five real open-source apps in local Docker from chat or its UI: Scrapling page scrapes, Presenton decks, OpenSEO projects (paid data off), Dify answers from your documents and OpenShorts captioned clips. Installed five-job acceptance passed on the previous build; this revision-9 build was freshly installed and re-ran scrape and deck. Experimental.",
+  "tagline": "Scrape pages, make decks, create SEO projects, answer from your documents and cut captioned shorts: locally, from chat.",
+  "quality_tier": "experimental",
+  "license": "MIT (Dock/Scotty code); each upstream app keeps its own license, including Dify's modified Apache-2.0 with extra conditions. See LICENSE.md.",
+  "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/dock_scotty",
+  "application_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/apps/@kody-w/dock_scotty/manifest.json",
+  "application_schema": "rapp-application/2.0",
+  "application": {
+    "agent": "singleton/scotty_agent.py",
+    "agents": [
+      "singleton/scotty_agent.py"
+    ],
+    "capabilities": [
+      "scrapling.scrape",
+      "presenton.deck",
+      "open-seo.project_create",
+      "dify.knowledge_build",
+      "dify.knowledge_answer",
+      "openshorts.clips",
+      "intelligence.chat",
+      "rapp/1-receipts",
+      "rapp/1-capsules"
+    ],
+    "category": "platform",
+    "dependencies": [],
+    "files": {
+      "LICENSE.md": "0bef84dc5a829af37de23e28032611652cdb1401796843ace38e66497dc26f98",
+      "README.md": "e2748af212a556b24e98d3a93f6c36acccce4be09273ef6af1ae73c8de6bed20",
+      "components.lock.json": "9c7b631f3a6a74d31996dbcecd093258b6fec5ae2baea14989cbf500eecdc147",
+      "generated/PUBLIC-INPUTS.md": "0eceb3873be52a4d1c2a85fd47c4e740747aacf61a3c06b90e21a1d3f34fca60",
+      "generated/candidate-evidence.json": "0cce5f43da85903547c2da2dec047d8a2529f3cdf7111643adfbd06e9b31f16b",
+      "generated/dockerfiles/openshorts-backend.Dockerfile": "b9abf439595e43f56b15af790590f405b33c3d546ffb66e41417493a2ee45674",
+      "generated/dockerfiles/openshorts-frontend.Dockerfile": "1e637d0de5eea86a98c662b3f106acd6a8efe808e09a8315fd757afadce223cb",
+      "generated/dockerfiles/openshorts-renderer.Dockerfile": "6d25a96ed31bf46b208029b611194e94698394c96760a667297e0fcf931c30f3",
+      "generated/host-profiles.json": "e4e83f2e96648f2700578e9b66b93e78d83c222f2cd26bb7f21fe2e318361101",
+      "generated/job-contracts.json": "53ac157f044630b4765cc0d292a80dd2fa6fec251d9d29804dcc6f4d48a20f02",
+      "generated/materialization.json": "ae94aa37c02c9c9e3d3a6a5bb92612cc8a484e21cde7061c3aa69d6b4fcb3ca5",
+      "generated/reference-readiness.json": "41cf58b335c1f659ed93cbb4317d88b0ba9624b4dc6d835b4a0dc895eca85feb",
+      "generated/source-layout.json": "6f3888f4e49b2e4e9731ba22e8cbf5b3cfe8744f1632b9cfc6201dc26e48b8e2",
+      "generated/state-lifecycle.json": "44a94ab6fef56c53ff3355d99d67072ee9b819a692f3338f2c6ad0615094bc16",
+      "singleton/scotty_agent.py": "58ec29e46021b37ceb7fab06f473b93838a42a071fb657b819a0e5dd57d04500",
+      "singleton/scotty_revision.json": "4335ca985eaffbdf44003f13f6d3aae1a2bb90af7a96180c4cecce97f7816614",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/GRAIL_PIN.json": "a2ea7ba463d3117b482962698a6c21f2081c323b25f90f889731b5a7cd5296a4",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/SCOTTY_CAPABILITY_LOCK.json": "3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/agents/scotty_agent.py": "bc894c900b300e719f99bcde6738d4585fbc8169ec6239e29d1007f8b23991c0",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/config/paid-calls.json": "9a01838b41298619e952634acc85e5a6d547f459e6ad9f120973fbe8df2380f4",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/components.lock.json": "9c7b631f3a6a74d31996dbcecd093258b6fec5ae2baea14989cbf500eecdc147",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/dify/adapter.py": "bcd2d66eca75fb12ffd9c6efec80682db5b1c6a36cf4b0139d882e90f55f3d24",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/dify/compose.json": "156d3a25548323289443d3b7a2c24652fa4154eb075104c767648db01e60c47b",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/dify/nginx.conf": "9d577f590c720e09e004abfdecf684ef794b85fada8ce20b6b738a1b09f68be2",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/dify/sandbox-entrypoint.sh": "8229390b797562ac6d21e02dcf1ae45e6ae1b3dacd5e7500f81b07fab2247236",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/dify/squid.conf": "140aa2ab3a7ca2b66fefefe7606ab086cbee781f92ab37701c3b3e2b8e3c8331",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/intelligence/Dockerfile": "ce69c200cca666c53a84c102990cfba3b8611ee29ee363ed7c2fb0f71b474fff",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/intelligence/adapter.py": "ca4f92999e91a5092aae386cb72b61a2dfc053aef3d5cb3dcde22c74a7b50c66",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/intelligence/build.py": "3bdc47ce211b1596990711e6d3409a90ddf0389774eb6df526ad9e7735150bca",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/intelligence/compose.yaml": "bfc6ec9b256e3c81e765007629c5d0889b0931a9580056d6550e09859c8e79cf",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/intelligence/schema.py": "9fa7295740d01a3da93525494c2f3de937067e9210ec1febbaa0af6df752541f",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/intelligence/server.py": "1af5d8408114322cec863242b9729ab5d9aee23226adec3a5247e33db8c56f5d",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/materialize.py": "3d32f767f7de5a3fcc8bfd799aed35b106096c82ee2ee2449065710fef484cde",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/open_seo/adapter.py": "7f8dcf2147d436324aef2af8457d97cf629993246834822811cf75f744660cd5",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/open_seo/compose.yaml": "e8b1471247c0debc05631227bfd04d525ac05acaead55b3371b851a133a64d6d",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/open_seo/ingress.mjs": "6c46d7a109ab51657030cd7874e7fe2ad3a9e97d3f3dc9edf8bd94bd3da2e91f",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/openshorts/adapter.py": "2f68d76e37961d49c1968deab7c480471e22345d6871455bcc624798087a0274",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/openshorts/backend_entrypoint.py": "57770904b3ad862422f3b6baec7a77f7f77fd6f4312120d6cdc14943911a0a76",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/openshorts/compose.yaml": "a5bf192b5db277dd739a8860295ae98150069ddc5c11cd040ab4bc5c5f4f9d6a",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/openshorts/ingress.py": "c3f0cf4030e88ae831946f02055cae60705921c7a3c32662b859201e70b9ecf9",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/openshorts/native_probe.py": "1c0ad29fff1cd9a598c7263d4d566c91c0a0012eb43a2f143c0f5e6c333acf64",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/presenton/adapter.py": "306687c401faabb69a353177761ddc18e38a7c418df6de9f3cf6c4377532130c",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/presenton/compose.yaml": "31b231b8fbab4b7ef69d50b2ee060c3d9b7b444ea6db015e14089f4c48095b1d",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/presenton/ingress.conf": "9866d986b3e833f732dcc5b6c228783788c384c07f5213d2b563e58697fcd72c",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/rapp1/SPEC.md": "348e7d5baa94aaf2ce4c5354f3cb261f389298a04af65e271a686d3b62f7c384",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/rapp1/rapp.py": "1a04362b02f14c1e37b70c6b4f72d79e92df1cc9c2b5b394e8e1b141fc0b6050",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/scrapling/adapter.py": "396ecd8b9032ab0fde767cd9f13a98509605babcdf57bb25b394d664be68640d",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/scrapling/browser.py": "31609abb8f9bfa55abc3bbe455929a368cb84dc568644f1b197d57f6a27efc13",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/scrapling/compose.yaml": "b1ae9800be8174f6a63d6d6b311f0707e1e2e18276cd605ef46a8704f260a8ac",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/scrapling/egress_proxy.py": "fa3d67bcd8d68808f2e407f3ad813dfe9a70775bb8d38016477ec3c447332cb7",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/scrapling/policy_client.py": "edc58d62b45f940b129e3f0521e041ecbf48eaa10a79417ffc1de91f7b621f95",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/scrapling/server.py": "cfac1fb278c27bdb83a096a08505f3238b35460fdc6139fc55cfae9bef2ed8e7",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/local/scrapling/url_policy.py": "c53358ee77acf95ebef254efd961bec6db4c5a4655fbd68d40ad1b8e41e7b31a",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/recipe.json": "f15e50593ac93578c92f868328c2ec3a39095b61b4b0898ff9636c9464b84860",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/source.lock.json": "77166929ba551cbb2b2e6ac5d7bfdfe14c61f347e7edcac11ea7f8e13c68e618",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/LICENSE": "232cf91474932d5110ed304e53b6b742a58463857c571fae803fdf2ac36d7bb3",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/compose.projection.json": "81601d5fdcf9c58b80be5827d49a6ef86538e74afd2289dda7a0a744f72eca06",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/docker-compose.yaml.source": "0dc2c5295f68965350835a4eafb2e3ee66c57a78c6ff5632d77ba08faff736c7",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/nginx/conf.d/default.conf.template.source": "3861d4e5f77eeb9ca83e7495707ff2af570f65999a62e7aa1af1380056ec8fd8",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/nginx/docker-entrypoint.sh.source": "47c710f5e7e316717f9880709efdc82a2f4dcf1e2b9e5c5f511e7b0f9b4ae3fb",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/nginx/https.conf.template.source": "3270f611cf07ac4e82c81e0561cdc144e700ad1dd375c8c0d8b46c74cf73a7a3",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/nginx/nginx.conf.template.source": "f58f8c7ce9f885b29da084b1c37262b985defb1e0b3ed6e9fca7638e7af29d27",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/nginx/proxy.conf.template.source": "ed6d00ec079586bcc1c0e8f7d9b466c41a5e3e040a815adf38799fd5621d7241",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/pgvector/docker-entrypoint.sh.source": "1467a3e144338eff907dc1a935279f0f3b8f1b8396b3d33aacaffefefa3ff4be",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/ssrf_proxy/docker-agent-entrypoint.sh.source": "feec4d09043e222d758c558856adbac89621a3216be4f96b58383b9f9dd88b56",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/ssrf_proxy/docker-entrypoint.sh.source": "6ff1529a1cd42df1d83729e30964b69baf1253c1d6860b15ebdc8a80c87e0150",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/ssrf_proxy/squid-agent.conf.template.source": "20fc899c266ca45cad640df868328c37bf0b5b42a71ab58fb70b9d401194a674",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/ssrf_proxy/squid-common.conf.template.source": "3f933b4058ea9ea23d3022dfaa97784d5f7b7f9681326cb94ce685bcec6c6e0c",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/dify/upstream/docker/ssrf_proxy/squid.conf.template.source": "d74ef4481bcb4fd2c16e8cf4d740c6c248bd72e172bde2acdf32eadac28bd6eb",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/open-seo/Dockerfile.mac": "797b66f048a41b5f54d6f4aa5fb7af432ac5fbd2b9236146e91e89fcaac1a9a1",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/open-seo/recipe.json": "59c6fc16b26a9106729a1ffd73a3510f7ea0e96894007b8304a3cf86941e52f9",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/open-seo/source.lock.json": "615e13ec9b7207b785495589e258a1534e6b3b5a3526fd0b7979f3d1ad919af7",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/open-seo/upstream/Dockerfile.selfhost.source": "3cfe3cb087b97e55f95705143663f0a8bb9f1df6ffe7bc2050ab9e8566ac1994",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/open-seo/upstream/LICENSE": "c23e0aa0cdc924726993ffc8eb96e5283a7e8aaa7e068f1200277eb6df0f0f06",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/open-seo/upstream/compose.projection.json": "9c2188e43f5adaa47b6a12248ab16435565389e6acb35eaf88a9d396d36b441c",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/open-seo/upstream/compose.yaml.source": "cf63e4a93508654297a2f86b5225cdd43befd2a621232b56b01dc69b375a48ef",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/private-nginx.conf": "63b940e701a998d1c8e59f792c7283cd94fbd5b3fcff29a051ba62c82c4f51bc",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/Dockerfile.backend-offline": "b9abf439595e43f56b15af790590f405b33c3d546ffb66e41417493a2ee45674",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/Dockerfile.frontend": "f98d68fe908023d3a6be8c3bbe21b834b3873bdcfe11354bc3110cfb4616efcd",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/Dockerfile.renderer-offline": "807416b9eb485bd13856d8a2da3a8e32b3337e2427eedf71103acea63db560d2",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/frontend-artifacts.json": "594d650326bcba310d6e12376a00b401f0f2f5ee71b0718215a56f1dade70125",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/frontend-build.sh": "6d593483bc9b8cb8d73955fb6ce4b7aa33ab1e106b4c9f2d2e33fc39061884c5",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/frontend.dockerignore": "78b83692abcd91229e97523322b164f7b04f301f49b1062771d3add4d84adaeb",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/inputs.lock.json": "44ac236e9abf95ca34a4067fd7c5e4d2f2532d0d63647a82227f4fa8a7072335",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/licenses/OpenShorts-cloud-LICENSE.txt": "df9ff503063f81f2964c8ae47d948d18f31de3ebf354597a27a756a956e37af2",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/licenses/Remotion-4.0.447-LICENSE.md": "bd65083b940f61904f6ef298aade918a7cad72a3e35bc406e36fab365844b673",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/licenses/bgutil-2.0.0-LICENSE.txt": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/npmrc": "c480ab957d8cd698435cddd8cf376d0efb48bcaa7d22820ee0b20920535dc258",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/backend-artifacts.json": "cd8d6ce729dd5ecf2f0824263e9446567eb339d8300514e1034985b235522c8d",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/backend-models.lock.json": "df051fbc6a59f8f54713a4a34250dcb82ceee11a8d769e5080f9d7e7167ee6a2",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/backend-requirements.lock": "5aeb39b082e123e1137db19832a4a785c767fe14794fd6d0850391b3f4eefe26",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/backend-system-packages.lock.json": "a77f7bb00c3a6835f9e69841a5006326d46acaaf0fda321eb06850e42612b793",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/remotion/artifact-manifest.json": "d0ac83ba756b2f1d99ec0dbed5803ec3985f26679b1896c194e8a47dc75c3950",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/remotion/package-lock.json": "efcfb89d3f8e6739b3930b403ad735e456ad964a47d171e3cce702601cb5d7a2",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/remotion/package.json": "b29e3aa1c73e70f54d9d6fdbf893fad7fb7d77e2ca2d85ef3c39df6e37ade8dd",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/render-service/artifact-manifest.json": "b031d38835c1175e983a1f9617265a88b39fb0f39c0b73fe83a8b3eba3737935",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/render-service/package-lock.json": "d5a08c85751b75b416782df02c6f7ab87c9cf53cae7543c6d90b0dc1726be8bb",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/render-service/package.json": "4a87d10e42a31c8aab03ac751f1b9101b00d45d0be5d238f0ec9b932ee256ffd",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-locks/renderer-system-packages.lock.json": "067c5f3e59629909b47b2734633f493f7784e6830030a1970ed11b26f3884909",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/offline-npm-lock.mjs": "930bee2c68059a6f0e8ab21afd6a398bab3f0785aca9233f379ee81125a89056",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/prepare_context.py": "6c6798af282504b178b762ddfea3f331c1183fdbef11c1eac40ff872fced30bc",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/prepare_offline.py": "7466c3f3d3c3db664c4e344c1f06884b12b2267fdcdd1b78f3bfae1927853fed",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/qualification/renderer-browser.patch": "864e4d045ae6e394bde8225c8fa83d1e2d450109ce3dc3ddb6358b58ffd59280",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/recipe.json": "dd1aae208ed8a666818358a8dcef24635d547937a6a589609c23245635c5a0d9",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/source.lock.json": "1a5f9dea5f4c6ac07ed50a1dee5159c96667784f0a3601ea99dea027ca6f88e9",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/upstream/Dockerfile.source": "f8039b1e6553ea8237124ae80f11e4fd180aab7ae8cbc3cd8907dcdd8060e881",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/upstream/LICENSE": "600e97e951834767c07845af65b79dfc727b5d993a51079c238d447ce9c2c669",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/upstream/compose.projection.json": "ea24ba3ec7cf1524083185186b93a4ccd8f7d13e63098cbe1d9845962386f7cb",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/upstream/dashboard/Dockerfile.source": "f319cd3a417e3152710b7b37b708351c199aaec0509060ed4f15ce23e9f159d7",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/upstream/docker-compose.yml.source": "4897b20839a8afbd107bcc40f8a39644febc1f11a1d80c5df20db416748a0192",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/openshorts/upstream/render-service/Dockerfile.source": "dca4d63813f6595284b516792313757f443249d3fd639c940a7290ce59d72326",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/paid-integrations.json": "1f536d4c6776d65b51af04871214c276606ee426bc4bb4215a093b9b87433461",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/Dockerfile.mac": "2772d3d744c613344cc3854d21c0246109d0aafca1001cc8b17b1268ccdcbce0",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/offline_entrypoint.py": "1e673ccf417440558b087b0bc88be44c49f22674c41d1b5df48d77f6d8079baa",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/recipe.json": "30e155e8052e4ff5e74791aab1c45e3764357fc9968673163b953b33f0ab7da5",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/source.lock.json": "16f6b753f6a4467df90e4177b0d2082955cf309170271ee73355c1d56e46de1d",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/Dockerfile.source": "d6ede9b6728a82ee83b76f3cca0a55152ae5afb7a9d698a7b7e1e261e2ef8730",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/LICENSE": "23d6fd64bfcbd46b331098ed89454717fd1719faccbf632f8234b962aa43ed1a",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/NOTICE": "b896b6803a6dd38c9307e3fc6768c0da387e9ce8596d1c2e7c73c26b769ce2d7",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/compose.projection.json": "a3850a3161fbbdaa0fe7875032c426990ed1c2daa9f4b46f57e3674ffcd8dfda",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/docker-compose.yml.source": "49d0d06f4eb6effe93fe3d261f53524c80c8d6b0d9b41dc2783680072f412192",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/docs/multi-docker-build.md.source": "51cb9e1b2bd6c7773d739f6568e1805c34bdb57dcd849271007460103e1a3504",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/dot-dockerignore.source": "048748fd77e10f586176c2c1c2aa8f343c5b72e4d36e58e41f4a245349e8971b",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/dot-github/workflows/docker-release.yml.source": "772bdbad01aac9621ec649628d65caecc26cc4180f4afb9dac3f2ea63a63f456",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/package-lock.json.source": "e13e4b2b90e9d556d8d72e39c527dd5ee3cc8cc0bf70b1610abad4ef648f1db8",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/package.json.source": "34fff909d9fe2959f3269f30ef8e01fc3418259e0b72115f3312485173aa928c",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/scripts/sync-presentation-export.cjs.source": "2148dad2866b2dcd8a9131e726604275a823259da74045680c82087a4d98d6d6",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/servers/fastapi/pyproject.toml.source": "7e69db82d4525bfeb6d3ca3b2517b71b5ea1e6e66cf2c4579afeff807164522e",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/servers/fastapi/scripts/warm_fastembed_cache.py.source": "4ebba826da1544828cc06c7c048d9fa97e20381c44328bdc97194b8e1cfad81e",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/presenton/upstream/servers/nextjs/package.json.source": "f8645c82ed0c769e141e7ed07da95b51a54af002043f5f5b3faea8a4c9e6b4b2",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/recipes.py": "14aa412a349caf26ddefb7e6195deb310b40cf775c83d2267a4c850bec242270",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/registry-observation.json": "35952044ad8bec9ac51c8c5d82426322238847b56131c66fd698acb400690bfb",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/scrapling/Dockerfile.mac": "d91f483cb6e1ff66fac55a3638ca0bb53b527b5738d4da56b41e473ade880130",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/scrapling/recipe.json": "a7a5abc07221926fcdfcc0e4b35d1eb6d90f32616803eb8734e5299462f2b635",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/scrapling/source.lock.json": "c6318e130fb7e17393a9a1db264973faaac2265b74d8b9fc12c3e3c2b92901a9",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/scrapling/upstream/Dockerfile.source": "733625cc28dffee7040c381d46aea662e10883b13676314a3e0767af3d2f47df",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/deploy/stacks/scrapling/upstream/LICENSE": "5c782ef0346e4fbfe0dc76fd435f181a0f1e4a1a7a6b13c169c6e74314ff5964",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/dock_exhaust.py": "78d80b2b5cabc101344e5cb31ea6668bb5e1de903cfd5337d261e491334875b4",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/dock_history.py": "bb9db883b36a153cdbe4b17ee7f1effaa520304262f66e51fc12bdaeeac17509",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/dock_nas.py": "fa8a6f68661fc9d78853d73b5e53c042ac467ef859726d36490df8899798973f",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/dock_portability.py": "cb0e4624bdf69c547f524af82bc0953b38bce442c51010766e23cb2febd73af0",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/dock_tree.py": "6240b8f054161296301bafa51a7644abf34b66746776ff9a4a3c83ed6c7d60bf",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/evidence/public-closure.json": "36c3cef588955743c472940733efc74814bd0de3e0ff752dc7633317749b4d49",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/local_dock.py": "c5936afd537ef214428cd00856d94eefc98298bc535451d5fee1a834998f0d08",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/scotty_contract.py": "98bd010ce96c84b8859168b0fa01a10008051c3e16435e34e4495f614cda11fe",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/scotty_distribution.py": "69da220d81c40a190a56096ebf460e9f7f9c5611e76827790f2dc492a4856472",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/scotty_observations.py": "954d08bb9ee9baf009204c38c8331b7a5d2ea5c92199295b302f63e31ac8413a",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/scotty_revision_agent.py": "9f252ebae8d53dcc71f19020d04fd841d1438c58811908b4ba20fd3c97ae1d34",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/scotty_server.py": "5e14c1b2185776b05faacb9c36521f065a6a151159282bc5c97e09673dd84ff1",
+      "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/scotty_work_tree.py": "8fdf58f0f779cfb5df9e0a38c1241e371bf693a712a84f5d51beea0ec4527044",
+      "ui/index.html": "8e5e1a36761d873956222ad16edab5e6fc46c8e510c4b88d1136f7e383f64b59"
+    },
+    "homepage": "https://github.com/kody-w/RAPP_Store/tree/main/apps/@kody-w/dock_scotty",
+    "id": "dock_scotty",
+    "license": "MIT (Dock/Scotty code); each upstream app keeps its own license, including Dify's modified Apache-2.0 with extra conditions. See LICENSE.md.",
+    "lifecycle": {
+      "install": "copy-verified-files",
+      "recovery": "reinstall-verified-package",
+      "uninstall": "preserve-state",
+      "upgrade": "preserve-state"
+    },
+    "local_docker": {
+      "component_lock": "components.lock.json",
+      "exhaust": {
+        "capsule_contains": "selected-outputs-and-producing-source-not-full-app-state",
+        "capsule_variant": "rapplication",
+        "frame_kind": "memory.tool-call",
+        "receipt_variant": "session",
+        "verification": "unsigned-structural-only",
+        "wire": "rapp/1"
+      },
+      "intelligence": {
+        "cloud_inference": true,
+        "concurrency": 2,
+        "hard_spend_cap": null,
+        "model": "gpt-5-mini",
+        "monetary_cost": null,
+        "other_paid_providers": "disabled",
+        "runtime": "official-copilot-cli-in-docker",
+        "tools": [],
+        "usage": "measured-when-available",
+        "version": "1.0.88"
+      },
+      "jobs_file": "generated/job-contracts.json",
+      "loader": {
+        "contract": "scotty-revision-loader/1",
+        "descriptor": "singleton/scotty_revision.json",
+        "entrypoint": "singleton/scotty_agent.py",
+        "support": "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3"
+      },
+      "readiness": {
+        "acceptance_suite": {
+          "revision": null,
+          "status": "pending"
+        },
+        "candidate": "experimental",
+        "current_health": {
+          "observed_at": null,
+          "status": "unknown"
+        },
+        "fresh_install": "passed",
+        "fresh_install_profiles": {
+          "apple-silicon-development": "passed"
+        },
+        "jobs": {
+          "dify.knowledge_answer": {
+            "mode": "economy-retrieval-gateway-grounded",
+            "status": "pending"
+          },
+          "dify.knowledge_build": {
+            "mode": "economy-indexing-gateway-grounded",
+            "status": "pending"
+          },
+          "intelligence.chat": {
+            "mode": "tool-free-copilot-diagnostic",
+            "status": "pending"
+          },
+          "open-seo.project_create": {
+            "mode": "native-project-paid-data-disabled",
+            "status": "pending"
+          },
+          "openshorts.clips": {
+            "mode": "gateway-selected-native-rendered",
+            "status": "pending"
+          },
+          "presenton.deck": {
+            "mode": "gateway-authored-presenton-exported",
+            "status": "passed"
+          },
+          "scrapling.scrape": {
+            "mode": "native-collection-gateway-summary",
+            "status": "passed"
+          }
+        },
+        "live_results": "generated/candidate-evidence.json",
+        "package_verification": "passed",
+        "provider_blockers": [
+          "Adopter-owned Copilot entitlement and authentication required for AI jobs.",
+          "All other paid providers disabled; paid metrics are not available.",
+          "Native Dify model plugin is not installed in the described default mode."
+        ],
+        "recreation": {
+          "dify": "pending",
+          "intelligence": "pending",
+          "open-seo": "pending",
+          "openshorts": "pending",
+          "presenton": "pending",
+          "scrapling": "pending"
+        },
+        "restart": {
+          "dify": "pending",
+          "intelligence": "pending",
+          "open-seo": "pending",
+          "openshorts": "pending",
+          "presenton": "pending",
+          "scrapling": "pending"
+        }
+      },
+      "requirements_file": "generated/host-profiles.json",
+      "schema": "rapp-local-docker/1",
+      "state_lifecycle_file": "generated/state-lifecycle.json"
+    },
+    "metrics": {
+      "reference_readiness": {
+        "applies_to_this_candidate": false,
+        "basis": "owner-reported sanitized qualification summary",
+        "dify": {
+          "custody": "explicit",
+          "fresh_answer_after_recreation": true,
+          "native_plugin": "not-installed",
+          "preserved": [
+            "datasets",
+            "documents",
+            "indexing",
+            "credentials"
+          ],
+          "read_only_roles": 15,
+          "recreation": "qualified",
+          "scope": "full container down/recreate on the tested reference profile"
+        },
+        "fresh_machine_install": "pending",
+        "openshorts": {
+          "authenticated_ingress": true,
+          "completed_clip_hashes_preserved": true,
+          "fresh_render_after_recreation": true,
+          "in_flight_renderer_memory": "not-recoverable",
+          "public_cold_rebuild": "blocked on npm/PyPI retrieval",
+          "read_only_renderer": true,
+          "recreation": "qualified",
+          "scope": "drained completed state only"
+        },
+        "presenton_native_generation": "opt-in",
+        "qualification_note": "These reference-profile facts do not qualify the synthetic template or a newly assembled source candidate. No private paths, identifiers, credentials, receipts or outputs are included.",
+        "schema": "rapp-reference-readiness/1",
+        "scope": "tested Apple Silicon reference profile with some amd64 guests under emulation"
+      }
+    },
+    "name": "RAPP Dock / Scotty",
+    "permissions": [
+      "host-user"
+    ],
+    "profiles": [],
+    "provenance": {
+      "deployed": false,
+      "job_verified": true,
+      "source": "public-source-candidate:3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3",
+      "status": "development"
+    },
+    "providers": {
+      "egress_allowlist": null,
+      "mode": "host",
+      "spend_limit": null
+    },
+    "publisher": "@kody-w",
+    "quality_tier": "experimental",
+    "requires": [
+      "portable-agents/1",
+      "owned-files/1",
+      "local-docker/1"
+    ],
+    "runtime": {
+      "commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
+      "repo": "microsoft/aibast-agents-library",
+      "version": "0.6.16"
+    },
+    "schema": "rapp-application/2.0",
+    "services": [],
+    "state": {
+      "preserve": true,
+      "seeds": {},
+      "version": "1"
+    },
+    "summary": "Scotty runs five real open-source apps in local Docker from chat or its UI: Scrapling page scrapes, Presenton decks, OpenSEO projects (paid data off), Dify answers from your documents and OpenShorts captioned clips. Installed five-job acceptance passed on the previous build; this revision-9 build was freshly installed and re-ran scrape and deck. Experimental.",
+    "tagline": "Scrape pages, make decks, create SEO projects, answer from your documents and cut captioned shorts: locally, from chat.",
+    "tags": [
+      "rapplication",
+      "chat-operated",
+      "local-docker",
+      "ui",
+      "scrapling",
+      "presenton",
+      "openseo",
+      "dify",
+      "openshorts"
+    ],
+    "ui": "ui/index.html",
+    "version": "1.0.0"
+  },
+  "runtime": {
+    "commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
+    "repo": "microsoft/aibast-agents-library",
+    "version": "0.6.16"
+  },
+  "requires": [
+    "portable-agents/1",
+    "owned-files/1",
+    "local-docker/1"
+  ],
+  "schema": "rapp-pokedex-rapp/1.0",
+  "kind": "rapplication",
+  "distribution": "local-docker",
+  "has_skin": true,
+  "installable": false,
+  "self_url": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/rapplication/dock_scotty.json",
+  "local_docker": {
+    "component_lock": "components.lock.json",
+    "exhaust": {
+      "capsule_contains": "selected-outputs-and-producing-source-not-full-app-state",
+      "capsule_variant": "rapplication",
+      "frame_kind": "memory.tool-call",
+      "receipt_variant": "session",
+      "verification": "unsigned-structural-only",
+      "wire": "rapp/1"
+    },
+    "intelligence": {
+      "cloud_inference": true,
+      "concurrency": 2,
+      "hard_spend_cap": null,
+      "model": "gpt-5-mini",
+      "monetary_cost": null,
+      "other_paid_providers": "disabled",
+      "runtime": "official-copilot-cli-in-docker",
+      "tools": [],
+      "usage": "measured-when-available",
+      "version": "1.0.88"
+    },
+    "jobs_file": "generated/job-contracts.json",
+    "loader": {
+      "contract": "scotty-revision-loader/1",
+      "descriptor": "singleton/scotty_revision.json",
+      "entrypoint": "singleton/scotty_agent.py",
+      "support": "singleton/scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3"
+    },
+    "readiness": {
+      "acceptance_suite": {
+        "revision": null,
+        "status": "pending"
+      },
+      "candidate": "experimental",
+      "current_health": {
+        "observed_at": null,
+        "status": "unknown"
+      },
+      "fresh_install": "passed",
+      "fresh_install_profiles": {
+        "apple-silicon-development": "passed"
+      },
+      "jobs": {
+        "dify.knowledge_answer": {
+          "mode": "economy-retrieval-gateway-grounded",
+          "status": "pending"
+        },
+        "dify.knowledge_build": {
+          "mode": "economy-indexing-gateway-grounded",
+          "status": "pending"
+        },
+        "intelligence.chat": {
+          "mode": "tool-free-copilot-diagnostic",
+          "status": "pending"
+        },
+        "open-seo.project_create": {
+          "mode": "native-project-paid-data-disabled",
+          "status": "pending"
+        },
+        "openshorts.clips": {
+          "mode": "gateway-selected-native-rendered",
+          "status": "pending"
+        },
+        "presenton.deck": {
+          "mode": "gateway-authored-presenton-exported",
+          "status": "passed"
+        },
+        "scrapling.scrape": {
+          "mode": "native-collection-gateway-summary",
+          "status": "passed"
+        }
+      },
+      "live_results": "generated/candidate-evidence.json",
+      "package_verification": "passed",
+      "provider_blockers": [
+        "Adopter-owned Copilot entitlement and authentication required for AI jobs.",
+        "All other paid providers disabled; paid metrics are not available.",
+        "Native Dify model plugin is not installed in the described default mode."
+      ],
+      "recreation": {
+        "dify": "pending",
+        "intelligence": "pending",
+        "open-seo": "pending",
+        "openshorts": "pending",
+        "presenton": "pending",
+        "scrapling": "pending"
+      },
+      "restart": {
+        "dify": "pending",
+        "intelligence": "pending",
+        "open-seo": "pending",
+        "openshorts": "pending",
+        "presenton": "pending",
+        "scrapling": "pending"
+      }
+    },
+    "requirements_file": "generated/host-profiles.json",
+    "schema": "rapp-local-docker/1",
+    "state_lifecycle_file": "generated/state-lifecycle.json"
+  },
+  "readiness": {
+    "acceptance_suite": {
+      "revision": null,
+      "status": "pending"
+    },
+    "candidate": "experimental",
+    "current_health": {
+      "observed_at": null,
+      "status": "unknown"
+    },
+    "fresh_install": "passed",
+    "fresh_install_profiles": {
+      "apple-silicon-development": "passed"
+    },
+    "jobs": {
+      "dify.knowledge_answer": {
+        "mode": "economy-retrieval-gateway-grounded",
+        "status": "pending"
+      },
+      "dify.knowledge_build": {
+        "mode": "economy-indexing-gateway-grounded",
+        "status": "pending"
+      },
+      "intelligence.chat": {
+        "mode": "tool-free-copilot-diagnostic",
+        "status": "pending"
+      },
+      "open-seo.project_create": {
+        "mode": "native-project-paid-data-disabled",
+        "status": "pending"
+      },
+      "openshorts.clips": {
+        "mode": "gateway-selected-native-rendered",
+        "status": "pending"
+      },
+      "presenton.deck": {
+        "mode": "gateway-authored-presenton-exported",
+        "status": "passed"
+      },
+      "scrapling.scrape": {
+        "mode": "native-collection-gateway-summary",
+        "status": "passed"
+      }
+    },
+    "live_results": "generated/candidate-evidence.json",
+    "package_verification": "passed",
+    "provider_blockers": [
+      "Adopter-owned Copilot entitlement and authentication required for AI jobs.",
+      "All other paid providers disabled; paid metrics are not available.",
+      "Native Dify model plugin is not installed in the described default mode."
+    ],
+    "recreation": {
+      "dify": "pending",
+      "intelligence": "pending",
+      "open-seo": "pending",
+      "openshorts": "pending",
+      "presenton": "pending",
+      "scrapling": "pending"
+    },
+    "restart": {
+      "dify": "pending",
+      "intelligence": "pending",
+      "open-seo": "pending",
+      "openshorts": "pending",
+      "presenton": "pending",
+      "scrapling": "pending"
+    }
+  },
+  "install_blockers": [
+    "Discovery is metadata only; complete reviewed installer publication and device checks are required."
+  ]
+}

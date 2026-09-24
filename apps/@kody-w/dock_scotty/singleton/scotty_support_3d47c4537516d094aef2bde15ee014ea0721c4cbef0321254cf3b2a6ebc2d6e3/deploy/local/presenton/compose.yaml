@@ -1,0 +1,130 @@
+services:
+  presenton:
+    image: ${RAPP_DOCK_IMAGE_PRESENTON:?Materialize locked public images first}
+    pull_policy: never
+    platform: linux/arm64
+    user: "10001:10001"
+    init: true
+    command: ["node", "/app/start.js"]
+    env_file:
+      - ${RAPP_DOCK_PRESENTON_ENV}
+    environment:
+      APP_DATA_DIRECTORY: /app_data
+      HOME: /app_data
+      TMPDIR: /app_data
+      TEMP_DIRECTORY: /app_data/runtime
+      LLM: custom
+      PRESENTATION_GENERATION_MODE: standard
+      LLM_MAX_OUTPUT_TOKENS: "4096"
+      DISABLE_IMAGE_GENERATION: "true"
+      WEB_GROUNDING: "false"
+      MEM0_ENABLED: "false"
+      PRESENTON_COMMUNITY_ENABLED: "false"
+      CAN_CHANGE_KEYS: "false"
+      DISABLE_ANONYMOUS_TRACKING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      START_OLLAMA: "false"
+    volumes:
+      - app_data:/app_data
+    networks:
+      - ai
+      - application
+    read_only: true
+    tmpfs:
+      - /run:rw,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=0700
+      - /var/lib/nginx:rw,nosuid,nodev,size=32m,uid=10001,gid=10001,mode=0700
+      - /var/log/nginx:rw,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 3g
+    cpus: 2.5
+    pids_limit: 512
+    shm_size: 256m
+    stop_grace_period: 30s
+    healthcheck:
+      test:
+        - CMD
+        - /opt/venv/bin/python
+        - -B
+        - -c
+        - "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1/api/v1/auth/status',timeout=5); assert r.status==200"
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 60s
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: presenton
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
+  ingress:
+    image: ${RAPP_DOCK_IMAGE_PRESENTON:?Materialize locked public images first}
+    pull_policy: never
+    platform: linux/arm64
+    user: "10001:10001"
+    init: true
+    entrypoint: ["/usr/sbin/nginx"]
+    command: ["-c", "/etc/nginx/rapp-dock.conf", "-g", "daemon off;"]
+    depends_on:
+      presenton:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${RAPP_DOCK_PORT}:8080"
+    volumes:
+      - ./ingress.conf:/etc/nginx/rapp-dock.conf:ro
+    networks:
+      - application
+      - ingress
+    read_only: true
+    tmpfs:
+      - /run:rw,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 64
+    healthcheck:
+      test:
+        - CMD
+        - /opt/venv/bin/python
+        - -B
+        - -c
+        - "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8080/api/v1/auth/status',timeout=5); assert r.status==200"
+      interval: 10s
+      timeout: 6s
+      retries: 6
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: presenton
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: "2"
+
+volumes:
+  app_data:
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+      rapp.dock.application: presenton
+
+networks:
+  ai:
+    external: true
+    name: ${RAPP_DOCK_AI_NETWORK}
+  application:
+    internal: true
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}
+  ingress:
+    driver: bridge
+    labels:
+      rapp.dock.namespace: ${RAPP_DOCK_NAMESPACE}

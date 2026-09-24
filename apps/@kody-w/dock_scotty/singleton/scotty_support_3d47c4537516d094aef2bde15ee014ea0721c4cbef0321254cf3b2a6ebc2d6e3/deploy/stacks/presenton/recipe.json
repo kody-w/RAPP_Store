@@ -1,0 +1,92 @@
+{
+  "application": "presenton",
+  "services": ["production"],
+  "source_image_services": ["production"],
+  "provenance_review": "provenance-review.json",
+  "source_build_input_plan": "build-inputs.json",
+  "images": {
+    "production": {
+      "reference": "ghcr.io/presenton/presenton@sha256:85ce734e08a74809991c28a7d0491f553c4ef410ef3e2a7e593e069e2d2d9d62",
+      "platform": "linux/amd64",
+      "source_revision": null,
+      "discovery_reference": "ghcr.io/presenton/presenton:latest",
+      "note": "Digest and architecture resolved anonymously. The exact multi-arch index includes an attestation for its arm64 child, not this amd64 child. Its matching source revision, release tag and image history do not establish this image's provenance; see provenance-review.json."
+    }
+  },
+  "overrides": {
+    "production": {
+      "environment": {
+        "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
+        "APP_DATA_DIRECTORY": "/app_data",
+        "PRESENTON_HOST_HTTP_PORT": "18003",
+        "PRESENTON_PUBLIC_URL": "http://localhost:18003",
+        "MIGRATE_DATABASE_ON_STARTUP": "true",
+        "CAN_CHANGE_KEYS": "false",
+        "PRESENTATION_GENERATION_MODE": "both",
+        "PRESENTON_COMMUNITY_ENABLED": "false",
+        "PRESENTON_COMMUNITY_API_URL": "",
+        "DISABLE_ANONYMOUS_TRACKING": "true",
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "START_OLLAMA": "false",
+        "MEM0_ENABLED": "false",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "HF_HUB_DISABLE_TELEMETRY": "1",
+        "DISABLE_IMAGE_GENERATION": "true",
+        "ENABLE_PARALLEL_IMAGE_GENERATION": "false",
+        "WEB_GROUNDING": "false",
+        "LITEPARSE_NUM_WORKERS": "1",
+        "LLM": "",
+        "OPENAI_API_KEY": "",
+        "OPENROUTER_API_KEY": "",
+        "GOOGLE_API_KEY": "",
+        "ANTHROPIC_API_KEY": "",
+        "CUSTOM_LLM_URL": "",
+        "CUSTOM_LLM_API_KEY": "",
+        "OLLAMA_URL": "",
+        "OLLAMA_MODEL": "",
+        "PEXELS_API_KEY": "",
+        "PIXABAY_API_KEY": "",
+        "TAVILY_API_KEY": "",
+        "EXA_API_KEY": "",
+        "BRAVE_SEARCH_API_KEY": "",
+        "SERPER_API_KEY": "",
+        "AUTH_OVERRIDE_FROM_ENV": "true",
+        "RESET_AUTH": "false"
+      },
+      "ports": [{"host_ip": "127.0.0.1", "published": "18003", "target": 80, "protocol": "tcp"}],
+      "volumes": [
+        {"type": "bind", "source": "@PRIVATE_ROOT@/workspaces/presenton/app_data", "target": "/app_data", "bind": {"create_host_path": false}}
+      ],
+      "shm_size": "256m",
+      "healthcheck": {
+        "test": ["CMD", "node", "-e", "fetch('http://127.0.0.1:80/').then(r=>{if(r.status>=500)process.exit(1)}).catch(()=>process.exit(1))"],
+        "interval": "30s", "timeout": "10s", "retries": 3, "start_period": "180s"
+      }
+    }
+  },
+  "credential_environment": {"production": ["AUTH_USERNAME", "AUTH_PASSWORD"]},
+  "limits": {"production": {"memory_mib": 3072, "cpus": 2.5, "pids": 512}},
+  "networks": {"default": {"driver": "bridge", "internal": true}},
+  "admission": {
+    "start_mode": "on-demand",
+    "heavy_group": "nas-heavy",
+    "max_active_heavy_stacks": 1,
+    "max_concurrent_jobs": 1,
+    "memory_ceiling_mib": 3072,
+    "host_reserve_mib": 2048,
+    "disk_budget_gib": 20,
+    "offload_allowed": false
+  },
+  "render_blockers": [
+    "No verified source linkage was recovered for the selected amd64 digest. The available OCI attestation covers a different arm64 subject; exact-source Docker-release runs failed at build/push and skipped verification. Keep source_revision unresolved. See provenance-review.json and the blocked, pinned source-build input plan in build-inputs.json."
+  ],
+  "runtime_gates": [
+    "Only the upstream production service is selected; GPU, dev and OAuth callback publications are excluded.",
+    "Community, memory embeddings, local Ollama installation, remote media generation, web search and telemetry are disabled; no provider endpoint or model is selected.",
+    "Presentation generation needs an explicitly approved provider/model and data-egress policy. Paid APIs remain unavailable until budget approval.",
+    "The source-build input plan pins source/input hashes, amd64 bases/frontend and the export archive, but uv/build backends, complete system/NodeSource packages, isolated npm graphs and model assets remain unqualified. No rebuild or model download is authorized; a source-qualified immutable runtime image is required.",
+    "The HTTP healthcheck is frontend liveness only. Verify authenticated API/MCP plus actual PPTX/PDF export and resource peak on the NAS before claiming readiness.",
+    "Private share ACLs, protected auth custody, startup migrations, UID ownership and recovery remain unqualified."
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "acceptance_suite_revision": null,
+  "candidate_digest": "3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3",
+  "limitations": [
+    "This build (Dock revision 9 source d0f153e = reviewed 9384158 plus regenerated capability lock, plus public-template credential redaction 6bfc50c) was installed from the Store egg and hatcher into a fresh isolated unchanged Grail and a fresh Dock home; real Scrapling (example.com) and Presenton deck jobs passed there.",
+    "OpenSEO, Dify and OpenShorts jobs were not re-run on this build and stay pending for it.",
+    "The previous build of the same application (Dock source 33dcaa8, cartridge sha256 03bbb211597e13263349f74e57966962195d79c3353b9ec0d36d6af4c3ef5f6d) passed installed acceptance for all five jobs plus preserving uninstall and reinstall; that evidence is not re-claimed for this build's bytes.",
+    "Scripted chat plans exercised the installed path; live model conversation quality is not rated.",
+    "Cached locked images were used on one Apple Silicon Mac: not a public cold rebuild, second device or amd64 host qualification.",
+    "Restart, full recreation and long-running stop/soak qualification are pending for this build.",
+    "Upstream default credential literals are redacted from shipped Dify and Presenton evidence; source locks keep upstream_sha256 and variable names/lines, never values.",
+    "Reference Mac: anonymous TLS GET of the pinned absl_py-2.5.0 wheel on files.pythonhosted.org timed out; native curl independently failed with code 35 (socket not connected).",
+    "Public source archive, a Debian package and Whisper config were fetched and verified, but the complete wheel/model closure and offline backend rebuild remain unqualified. No NAS or private archive fallback.",
+    "Reference Mac: the shared registry.npmjs.org tarball transport failed with native curl code 35 and SSL unexpected EOF in an isolated pinned Python Docker build.",
+    "The complete public npm closure and offline renderer compilation/rebuild remain unqualified. Existing local image identity is not a fresh-machine public build.",
+    "Reference Mac: anonymous TLS GET of @alloc/quick-lru-5.2.0.tgz from registry.npmjs.org stalled in urllib, failed with native curl code 35, and failed with SSL unexpected EOF in an isolated pinned Python Docker build.",
+    "The public source archive verified, but the complete npm closure and offline frontend compilation/rebuild remain unqualified. No NAS or private compiled archive fallback."
+  ],
+  "observed_at": "2026-09-23",
+  "results": [
+    {
+      "job": "scrapling.scrape",
+      "mode": "native-collection-gateway-summary",
+      "status": "passed"
+    },
+    {
+      "job": "presenton.deck",
+      "mode": "gateway-authored-presenton-exported",
+      "status": "passed"
+    },
+    {
+      "job": "open-seo.project_create",
+      "mode": "native-project-paid-data-disabled",
+      "status": "pending"
+    },
+    {
+      "job": "dify.knowledge_build",
+      "mode": "economy-indexing-gateway-grounded",
+      "status": "pending"
+    },
+    {
+      "job": "dify.knowledge_answer",
+      "mode": "economy-retrieval-gateway-grounded",
+      "status": "pending"
+    },
+    {
+      "job": "openshorts.clips",
+      "mode": "gateway-selected-native-rendered",
+      "status": "pending"
+    },
+    {
+      "job": "intelligence.chat",
+      "mode": "tool-free-copilot-diagnostic",
+      "status": "pending"
+    }
+  ],
+  "schema": "rapp-readiness-evidence/1",
+  "scope": "candidate-verification",
+  "synthetic": false
+}

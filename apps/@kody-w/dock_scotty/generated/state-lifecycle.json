@@ -1,0 +1,21 @@
+{
+  "schema": "rapp-local-state-lifecycle/1",
+  "owned_roots": ["state/operations", "state/artifacts", "state/sealed-inputs", "state/receipts"],
+  "volumes": ["application-owned-volumes"],
+  "sealed_inputs": true,
+  "start": "explicit-use",
+  "stop": "retain-data",
+  "uninstall": "drain-stop-detach-preserve",
+  "upgrade": "preserve-state",
+  "recovery": "reconcile-no-replay",
+  "credential_export": false,
+  "destructive_operations": [],
+  "retention": {
+    "intelligence": "stop-retain",
+    "scrapling": "stop-retain",
+    "presenton": "stop-retain",
+    "open-seo": "stop-retain",
+    "dify": "stop-retain",
+    "openshorts": "stop-retain"
+  }
+}

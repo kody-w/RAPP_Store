@@ -1,0 +1,29 @@
+FROM ghcr.io/presenton/presenton@sha256:205b416b0b6f6813d7f91042a74bcf6df4e31533034aba2659aa91f4c3d0af7d
+
+LABEL org.opencontainers.image.source="https://github.com/presenton/presenton" \
+      org.opencontainers.image.revision="e33a91bc674eb51a96f5fdc66f61436bb2606748" \
+      io.rapp.dock.role="presenton-native-mac-qualification"
+
+USER 0:0
+COPY --chmod=0644 offline_entrypoint.py /opt/presenton-offline-entrypoint.py
+RUN mkdir -p /opt/presenton-cache \
+    && cp -a /root/.cache/. /opt/presenton-cache/ \
+    && chmod -R a+rX /app/templates /opt/presenton-cache \
+    && chown -R 10001:10001 /app_data
+
+ENV HOME=/app_data \
+    HF_HOME=/opt/presenton-cache/huggingface \
+    PRESENTON_FASTEMBED_ICON_CACHE_DIR=/opt/presenton-cache/presenton/fastembed-icons \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    NEXT_TELEMETRY_DISABLED=1 \
+    LLM=custom \
+    CUSTOM_MODEL=rapp-provider-disabled \
+    CUSTOM_LLM_URL=http://127.0.0.1:18888/v1 \
+    DISABLE_IMAGE_GENERATION=true \
+    CAN_CHANGE_KEYS=false
+
+USER 10001:10001
+CMD ["/opt/venv/bin/python", "-B", "/opt/presenton-offline-entrypoint.py"]

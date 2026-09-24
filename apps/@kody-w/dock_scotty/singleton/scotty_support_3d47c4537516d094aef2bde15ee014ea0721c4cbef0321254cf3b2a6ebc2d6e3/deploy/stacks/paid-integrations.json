@@ -1,0 +1,131 @@
+{
+  "format_version": 1,
+  "coverage": "Reviewed app-facing integrations, not an exhaustive audit of every plugin or transitive dependency. Scrapling has no mandatory paid integration in this recipe. Scotty's inference provider belongs to the SDK runtime inventory.",
+  "entries": [
+    {
+      "id": "open-seo.dataforseo",
+      "application": "open-seo",
+      "provider": "DataForSEO",
+      "operation": "Fetch paid SEO metrics for an approved domain or keyword",
+      "billing": "paid-required",
+      "needed_credentials": [{"name": "DATAFORSEO_API_KEY", "kind": "environment-variable"}],
+      "source_files": ["compose.yaml", "docs/SELF_HOSTING_DOCKER.md"]
+    },
+    {
+      "id": "open-seo.ai-assistant",
+      "application": "open-seo",
+      "provider": "OpenRouter",
+      "operation": "Run optional SAM SEO-assistant inference",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "OPENROUTER_API_KEY", "kind": "environment-variable"}],
+      "source_files": ["compose.yaml"]
+    },
+    {
+      "id": "dify.generation",
+      "application": "dify",
+      "provider": "Not selected",
+      "operation": "Generate workflow or agent text with an approved model provider",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "Generation-provider credential after provider selection", "kind": "upstream-provider-setting"}],
+      "source_files": ["docker/envs/core-services/shared.env.example"]
+    },
+    {
+      "id": "dify.embeddings",
+      "application": "dify",
+      "provider": "Not selected",
+      "operation": "Embed approved knowledge inputs with an approved embedding provider",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "Embedding-provider credential after provider selection", "kind": "upstream-provider-setting"}],
+      "source_files": ["docker/envs/core-services/shared.env.example"]
+    },
+    {
+      "id": "openshorts.analysis",
+      "application": "openshorts",
+      "provider": "Google Gemini",
+      "operation": "Analyze approved media for moments, layouts or silent-video content",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "GEMINI_API_KEY", "kind": "environment-variable"}],
+      "source_files": ["README.md", "main.py"]
+    },
+    {
+      "id": "openshorts.voice",
+      "application": "openshorts",
+      "provider": "ElevenLabs",
+      "operation": "Generate optional voiceover or dubbing",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "ELEVENLABS_API_KEY", "kind": "environment-variable"}],
+      "source_files": ["README.md"]
+    },
+    {
+      "id": "openshorts.synthetic-video",
+      "application": "openshorts",
+      "provider": "fal.ai",
+      "operation": "Generate optional synthetic video or actor media",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "FAL_KEY", "kind": "environment-variable"}],
+      "source_files": ["README.md"]
+    },
+    {
+      "id": "openshorts.social-publish",
+      "application": "openshorts",
+      "provider": "Upload-Post",
+      "operation": "Publish approved media to an explicitly approved social destination",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "UPLOAD_POST_API_KEY", "kind": "environment-variable"}],
+      "source_files": ["README.md", "app.py"]
+    },
+    {
+      "id": "openshorts.cloud-storage",
+      "application": "openshorts",
+      "provider": "AWS S3",
+      "operation": "Optional cloud backup or gallery upload; publication remains disabled",
+      "billing": "provider-dependent",
+      "needed_credentials": [
+        {"name": "AWS_ACCESS_KEY_ID", "kind": "environment-variable"},
+        {"name": "AWS_SECRET_ACCESS_KEY", "kind": "environment-variable"}
+      ],
+      "source_files": ["s3_uploader.py", ".env.example"]
+    },
+    {
+      "id": "openshorts.proxy",
+      "application": "openshorts",
+      "provider": "Proxy service not selected; upstream documents DataImpulse",
+      "operation": "Optional paid media-fetch proxy traffic",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "PROXY_URL", "kind": "environment-variable"}],
+      "source_files": ["main.py", ".env.example"]
+    },
+    {
+      "id": "presenton.generation",
+      "application": "presenton",
+      "provider": "Not selected",
+      "operation": "Generate presentation content with an explicitly approved model provider",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "Selected Presenton provider credential; not yet selected", "kind": "upstream-provider-setting"}],
+      "source_files": ["docker-compose.yml"]
+    },
+    {
+      "id": "presenton.images",
+      "application": "presenton",
+      "provider": "OpenAI-compatible image provider not selected",
+      "operation": "Optional slide-image generation; disabled in the recipe",
+      "billing": "provider-dependent",
+      "needed_credentials": [{"name": "OPENAI_COMPAT_IMAGE_API_KEY", "kind": "environment-variable"}],
+      "source_files": ["docker-compose.yml"]
+    },
+    {
+      "id": "presenton.web-search",
+      "application": "presenton",
+      "provider": "Tavily, Exa, Brave or Serper; not selected",
+      "operation": "Optional external web grounding; disabled in the recipe",
+      "billing": "provider-dependent",
+      "needed_credentials": [
+        {"name": "TAVILY_API_KEY", "kind": "environment-variable"},
+        {"name": "EXA_API_KEY", "kind": "environment-variable"},
+        {"name": "BRAVE_SEARCH_API_KEY", "kind": "environment-variable"},
+        {"name": "SERPER_API_KEY", "kind": "environment-variable"}
+      ],
+      "source_files": ["docker-compose.yml"]
+    }
+  ]
+}

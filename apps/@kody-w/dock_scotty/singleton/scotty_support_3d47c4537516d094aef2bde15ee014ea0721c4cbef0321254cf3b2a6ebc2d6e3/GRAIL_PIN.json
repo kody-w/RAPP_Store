@@ -1,0 +1,32 @@
+{
+  "schema": "scotty-current-grail-pin/1",
+  "repository": "https://github.com/microsoft/aibast-agents-library",
+  "commit": "c60521e2cacbcbfa585a118c1275093d7bb15b74",
+  "distribution": "rapp_brainstem",
+  "version": "0.6.16",
+  "kernel": "brainstem.py",
+  "files": [
+    {"path": "brainstem.py", "bytes": 154479, "sha256": "35618683ebc3d1c2bfaff47f60182fd756f3a8de53c53dd907ec1099d631930a"},
+    {"path": "agents/basic_agent.py", "bytes": 1303, "sha256": "701488bc00d536a7b23295e7da99c62f24e9b00f233daa325886430c736b78eb"},
+    {"path": "local_storage.py", "bytes": 9814, "sha256": "c38667c1f65a703174c1d4a8c42cbf36d499178ead41534d0086763e681b7ccb"},
+    {"path": "VERSION", "bytes": 7, "sha256": "e94a7f87af28a51ae948939b0fc6f3d7b9853add0d06a4ffb6df7c67c68ffcc5"},
+    {"path": "requirements.txt", "bytes": 85, "sha256": "6bc9a8d661873b4cfd6681f8c94b0a347cfcf6fb3a463b19c45bdc4a9cb165ef"},
+    {"path": "soul.md", "bytes": 5150, "sha256": "601f29b5b0f121c81e8c6703604d8f0f44af3dd8e039a7d92afcf7c8a8da94d2"},
+    {"path": "index.html", "bytes": 202933, "sha256": "d60569be2db3f5620498e84a976e060139d2a9650672da2777d6c5e7a7f6437c"}
+  ],
+  "license": {
+    "path": "LICENSE",
+    "sha256": "98a96c38494df4963951e32b81ec4effebe4c8a812ab8d9e7d185d59e86fe2fc",
+    "name": "MIT",
+    "copyright": "Copyright (c) 2025 Microsoft"
+  },
+  "observed_contract": {
+    "agent_layout": "flat agents/*_agent.py",
+    "base_class": "agents.basic_agent.BasicAgent",
+    "provider": "github-copilot-api",
+    "chat_agent_logs_type": "string",
+    "chat_success_additional_fields": ["voice_mode", "model", "requested_model"],
+    "strict_current_rapp1_wire_qualified": false,
+    "production_inference_fixture": false
+  }
+}
