@@ -22,6 +22,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,6 +35,7 @@ import lib_desktop
 # ── Constants ─────────────────────────────────────────────────────────────
 
 SCHEMA_MANIFEST = "rapp-application/1.0"
+SCHEMA_APPLICATION = "rapp-application/2.0"
 SCHEMA_AGENT_INTERNAL = "rapp-agent/1.0"
 SCHEMA_INDEX = "rapp-store/1.0"
 
@@ -176,6 +178,108 @@ class ValidationResult:
         return self.ok
 
 
+def is_application(manifest: dict) -> bool:
+    """Complete application contracts supplement, not replace, existing listings."""
+    return isinstance(manifest, dict) and manifest.get("schema") == SCHEMA_APPLICATION
+
+
+def _application_contract_errors(manifest: dict, files=None) -> list[str]:
+    import rapp_package
+
+    try:
+        rapp_package.require_supported(manifest)
+        if files is not None:
+            rapp_package.verify_closure(manifest, files)
+    except rapp_package.PackageError as exc:
+        return [str(exc)]
+    return []
+
+
+def _application_dir_errors(root: Path, manifest: dict) -> list[str]:
+    import rapp_package
+
+    try:
+        files = rapp_package.application_files(root)
+    except (rapp_package.PackageError, OSError) as exc:
+        return [str(exc)]
+    errors = _application_contract_errors(manifest, files)
+    if not errors:
+        for name in manifest["agents"]:
+            errors.extend(_validate_singleton_bytes(files[name]))
+    return errors
+
+
+def _application_previous_errors(manifest: dict, previous: dict | None) -> list[str]:
+    if not is_application(manifest) or not previous:
+        return []
+    if str(previous.get("publisher", "")).casefold() != manifest["publisher"].casefold():
+        return ["E_APPLICATION_OWNERSHIP: a complete application cannot replace another publisher's catalog ID"]
+    if "desktop" in previous:
+        return ["E_APPLICATION_DISTRIBUTION: preserve the existing native listing; use a distinct complete-application ID"]
+    return []
+
+
+def _strict_json(blob):
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("duplicate JSON field: " + key)
+            result[key] = value
+        return result
+
+    def constant(value):
+        raise ValueError("non-finite JSON value: " + value)
+
+    return json.loads(blob, object_pairs_hook=pairs, parse_constant=constant)
+
+
+def _manifest_json(blob):
+    manifest = json.loads(blob)
+    if isinstance(manifest, dict) and "desktop" in manifest:
+        return lib_desktop.load_json_object(blob)
+    return _strict_json(blob)
+
+
+def _zip_contract_preflight(archive: zipfile.ZipFile) -> list[str]:
+    """Refuse unsupported mandatory features before even creating an extraction root."""
+    candidates = [name for name in archive.namelist()
+                  if name == "manifest.json" or
+                  name.count("/") == 1 and name.endswith("/manifest.json")]
+    if not candidates:
+        return ["E_NO_MANIFEST: no manifest.json found in bundle"]
+    root_name = "manifest.json" if "manifest.json" in candidates else sorted(candidates)[0]
+    try:
+        manifest = _manifest_json(archive.read(root_name))
+    except lib_desktop.DesktopError as exc:
+        return [str(exc)]
+    except (ValueError, UnicodeDecodeError) as exc:
+        return [f"E_BAD_MANIFEST_JSON: {exc}"]
+    errors = _validate_manifest(manifest)
+    if errors or not is_application(manifest):
+        return errors
+    if len(candidates) != 1:
+        return ["E_CLOSURE: a complete application requires one unambiguous bundle root"]
+    prefix = root_name[:-len("manifest.json")]
+    files = {}
+    for info in archive.infolist():
+        if info.is_dir():
+            continue
+        if not info.filename.startswith(prefix):
+            return ["E_CLOSURE: file outside the application bundle root"]
+        name = info.filename[len(prefix):]
+        if name in ("manifest.json", "index_entry.json"):
+            continue
+        if name in files:
+            return ["E_CLOSURE: duplicate application archive member"]
+        files[name] = archive.read(info)
+    errors = _application_contract_errors(manifest, files)
+    return errors or [
+        "E_APPLICATION_FEDERATION_ONLY: complete applications require commit-pinned public federation; "
+        "source ZIP promotion is not qualified for preserving the complete layout"
+    ]
+
+
 # ── Public API ────────────────────────────────────────────────────────────
 
 def validate_zip(zip_bytes: bytes, *,
@@ -203,7 +307,16 @@ def validate_zip(zip_bytes: bytes, *,
 
     safe = _check_zip_safety(zf)
     if safe:
+        zf.close()
         return ValidationResult(ok=False, errors=safe)
+
+    try:
+        preflight = _zip_contract_preflight(zf)
+    except (zipfile.BadZipFile, RuntimeError) as exc:
+        preflight = [f"E_BAD_ZIP: cannot read application declarations: {exc}"]
+    if preflight:
+        zf.close()
+        return ValidationResult(ok=False, errors=preflight)
 
     target = extract_to or Path(_make_temp_dir())
     target.mkdir(parents=True, exist_ok=True)
@@ -234,14 +347,19 @@ def validate_dir(rapp_dir: Path, *,
         return ValidationResult(ok=False, rapp_dir=rapp_dir,
                                 errors=["E_NO_MANIFEST: missing manifest.json"])
     try:
-        manifest = json.loads(manifest_path.read_text())
-    except json.JSONDecodeError as e:
+        manifest = _manifest_json(manifest_path.read_bytes())
+    except lib_desktop.DesktopError as e:
+        return ValidationResult(ok=False, rapp_dir=rapp_dir, errors=[str(e)])
+    except (ValueError, UnicodeDecodeError) as e:
         return ValidationResult(ok=False, rapp_dir=rapp_dir,
                                 errors=[f"E_BAD_MANIFEST_JSON: {e}"])
 
     errors.extend(_validate_manifest(manifest))
     if isinstance(manifest, dict) and "desktop" in manifest and submission_type == "bundle":
         errors.append("E_DESKTOP_FEDERATION_ONLY: native releases must use the [RAPP] federation receiver")
+    if is_application(manifest) and submission_type == "bundle":
+        errors.append("E_APPLICATION_FEDERATION_ONLY: complete applications require commit-pinned public federation; "
+                      "source ZIP promotion is not qualified for preserving the complete layout")
     if errors:
         return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest, errors=errors)
     if "desktop" in manifest:
@@ -249,6 +367,10 @@ def validate_dir(rapp_dir: Path, *,
             lib_desktop.load_json_object(manifest_path.read_bytes())
         except lib_desktop.DesktopError as exc:
             return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest, errors=[str(exc)])
+    if is_application(manifest):
+        errors.extend(_application_dir_errors(rapp_dir, manifest))
+        if errors:
+            return ValidationResult(ok=False, rapp_dir=rapp_dir, manifest=manifest, errors=errors)
 
     rapp_id = manifest["id"]
 
@@ -268,6 +390,7 @@ def validate_dir(rapp_dir: Path, *,
                           f"submitter '{expected_publisher}'")
 
     prev = _find_catalog_entry(existing_catalog or {}, rapp_id)
+    errors.extend(_application_previous_errors(manifest, prev))
     if existing_catalog is not None:
         if prev and not _semver_gt(manifest["version"], prev.get("version", "0.0.0")):
             errors.append(f"E_VERSION_NOT_BUMPED: manifest.version '{manifest['version']}' "
@@ -334,7 +457,7 @@ def validate_dir(rapp_dir: Path, *,
             errors.append(str(exc))
         except json.JSONDecodeError as e:
             errors.append(f"E_BAD_INDEX_ENTRY_JSON: {e}")
-    else:
+    elif not is_application(manifest):
         errors.append("E_NO_INDEX_ENTRY: missing index_entry.json")
 
     # SPEC §11 — for gated entries, validate the gated invariants on
@@ -374,7 +497,7 @@ def validate_dir(rapp_dir: Path, *,
     has_ui = bool(manifest.get("ui"))
     has_service = bool(manifest.get("service"))
     has_eggs = (rapp_dir / "eggs").is_dir() and any((rapp_dir / "eggs").iterdir())
-    if not has_ui:
+    if not has_ui and not is_application(manifest):
         errors.append(
             "E_NO_UI: rapplication manifest must declare `ui` — every "
             "rapplication ships a default UI for its agent. Without a UI, "
@@ -401,6 +524,12 @@ def compute_integrity(rapp_dir: Path, manifest: dict) -> dict[str, Any]:
     """Compute SHA256/lines/bytes for the singleton, service, and UI files."""
     rapp_dir = Path(rapp_dir)
     out: dict[str, Any] = {}
+    if is_application(manifest):
+        import rapp_package
+
+        blob = rapp_package.build_package(rapp_dir, manifest)
+        return {"package_sha256": hashlib.sha256(blob).hexdigest(),
+                "package_bytes": len(blob)}
     if manifest.get("agent"):
         p = rapp_dir / manifest["agent"]
         if p.is_file():
@@ -451,6 +580,26 @@ def build_index_entry(manifest: dict, integrity: dict, rapp_id: str) -> dict[str
         "publisher": manifest["publisher"],
         "quality_tier": downgrade_tier_for_submission(manifest.get("quality_tier")),
     })
+    if is_application(manifest):
+        # Keep the complete contract once, under application. Old clients must
+        # not interpret authoring metadata as a partial installation shortcut.
+        display = {
+            "id", "name", "version", "summary", "category", "tags", "license",
+            "publisher", "quality_tier", "tagline", "homepage", "access", "access_note",
+        }
+        entry = {key: value for key, value in entry.items() if key in display}
+        entry.update({
+            "application_schema": SCHEMA_APPLICATION,
+            "application": copy.deepcopy(manifest),
+            "distribution": "local-docker" if "local-docker/1" in manifest["requires"] else "application",
+            "requires": list(manifest["requires"]),
+            "runtime": copy.deepcopy(manifest["runtime"]),
+            "installable": False,
+            "install_blockers": ["A complete reviewed content-addressed installer has not been published."],
+        })
+        entry.update({key: integrity[key] for key in ("package_sha256", "package_bytes")
+                      if key in integrity})
+        return entry
 
     # Per Proposal 0002, rapps live under apps/@<publisher>/<id>/ in the
     # catalog. The publisher comes from the manifest. URLs reflect the new
@@ -549,8 +698,10 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
         return ValidationResult(ok=False, errors=[f"E_FETCH_MANIFEST: {e}"])
 
     try:
-        manifest = json.loads(manifest_blob.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        manifest = _manifest_json(manifest_blob)
+    except lib_desktop.DesktopError as e:
+        return ValidationResult(ok=False, errors=[str(e)])
+    except (ValueError, UnicodeDecodeError) as e:
         return ValidationResult(ok=False, errors=[f"E_BAD_MANIFEST_JSON: {e}"])
 
     errors.extend(_validate_manifest(manifest))
@@ -559,8 +710,9 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
 
     rapp_id = manifest["id"]
     native = "desktop" in manifest
+    complete = is_application(manifest)
     commit_sha = None
-    if native:
+    if native or complete:
         try:
             lib_desktop.load_json_object(manifest_blob)
             commit_blob = fetch(f"https://api.github.com/repos/{repo}/commits/{quote(ref, safe='')}")
@@ -569,19 +721,22 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
                 raise ValueError("missing full commit")
             if expected_commit_sha is not None and commit_sha != expected_commit_sha:
                 return ValidationResult(ok=False, manifest=manifest,
-                                        errors=["E_DESKTOP_STALE_SOURCE: source moved since staging; resubmit for review"])
+                                        errors=[("E_DESKTOP_STALE_SOURCE" if native else "E_APPLICATION_STALE_SOURCE")
+                                                + ": source moved since staging; resubmit for review"])
             pinned_base = f"https://raw.githubusercontent.com/{repo}/{commit_sha}"
             if rel_path:
                 pinned_base += f"/{rel_path}"
             if fetch(f"{pinned_base}/manifest.json") != manifest_blob:
                 return ValidationResult(ok=False, manifest=manifest,
-                                        errors=["E_DESKTOP_STALE_SOURCE: manifest changed during commit resolution"])
+                                        errors=[("E_DESKTOP_STALE_SOURCE" if native else "E_APPLICATION_STALE_SOURCE")
+                                                + ": manifest changed during commit resolution"])
             raw_base = pinned_base
         except lib_desktop.DesktopError as exc:
             return ValidationResult(ok=False, manifest=manifest, errors=[str(exc)])
         except (FetchError, ValueError, AttributeError, UnicodeDecodeError):
             return ValidationResult(ok=False, manifest=manifest,
-                                    errors=["E_DESKTOP_SOURCE_PIN: native manifest requires a resolvable immutable commit"])
+                                    errors=[("E_DESKTOP_SOURCE_PIN" if native else "E_APPLICATION_SOURCE_PIN")
+                                            + ": manifest requires a resolvable immutable commit"])
     if rapp_id in RESERVED_IDS:
         errors.append(f"E_RESERVED_ID: '{rapp_id}' is reserved by the platform")
 
@@ -595,6 +750,7 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
                           f"submitter '{expected_publisher}'")
 
     prev = _find_catalog_entry(existing_catalog or {}, rapp_id)
+    errors.extend(_application_previous_errors(manifest, prev))
     if existing_catalog is not None:
         if prev and not _semver_gt(manifest["version"], prev.get("version", "0.0.0")):
             errors.append(f"E_VERSION_NOT_BUMPED: manifest.version '{manifest['version']}' "
@@ -602,6 +758,32 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
     errors.extend(lib_desktop.validate_metadata(manifest, repo=repo, previous=prev))
     if errors:
         return ValidationResult(ok=False, manifest=manifest, errors=errors)
+
+    if complete:
+        files = {}
+        total = 0
+        for name in manifest["files"]:
+            try:
+                blob = fetch(f"{raw_base}/{quote(name, safe='/@')}")
+            except FetchError as exc:
+                return ValidationResult(ok=False, manifest=manifest,
+                                        errors=[f"E_CLOSURE: missing locked file {name}: {exc}"])
+            total += len(blob)
+            if total > MAX_BUNDLE_BYTES * 4:
+                return ValidationResult(ok=False, manifest=manifest,
+                                        errors=["E_PACKAGE_SIZE: expanded closure exceeds 20 MiB"])
+            files[name] = blob
+        errors.extend(_application_contract_errors(manifest, files))
+        if not errors:
+            for name in manifest["agents"]:
+                errors.extend(_validate_singleton_bytes(files[name]))
+        if "README.md" not in files:
+            errors.append("E_NO_README: complete applications must lock README.md")
+        if errors:
+            return ValidationResult(ok=False, manifest=manifest, errors=errors)
+        entry = build_index_entry(manifest, {}, rapp_id)
+        entry = _rewrite_for_federation(entry, manifest, repo, ref, rel_path, commit_sha)
+        return ValidationResult(ok=True, manifest=manifest, index_entry=entry)
 
     integrity: dict[str, Any] = {}
     agent_rel = manifest.get("agent")
@@ -678,20 +860,23 @@ def validate_federation(repo: str, ref: str = "main", path: str = "", *,
 
 def _rewrite_for_federation(entry: dict, manifest: dict, repo: str,
                             ref: str, rel_path: str, commit_sha: str | None) -> dict:
-    download_ref = commit_sha if "desktop" in manifest else ref
+    complete = is_application(manifest)
+    download_ref = commit_sha if "desktop" in manifest or complete else ref
     raw_base = f"https://raw.githubusercontent.com/{repo}/{download_ref}"
     if rel_path:
         raw_base = f"{raw_base}/{rel_path}"
-    if manifest.get("agent"):
+    if complete:
+        entry["application_url"] = f"{raw_base}/manifest.json"
+    if manifest.get("agent") and not complete:
         entry["singleton_url"] = f"{raw_base}/{manifest['agent']}"
-    if manifest.get("service"):
+    if manifest.get("service") and not complete:
         entry["service_url"] = f"{raw_base}/{manifest['service']}"
-    if manifest.get("ui"):
+    if manifest.get("ui") and not complete:
         entry["ui_url"] = f"{raw_base}/{manifest['ui']}"
     src: dict[str, Any] = {
         "type": "federation",
         "repo": repo,
-        "ref": ref,
+        "ref": commit_sha if complete else ref,
         "path": rel_path,
     }
     if commit_sha:
@@ -778,10 +963,17 @@ def _make_temp_dir() -> str:
 def _check_zip_safety(zf: zipfile.ZipFile) -> list[str]:
     errs: list[str] = []
     total = 0
+    seen = set()
     for info in zf.infolist():
         name = info.filename
+        folded = name.rstrip("/").casefold()
+        if folded in seen:
+            errs.append(f"E_DUPLICATE_ZIP_MEMBER: {name}")
+        seen.add(folded)
         if name.startswith("/") or ".." in name.replace("\\", "/").split("/"):
             errs.append(f"E_PATH_TRAVERSAL: {name}")
+        if stat.S_ISLNK(info.external_attr >> 16):
+            errs.append(f"E_PATH_TRAVERSAL: archive symlink is forbidden: {name}")
         total += info.file_size
         if total > MAX_BUNDLE_BYTES * 4:  # uncompressed cap, anti-zipbomb
             errs.append(f"E_ZIP_BOMB: uncompressed total exceeds {MAX_BUNDLE_BYTES * 4}")
@@ -814,8 +1006,19 @@ def _validate_manifest(m: dict) -> list[str]:
     if not isinstance(m, dict):
         return ["E_BAD_MANIFEST_JSON: manifest must be an object"]
     errs: list[str] = []
-    if m.get("schema") != SCHEMA_MANIFEST:
-        errs.append(f"E_MANIFEST_SCHEMA: schema must be '{SCHEMA_MANIFEST}', got '{m.get('schema')}'")
+    complete = is_application(m)
+    if m.get("schema") not in (SCHEMA_MANIFEST, SCHEMA_APPLICATION):
+        errs.append(f"E_MANIFEST_SCHEMA: expected '{SCHEMA_MANIFEST}' or '{SCHEMA_APPLICATION}'")
+    if complete:
+        errs.extend(_application_contract_errors(m))
+        if m.get("access", "public") != "public":
+            errs.append("E_APPLICATION_PUBLIC_CLOSURE: metadata-only private entries cannot qualify a complete application")
+        if "desktop" in m:
+            errs.append("E_APPLICATION_DISTRIBUTION: native desktop remains its separate existing metadata extension")
+    elif "local_docker" in m or m.get("requires"):
+        errs.append("E_UNSUPPORTED_REQUIREMENT: mandatory features require a complete rapp-application/2.0 contract")
+    elif "requires" in m and m["requires"] != []:
+        errs.append("E_UNSUPPORTED_REQUIREMENT: requires must be an explicit string list")
 
     rapp_id = m.get("id")
     if not isinstance(rapp_id, str) or not ID_RE.match(rapp_id):

@@ -34,6 +34,14 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Check out isolated exact Grail loader fixture
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: microsoft/aibast-agents-library
+          ref: c60521e2cacbcbfa585a118c1275093d7bb15b74
+          path: .ci-work/grail
+          persist-credentials: false
+
       - name: Prepare validation workspace
         run: mkdir -p .ci-work/tmp
 
@@ -46,8 +54,10 @@ jobs:
         env:
           TMPDIR: ${{ github.workspace }}/.ci-work/tmp
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+          RAPP_GRAIL_TEST_ROOT: ${{ github.workspace }}/.ci-work/grail/rapp_brainstem
         run: |
           node --version
+          node --check store-contract.js
           python3 -m pytest tests -q --basetemp=.ci-work/pytest
 
       - name: Verify catalog and discovery remain unchanged

@@ -1,6 +1,6 @@
 ---
 name: rapp-store
-description: Use this skill to author, validate, and submit rapplications (single-file agent + UI bundles, with optional public native macOS distribution) to kody-w/RAPP_Store through the [RAPP] issue receiver and approval flow.
+description: Author, validate, and submit chat-operated rapplications, simple agent/UI bundles, and optional native macOS distribution through the RAPP Store issue receiver and approval flow.
 ---
 
 # RAPP store — author & publish guide
@@ -15,16 +15,73 @@ The store is static, with stdlib validation/projection scripts and a pytest
 suite under `tests/`. It does not execute applications or host a runtime.
 
 Reusable skills have their own [RAPP Skills catalog in RAR](https://kody-w.github.io/RAR/skills.html).
-Do not submit a skill as a fake `.py` agent or an application without a UI.
+Do not submit a skill as a fake `.py` agent. Simple version-1 applications
+retain their UI requirement; complete version-2 applications have a declared
+chat entrypoint and optional UI.
 The repository's additive Workspace Bootstrap section below preserves this
 existing root `SKILL.md` URL. Local workspace readiness is separate from Store
 submission validity, native signing and RAPP/1 authenticated conformance.
 
 ## What a rapplication is
 
-A **rapplication** = an agent **plus** a UI, bundled together. If you have an agent without a UI, that's a swarm-agent and belongs in `kody-w/RAR` via the `[AGENT]` issue flow — submission to RAPP store will be rejected with `E_NO_UI`.
+A **rapplication** is an owned, versioned, chat-operated application. The
+agent is its conversational entrypoint; components, jobs, provider policy,
+state, preserving lifecycle and portability make it a complete application.
+Simple `rapp-application/1.0` bundles keep their agent-plus-UI contract. A bare
+reusable agent without either application contract belongs in RAR.
 
-Minimum bundle layout:
+### Start here: Dock / Scotty
+
+The main new-application example is
+[`samples/dock_scotty/`](./samples/dock_scotty/README.md), implementing the
+proposed [`local-docker/1` extension](./SPEC.md#15-complete-chat-operated-applications).
+It shows one bot, five application journeys, complete file-locked references,
+provider/cost disclosure and separate readiness facts. It is synthetic,
+experimental, unlisted authoring material, **not an installable release**.
+
+Use this first-card language without dropping the qualifications:
+**“Local application execution; Copilot cloud inference; tested on Apple
+Silicon with some amd64 guests under emulation.”** The tested development
+profile is not a minimum requirement or fresh-candidate installation proof.
+Fresh-machine install remains pending. On the tested reference profile,
+Dify full recreation is qualified with all 15 roles read-only/explicit
+custody and preserved data/credentials plus a fresh answer. OpenShorts
+recreation is qualified for drained completed state, with read-only renderer,
+authenticated ingress, preserved clip hashes and a fresh render; in-flight
+renderer memory is not recoverable. Its public cold rebuild remains blocked
+on npm/PyPI retrieval. These reference facts must not be relabeled as
+qualification of the synthetic template or another source candidate.
+Presenton native generation remains opt-in; Dify's native plugin is absent.
+
+Authoring order:
+
+1. Pin the unchanged current Grail runtime and complete source closure.
+   Retain a normal BasicAgent entrypoint, descriptor and hash-scoped support.
+2. Declare `portable-agents/1`, `owned-files/1`, and `local-docker/1`;
+   lock and type-check the component, device, job, state and evidence files.
+   Unknown mandatory features refuse before writes.
+3. Keep Presenton gateway-authored/exported and Dify gateway-grounded labels
+   honest. OpenSEO paid metrics and other paid providers stay disabled.
+4. Disclose adopter-owned Copilot authentication, cloud inference and usage.
+   Process/time limits are not a hard monetary cap; unmeasured cost is null.
+5. Separate source verification, fresh install, each job/mode, current health,
+   restart and recreation. Never turn synthetic or old evidence into a pass.
+6. Preserve state on stop/detach/reinstall. RAPP/1 receipts/capsules contain
+   selected outputs and producing source, not full state or credentials.
+7. Validate with `scripts/lib_rapp.py` and the shared package contract, then
+   use commit-pinned public federation through the normal `[RAPP]`
+   receiver/approval flow. Complete source-ZIP promotion is not yet qualified
+   and refuses before extraction; installation cartridges remain separate.
+   Never publish private
+   receipts, owner identities, credentials, paths, or output artifacts.
+
+No second runtime, Store server, browser Docker execution or RAPP Work
+dependency is introduced. Browser preflight is not deployment. Version-2
+clients must use the complete verified installer and must not fall back to a
+singleton/service download. Existing native downloads and Zoo data keep their
+independent contracts.
+
+Existing version-1 minimum bundle layout:
 
 ```
 my_rapp/

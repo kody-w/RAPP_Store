@@ -1,0 +1,119 @@
+{
+  "applications": {
+    "dify": {
+      "application": "dify"
+    },
+    "intelligence": {
+      "application": "intelligence"
+    },
+    "open-seo": {
+      "application": "open-seo"
+    },
+    "openshorts": {
+      "application": "openshorts"
+    },
+    "presenton": {
+      "application": "presenton"
+    },
+    "scrapling": {
+      "browser": "presenton",
+      "egress": "scrapling",
+      "scrapling": "scrapling"
+    }
+  },
+  "artifacts": {},
+  "components": {
+    "dify": {
+      "blockers": [
+        "Synthetic authoring fixture: no qualified image or complete public build recipe is supplied."
+      ],
+      "env": "RAPP_DOCK_IMAGE_DIFY",
+      "kind": "blocked-build",
+      "license": "Template only; review the complete source, dependency, model and license closure.",
+      "observed_image_ids": [],
+      "platform": "linux/amd64",
+      "recipe": null,
+      "reference": null,
+      "source": "https://github.com/langgenius/dify"
+    },
+    "intelligence": {
+      "blockers": [
+        "Synthetic authoring fixture: no qualified image or complete public build recipe is supplied."
+      ],
+      "env": "RAPP_DOCK_IMAGE_INTELLIGENCE",
+      "kind": "blocked-build",
+      "license": "Template only; review the complete source, dependency, model and license closure.",
+      "observed_image_ids": [],
+      "platform": "linux/arm64",
+      "recipe": null,
+      "reference": null,
+      "source": "https://github.com/github/copilot-cli"
+    },
+    "open-seo": {
+      "blockers": [
+        "Synthetic authoring fixture: no qualified image or complete public build recipe is supplied."
+      ],
+      "env": "RAPP_DOCK_IMAGE_OPEN_SEO",
+      "kind": "blocked-build",
+      "license": "Template only; review the complete source, dependency, model and license closure.",
+      "observed_image_ids": [],
+      "platform": "linux/arm64",
+      "recipe": null,
+      "reference": null,
+      "source": "https://github.com/every-app/open-seo"
+    },
+    "openshorts": {
+      "blockers": [
+        "Synthetic authoring fixture: no qualified image or complete public build recipe is supplied."
+      ],
+      "env": "RAPP_DOCK_IMAGE_OPENSHORTS",
+      "kind": "blocked-build",
+      "license": "Template only; review the complete source, dependency, model and license closure.",
+      "observed_image_ids": [],
+      "platform": "linux/amd64",
+      "recipe": null,
+      "reference": null,
+      "source": "https://github.com/mutonby/openshorts"
+    },
+    "presenton": {
+      "blockers": [
+        "Synthetic authoring fixture: no qualified image or complete public build recipe is supplied."
+      ],
+      "env": "RAPP_DOCK_IMAGE_PRESENTON",
+      "kind": "blocked-build",
+      "license": "Template only; review the complete source, dependency, model and license closure.",
+      "observed_image_ids": [],
+      "platform": "linux/arm64",
+      "recipe": null,
+      "reference": null,
+      "source": "https://github.com/presenton/presenton"
+    },
+    "scrapling": {
+      "blockers": [
+        "Synthetic authoring fixture: no qualified image or complete public build recipe is supplied."
+      ],
+      "env": "RAPP_DOCK_IMAGE_SCRAPLING",
+      "kind": "blocked-build",
+      "license": "Template only; review the complete source, dependency, model and license closure.",
+      "observed_image_ids": [],
+      "platform": "linux/amd64",
+      "recipe": null,
+      "reference": null,
+      "source": "https://github.com/D4Vinci/Scrapling"
+    }
+  },
+  "input_sets": {},
+  "profile": {
+    "amd64_emulation_required": true,
+    "assurance": "locked-public-inputs-and-local-image-observations-not-signed-builds",
+    "bit_identical_rebuilds_claimed": false,
+    "docker_context": "desktop-linux",
+    "fresh_machine_acceptance": "pending",
+    "guest_platforms": [
+      "linux/arm64",
+      "linux/amd64"
+    ],
+    "host": "darwin/arm64"
+  },
+  "schema": "rapp-dock-components/1"
+}

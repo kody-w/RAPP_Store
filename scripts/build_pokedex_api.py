@@ -133,6 +133,7 @@ def _sprite_svg(rappid_or_id: str, category: str = "default") -> str:
 
 def _build_egg(app_dir: Path, manifest: dict) -> bytes:
     """Build a brainstem-egg/2.2-rapplication blob from an app dir."""
+    _refuse_partial_application(manifest)
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
     name = manifest.get("name", rapp_id)
@@ -242,6 +243,7 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
     today; that's a runtime detail, not a category. The catalog treats
     them all the same.
     """
+    _refuse_partial_application(manifest)
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
     # §6.2 canonical rappid: rappid:@<owner>/<slug>:<64hex>. The 64-hex tail
@@ -319,6 +321,96 @@ def _build_entry(app_dir: Path, manifest: dict) -> dict:
 
 
 # ── Main build ─────────────────────────────────────────────────────────────
+
+def _refuse_partial_application(manifest):
+    if (manifest.get("schema") == "rapp-application/2.0"
+            or "local_docker" in manifest or manifest.get("requires")):
+        raise ValueError("E_APPLICATION_SCOPED: mandatory-feature applications require a complete "
+                         "verified package; use scoped --application-only discovery, not legacy eggs")
+
+
+def _build_application_entry(entry):
+    """Project an approved complete contract without inventing install artifacts."""
+    import lib_rapp
+
+    manifest = entry.get("application")
+    errors = lib_rapp._validate_manifest(manifest)
+    if not lib_rapp.is_application(manifest) or errors:
+        raise ValueError("E_APPLICATION_DISCOVERY: " + "; ".join(errors or ["complete manifest missing"]))
+    for key in ("id", "publisher", "version", "runtime", "requires"):
+        if entry.get(key) != manifest[key]:
+            raise ValueError("E_APPLICATION_DISCOVERY: catalog and application disagree on " + key)
+    fields = (
+        "id", "name", "version", "publisher", "category", "tags", "summary", "tagline",
+        "quality_tier", "license", "homepage", "source", "application_url",
+        "application_schema", "application", "runtime", "requires",
+    )
+    projected = {key: copy.deepcopy(entry[key]) for key in fields if key in entry}
+    projected.update({
+        "schema": SCHEMA_API_RAPP,
+        "kind": "rapplication",
+        "distribution": "local-docker" if "local-docker/1" in manifest["requires"] else "application",
+        "application_schema": "rapp-application/2.0",
+        "has_skin": bool(manifest.get("ui")),
+        "installable": False,
+        "self_url": f"{RAW_PREFIX}/api/v1/rapplication/{manifest['id']}.json",
+    })
+    if "local_docker" in manifest:
+        projected["local_docker"] = copy.deepcopy(manifest["local_docker"])
+        projected["readiness"] = copy.deepcopy(manifest["local_docker"]["readiness"])
+    # This is metadata-only projection. Complete artifact publication, including
+    # byte verification, belongs to the package/hatcher producer.
+    projected["install_blockers"] = [
+        "Discovery is metadata only; complete reviewed installer publication and device checks are required."
+    ]
+    return projected
+
+
+def application_discovery_updates(catalog, api_dir, ids):
+    """Preflight every requested rich-app row before returning any scoped writes."""
+    api_dir = Path(api_dir)
+    requested = sorted(set(ids))
+    if not requested:
+        raise ValueError("E_APPLICATION_DISCOVERY_IDS: explicit application IDs are required")
+    entries = {}
+    for rapp_id in requested:
+        matches = [entry for entry in catalog.get("rapplications", []) if entry.get("id") == rapp_id]
+        if len(matches) != 1:
+            raise ValueError("E_APPLICATION_DISCOVERY_ID: expected one approved catalog row")
+        entries[rapp_id] = _build_application_entry(matches[0])
+    index_path = api_dir / "index.json"
+    if index_path.is_file():
+        index = json.loads(index_path.read_text())
+        if index.get("schema") != SCHEMA_API_INDEX or not isinstance(index.get("rapplications"), list):
+            raise ValueError("E_APPLICATION_DISCOVERY_INDEX: unsupported existing v1 index")
+    else:
+        index = {"schema": SCHEMA_API_INDEX, "name": "RAPP_Store Pokédex API",
+                 "version": "1.0.0", "self_url": f"{RAW_PREFIX}/api/v1/index.json",
+                 "rapplications": []}
+    rows = list(index["rapplications"])
+    updates = {}
+    for rapp_id, entry in entries.items():
+        row = copy.deepcopy(entry)
+        row.pop("self_url")
+        row["url"] = entry["self_url"]
+        positions = [i for i, old in enumerate(rows) if old.get("id") == rapp_id]
+        if len(positions) > 1:
+            raise ValueError("E_APPLICATION_DISCOVERY_DUPLICATE: duplicate existing v1 ID")
+        if positions:
+            rows[positions[0]] = row
+        else:
+            rows.append(row)
+        updates[api_dir / "rapplication" / f"{rapp_id}.json"] = (
+            json.dumps(entry, indent=2) + "\n").encode()
+    index["rapplications"] = rows
+    index["count"] = len(rows)
+    updates[index_path] = (json.dumps(index, indent=2) + "\n").encode()
+    return updates
+
+
+def refresh_application_discovery(catalog, api_dir, ids):
+    return write_native_discovery(application_discovery_updates(catalog, api_dir, ids))
+
 
 def _build_native_entry(entry):
     """Project reviewed federation metadata, never invent an organism or archive."""
@@ -421,9 +513,20 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-only", action="store_true",
                         help="Only project specified native IDs from the approved catalog; no legacy producers")
-    parser.add_argument("--ids", nargs="+", help="Explicit native catalog IDs for scoped refresh")
+    parser.add_argument("--application-only", action="store_true",
+                        help="Project complete application contracts only; no partial eggs or source installers")
+    parser.add_argument("--ids", nargs="+", help="Explicit approved catalog IDs for scoped refresh")
     parser.add_argument("--catalog", type=Path, default=_REPO / "index.json")
     args = parser.parse_args(argv)
+    if args.native_only and args.application_only:
+        parser.error("choose one scoped distribution, not both")
+    if args.application_only:
+        if not args.ids:
+            parser.error("--application-only requires --ids")
+        catalog = json.loads(args.catalog.read_text())
+        changed = refresh_application_discovery(catalog, _API, args.ids)
+        print(f"Application metadata-only refresh: {len(changed)} v1 JSON file(s) changed")
+        return
     if args.native_only:
         if not args.ids:
             parser.error("--native-only requires --ids")
@@ -432,12 +535,25 @@ def main(argv=None):
         print(f"Native metadata-only refresh: {len(changed)} v1 JSON file(s) changed")
         return
     if args.ids:
-        parser.error("--ids requires --native-only (refusing an accidental full rebuild)")
+        parser.error("--ids requires --native-only or --application-only (refusing an accidental full rebuild)")
     if not _APPS.is_dir():
         print(f"err: apps/ not found at {_APPS}", file=sys.stderr)
         sys.exit(1)
 
-    # Reset api/v1/ for atomic rebuild
+    # Legacy generation cannot strip mandatory features. Check before touching
+    # existing discovery or immutable assets, even if a manifest is later skipped.
+    for manifest_path in sorted(_APPS.glob("@*/*/manifest.json")):
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if isinstance(manifest, dict):
+            _refuse_partial_application(manifest)
+    if args.catalog.is_file():
+        for entry in json.loads(args.catalog.read_text()).get("rapplications", []):
+            _refuse_partial_application(entry.get("application", entry))
+
+    # Existing full legacy rebuild behavior; rich/native updates use scoped paths.
     if _API.exists():
         shutil.rmtree(_API)
     (_API / "rapplication").mkdir(parents=True)

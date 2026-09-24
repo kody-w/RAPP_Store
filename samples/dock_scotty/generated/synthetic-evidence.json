@@ -1,0 +1,50 @@
+{
+  "acceptance_suite_revision": null,
+  "candidate_digest": null,
+  "limitations": [
+    "Synthetic authoring fixture, not runtime acceptance evidence.",
+    "No fresh installation, application execution or full recreation is claimed.",
+    "No owner artifacts, receipts, capsules or credentials are included."
+  ],
+  "observed_at": null,
+  "results": [
+    {
+      "job": "scrapling.scrape",
+      "mode": "native-collection-gateway-summary",
+      "status": "pending"
+    },
+    {
+      "job": "presenton.deck",
+      "mode": "gateway-authored-presenton-exported",
+      "status": "pending"
+    },
+    {
+      "job": "open-seo.project_create",
+      "mode": "native-project-paid-data-disabled",
+      "status": "pending"
+    },
+    {
+      "job": "dify.knowledge_build",
+      "mode": "economy-indexing-gateway-grounded",
+      "status": "pending"
+    },
+    {
+      "job": "dify.knowledge_answer",
+      "mode": "economy-retrieval-gateway-grounded",
+      "status": "pending"
+    },
+    {
+      "job": "openshorts.clips",
+      "mode": "gateway-selected-native-rendered",
+      "status": "pending"
+    },
+    {
+      "job": "intelligence.chat",
+      "mode": "tool-free-copilot-diagnostic",
+      "status": "pending"
+    }
+  ],
+  "schema": "rapp-readiness-evidence/1",
+  "scope": "authoring-template",
+  "synthetic": true
+}

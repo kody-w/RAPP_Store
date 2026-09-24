@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kody-w.github.io/RAPP_Store/schemas/application.schema.json",
+  "title": "RAPP application manifests: unchanged simple bundles and complete chat-operated applications",
+  "$comment": "Fields marked x-wire-integer must use literal JSON integer tokens, not decimal/exponent spellings; unchanged loaders/materializers consume the original locked bytes. Other integer fields use safe JSON numeric semantics.",
+  "oneOf": [
+    {"$ref": "#/$defs/simple"},
+    {"$ref": "#/$defs/application"}
+  ],
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "strings": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"},
+    "path": {
+      "type": "string", "minLength": 1, "maxLength": 512,
+      "pattern": "^(?=[\\u0020-\\u007e]+$(?![\\s\\S]))(?!/)(?!.*[\\\\:])(?!.*(?:^|/)\\.)(?!.*[ .](?:/|$))(?!.*//)[^/]+(?:/[^/]+)*$"
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "commit", "version"],
+      "properties": {
+        "repo": {"const": "microsoft/aibast-agents-library"},
+        "commit": {"const": "c60521e2cacbcbfa585a118c1275093d7bb15b74"},
+        "version": {"const": "0.6.16"}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "required": ["schema", "id", "name", "version", "publisher", "summary", "category", "tags"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$(?![\\s\\S])"},
+        "name": {"$ref": "#/$defs/text"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$(?![\\s\\S])"},
+        "publisher": {"type": "string", "pattern": "^@[A-Za-z0-9][A-Za-z0-9-]*$(?![\\s\\S])"},
+        "summary": {"$ref": "#/$defs/text"},
+        "category": {"enum": ["productivity", "creative", "analysis", "data", "integration", "platform", "workspace"]},
+        "tags": {"type": "array", "minItems": 1},
+        "quality_tier": {"enum": ["featured", "official", "verified", "community", "experimental", "deprecated", "private", null]},
+        "access": {"enum": ["public", "private"]}
+      }
+    },
+    "simple": {
+      "allOf": [{"$ref": "#/$defs/identity"}],
+      "required": ["ui"],
+      "anyOf": [{"required": ["agent"]}, {"required": ["service"]}],
+      "not": {"required": ["local_docker"]},
+      "properties": {
+        "schema": {"const": "rapp-application/1.0"},
+        "requires": {"type": "array", "maxItems": 0},
+        "agent": {"$ref": "#/$defs/path"},
+        "service": {"$ref": "#/$defs/path"},
+        "ui": {"$ref": "#/$defs/path"},
+        "desktop": {"$ref": "desktop.schema.json"}
+      }
+    },
+    "application": {
+      "type": "object",
+      "allOf": [
+        {"$ref": "#/$defs/identity"},
+        {
+          "if": {"properties": {"requires": {"contains": {"const": "local-docker/1"}}}},
+          "then": {"required": ["local_docker"]},
+          "else": {
+            "not": {"required": ["local_docker"]},
+            "properties": {
+              "services": {"maxItems": 0},
+              "service": {"type": "null"}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false,
+      "required": [
+        "schema", "id", "name", "version", "publisher", "summary", "category", "tags",
+        "agent", "agents", "runtime", "files", "requires", "profiles", "permissions",
+        "capabilities", "dependencies", "services", "state", "lifecycle", "providers", "provenance"
+      ],
+      "properties": {
+        "schema": {"const": "rapp-application/2.0"},
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "publisher": {"type": "string"},
+        "summary": {"type": "string"},
+        "category": {"type": "string"},
+        "tags": {"$ref": "#/$defs/strings", "minItems": 1},
+        "agent": {"$ref": "#/$defs/path"},
+        "agents": {"$ref": "#/$defs/strings", "minItems": 1},
+        "runtime": {"$ref": "#/$defs/runtime"},
+        "files": {
+          "type": "object", "minProperties": 1,
+          "propertyNames": {"$ref": "#/$defs/path"},
+          "additionalProperties": {"$ref": "#/$defs/sha256"}
+        },
+        "requires": {
+          "type": "array", "uniqueItems": true, "minItems": 1,
+          "contains": {"const": "portable-agents/1"},
+          "items": {"enum": ["portable-agents/1", "owned-files/1", "state-seeds/1", "local-docker/1"]}
+        },
+        "profiles": {"type": "array", "maxItems": 0},
+        "permissions": {"type": "array", "uniqueItems": true, "items": {"const": "host-user"}},
+        "capabilities": {"$ref": "#/$defs/strings"},
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "publisher", "version", "package_sha256"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$(?![\\s\\S])"},
+              "publisher": {"type": "string", "pattern": "^@[A-Za-z0-9][A-Za-z0-9-]*$(?![\\s\\S])"},
+              "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$(?![\\s\\S])"},
+              "package_sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "definition", "images"],
+            "properties": {
+              "id": {"$ref": "#/$defs/text"},
+              "definition": {"$ref": "#/$defs/path"},
+              "images": {
+                "type": "array",
+                "items": {"type": "string", "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$(?![\\s\\S])"}
+              }
+            }
+          }
+        },
+        "state": {
+          "type": "object", "additionalProperties": false,
+          "required": ["version", "preserve", "seeds"],
+          "properties": {
+            "version": {"$ref": "#/$defs/text"},
+            "preserve": {"const": true},
+            "seeds": {
+              "type": "object",
+              "propertyNames": {"$ref": "#/$defs/path"},
+              "additionalProperties": {"$ref": "#/$defs/path"}
+            }
+          }
+        },
+        "lifecycle": {
+          "const": {
+            "install": "copy-verified-files",
+            "upgrade": "preserve-state",
+            "uninstall": "preserve-state",
+            "recovery": "reinstall-verified-package"
+          }
+        },
+        "providers": {
+          "type": "object", "additionalProperties": false,
+          "required": ["mode", "spend_limit", "egress_allowlist"],
+          "properties": {
+            "mode": {"enum": ["none", "host"]},
+            "spend_limit": {"type": "null"},
+            "egress_allowlist": {"type": "null"}
+          }
+        },
+        "provenance": {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "source", "deployed", "job_verified"],
+          "properties": {
+            "status": {"enum": ["development", "qualified"]},
+            "source": {"$ref": "#/$defs/text"},
+            "deployed": {"type": "boolean"},
+            "job_verified": {"type": "boolean"}
+          }
+        },
+        "local_docker": {"$ref": "local-docker.schema.json"},
+        "ui": {"$ref": "#/$defs/path"},
+        "service": {"type": ["string", "null"]},
+        "twin": {"type": "null"},
+        "license": {"type": "string"},
+        "homepage": {"type": "string"},
+        "quality_tier": {"type": "string"},
+        "access": {"const": "public"},
+        "private_repo": {"type": "string"},
+        "access_note": {"type": "string"},
+        "tagline": {"type": "string"},
+        "manifest_name": {"type": "string"},
+        "produced_by": {"type": "string"},
+        "metrics": {"type": "object"},
+        "spec_post": {"type": "string"},
+        "repo_url": {"type": "string"},
+        "kind": {"type": "string"},
+        "type": {"type": "string"},
+        "tool": {"type": "boolean"},
+        "surfaces": {"$ref": "#/$defs/strings"},
+        "singleton_filename": {"type": "string"},
+        "ui_filename": {"type": "string"},
+        "source_dir": {"type": "string"},
+        "build_command": {"type": "string"},
+        "test_command": {"type": "string"},
+        "_note": {"type": "string"}
+      }
+    }
+  }
+}

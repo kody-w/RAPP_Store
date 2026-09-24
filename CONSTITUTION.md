@@ -28,6 +28,14 @@ Anytime you change a singleton or service file, you **must** also update
 The validator (`scripts/lib_rapp.py`) and the promotion workflow do this
 automatically for staged submissions; for direct edits, you do it by hand.
 
+**Proposed extension — [Proposal 0007](./docs/proposals/0007-chat-operated-rapplications.md):**
+complete `rapp-application/2.0` entries instead retain the full manifest,
+mandatory features, file lock and explicit complete-installer pins. A
+singleton URL is not an installation fallback for those entries. Existing
+simple entries, native release descriptors, Zoo data and the root
+`rapp-store/1.0` catalog remain unchanged. The unlisted flagship template is
+authoring material, not a catalog admission or a featured release.
+
 ---
 
 ## Article I — This Is The Content Layer
@@ -57,9 +65,19 @@ belongs upstream in the engine, or it doesn't belong in the platform yet.
 
 ---
 
-## Article II — One File Ships, One File Runs
+## Article II — Portable Entrypoints, Complete Applications
 
-A rapplication's deployable unit is a single `*_agent.py` file that
+Under proposed [Proposal 0007](./docs/proposals/0007-chat-operated-rapplications.md),
+a rapplication may be a versioned chat-operated application declaring its
+components, jobs, providers, state, lifecycle and portability. Its BasicAgent
+is the conversational entrypoint, not necessarily the entire application.
+A complete application installs its verified closure or refuses; it does not
+silently install only an agent. A separate UI is optional for this explicit
+contract. Unchanged current Grail owns the agent loop; the Store adds no
+runtime and RAPP Work is optional.
+
+For existing `rapp-application/1.0` applications, the deployable unit remains
+a single `*_agent.py` file that
 satisfies SPEC §5. Composite rapps (BookFactory, etc.) author in `source/`
 and **build** to a singleton via `tools/build.py`. The singleton is the
 ship-time artifact. The `source/` tree is the authoring surface — it is
@@ -92,6 +110,11 @@ This is the entire trust mechanism. It works because:
 
 Adding a signing scheme, a key escrow, or a chain-of-trust before this
 breaks at scale would be infrastructure load in the wrong place.
+
+Complete applications additionally pin every installed file and their runtime
+baseline. Unknown mandatory features refuse before writes. Integrity proves
+byte identity, not execution authority, paid-provider consent, current health,
+Apple authentication or RAPP/1 authenticated acceptance.
 
 ---
 
@@ -128,7 +151,9 @@ have a different audience and a different submission flow.
 
 The store sells finished products. The registry indexes building blocks.
 A submission that looks like a registry entry is rejected by the
-validator with a pointer to RAR.
+validator with a pointer to RAR. The complete chat-operated application
+contract in proposed Proposal 0007 is an explicit exception to the UI
+requirement, not an exemption from application validation.
 
 ---
 
@@ -188,6 +213,13 @@ them.
 
 Path-traversal guards in `binder_service.py` reject `..` segments on
 import. Preserve those when editing.
+
+Complete-application installation cartridges (`rapp-egg/2.0`) lock source and
+are distinct from canonical RAPP/1 session receipt eggs and rapplication
+capsules. They do not replace historical artifacts or assert a new RAPP/1
+wire variant. Capsules of selected outputs are not full application-state
+backups. Preserving uninstall never deletes owner state, credentials or
+unqualified writable container layers.
 
 ---
 

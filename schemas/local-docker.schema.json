@@ -1,0 +1,555 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kody-w.github.io/RAPP_Store/schemas/local-docker.schema.json",
+  "title": "Feature-gated local Docker application declaration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "component_lock", "loader", "requirements_file", "jobs_file",
+    "state_lifecycle_file", "intelligence", "exhaust", "readiness"
+  ],
+  "properties": {
+    "schema": {"const": "rapp-local-docker/1"},
+    "component_lock": {"$ref": "#/$defs/jsonPath"},
+    "requirements_file": {"$ref": "#/$defs/jsonPath"},
+    "jobs_file": {"$ref": "#/$defs/jsonPath"},
+    "state_lifecycle_file": {"$ref": "#/$defs/jsonPath"},
+    "loader": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract", "entrypoint", "descriptor", "support"],
+      "properties": {
+        "contract": {"const": "scotty-revision-loader/1"},
+        "entrypoint": {"const": "singleton/scotty_agent.py"},
+        "descriptor": {"const": "singleton/scotty_revision.json"},
+        "support": {"type": "string", "pattern": "^singleton/scotty_support_[0-9a-f]{64}$(?![\\s\\S])"}
+      }
+    },
+    "intelligence": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "runtime", "version", "model", "concurrency", "cloud_inference", "tools",
+        "usage", "monetary_cost", "hard_spend_cap", "other_paid_providers"
+      ],
+      "properties": {
+        "runtime": {"const": "official-copilot-cli-in-docker"},
+        "version": {"const": "1.0.88"},
+        "model": {"const": "gpt-5-mini"},
+        "concurrency": {"type": "number", "const": 2},
+        "cloud_inference": {"const": true},
+        "tools": {"const": []},
+        "usage": {"const": "measured-when-available"},
+        "monetary_cost": {"type": "null"},
+        "hard_spend_cap": {"type": "null"},
+        "other_paid_providers": {"const": "disabled"}
+      }
+    },
+    "exhaust": {
+      "const": {
+        "wire": "rapp/1",
+        "frame_kind": "memory.tool-call",
+        "receipt_variant": "session",
+        "capsule_variant": "rapplication",
+        "capsule_contains": "selected-outputs-and-producing-source-not-full-app-state",
+        "verification": "unsigned-structural-only"
+      }
+    },
+    "readiness": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidate", "fresh_install", "recreation", "live_results"],
+      "properties": {
+        "candidate": {"enum": ["experimental", "qualified"]},
+        "fresh_install": {"$ref": "#/$defs/status"},
+        "recreation": {"$ref": "#/$defs/appStatuses"},
+        "live_results": {"$ref": "#/$defs/path"},
+        "package_verification": {"$ref": "#/$defs/status"},
+        "fresh_install_profiles": {
+          "type": "object",
+          "propertyNames": {"type": "string", "minLength": 1},
+          "additionalProperties": {"$ref": "#/$defs/status"}
+        },
+        "jobs": {
+          "type": "object",
+          "propertyNames": {"type": "string", "minLength": 1},
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false,
+            "required": ["mode", "status"],
+            "properties": {
+              "mode": {"type": "string", "minLength": 1},
+              "status": {"$ref": "#/$defs/status"}
+            }
+          }
+        },
+        "current_health": {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "observed_at"],
+          "properties": {
+            "status": {"enum": ["unknown", "healthy", "unhealthy", "stopped"]},
+            "observed_at": {"type": ["string", "null"]}
+          }
+        },
+        "restart": {"$ref": "#/$defs/appStatuses"},
+        "provider_blockers": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "acceptance_suite": {
+          "type": "object", "additionalProperties": false,
+          "required": ["revision", "status"],
+          "properties": {
+            "revision": {"type": ["string", "null"]},
+            "status": {"$ref": "#/$defs/status"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "path": {"$ref": "application.schema.json#/$defs/path"},
+    "jsonPath": {"$ref": "#/$defs/path", "pattern": "\\.json$(?![\\s\\S])"},
+    "status": {"enum": ["pending", "passed", "failed", "blocked", "not-applicable"]},
+    "appStatuses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dify", "openshorts"],
+      "properties": {
+        "intelligence": {"$ref": "#/$defs/status"},
+        "scrapling": {"$ref": "#/$defs/status"},
+        "presenton": {"$ref": "#/$defs/status"},
+        "open-seo": {"$ref": "#/$defs/status"},
+        "dify": {"$ref": "#/$defs/status"},
+        "openshorts": {"$ref": "#/$defs/status"}
+      }
+    },
+    "text": {"type": "string", "minLength": 1},
+    "strings": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"},
+    "componentLock": {
+      "$ref": "#/$defs/materializerLock"
+    },
+    "materializerId": {
+      "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$(?![\\s\\S])"
+    },
+    "materializerArtifactId": {
+      "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$(?![\\s\\S])"
+    },
+    "registryImage": {
+      "type": "string", "pattern": "^[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}$(?![\\s\\S])"
+    },
+    "publicArtifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["url", "sha256", "bytes", "license"],
+      "properties": {
+        "url": {"$ref": "#/$defs/text"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "x-wire-integer": true, "minimum": 1, "maximum": 2147483648},
+        "license": {"$ref": "#/$defs/text"}
+      }
+    },
+    "recipeFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "target", "sha256", "bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "target": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "x-wire-integer": true, "minimum": 0, "maximum": 4194304}
+      }
+    },
+    "recipeFiles": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": {"$ref": "#/$defs/recipeFile"}
+    },
+    "recipeBases": {
+      "type": "array", "minItems": 1, "maxItems": 32,
+      "items": {"$ref": "#/$defs/registryImage"}
+    },
+    "dockerfileRecipe": {
+      "type": "object", "additionalProperties": false,
+      "required": ["files", "bases", "artifacts"],
+      "properties": {
+        "files": {"$ref": "#/$defs/recipeFiles"},
+        "bases": {"$ref": "#/$defs/recipeBases"},
+        "artifacts": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["artifact", "member", "target"],
+            "properties": {
+              "artifact": {"$ref": "#/$defs/materializerArtifactId"},
+              "member": {"anyOf": [{"$ref": "#/$defs/path"}, {"type": "null"}]},
+              "target": {"$ref": "#/$defs/path"}
+            }
+          }
+        }
+      }
+    },
+    "offlineRecipe": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "input_set", "input_set_sha256", "dockerfile_sha256", "bases"],
+      "properties": {
+        "role": {"enum": ["backend", "frontend", "renderer"]},
+        "input_set": {"$ref": "#/$defs/materializerId"},
+        "input_set_sha256": {"$ref": "#/$defs/sha256"},
+        "dockerfile_sha256": {"$ref": "#/$defs/sha256"},
+        "bases": {"$ref": "#/$defs/recipeBases"}
+      }
+    },
+    "materializerInputSet": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "files", "dependencies"],
+      "properties": {
+        "source": {"$ref": "#/$defs/publicArtifact"},
+        "files": {"$ref": "#/$defs/recipeFiles"},
+        "dependencies": {
+          "type": "array", "maxItems": 16,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["role", "manifest", "kind", "target"],
+            "properties": {
+              "role": {"enum": ["backend", "frontend", "renderer"]},
+              "manifest": {"$ref": "#/$defs/path"},
+              "kind": {"enum": ["wheels", "system", "models", "npm"]},
+              "target": {"$ref": "#/$defs/path"}
+            }
+          }
+        }
+      }
+    },
+    "materializerComponent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "platform", "env", "reference", "recipe", "observed_image_ids", "source", "license", "blockers"],
+      "properties": {
+        "kind": {"enum": ["registry", "dockerfile", "openshorts-offline", "blocked-build"]},
+        "platform": {"enum": ["linux/arm64", "linux/amd64"]},
+        "env": {"type": "string", "pattern": "^RAPP_DOCK_IMAGE_[A-Z0-9_]+$(?![\\s\\S])"},
+        "reference": {"anyOf": [{"$ref": "#/$defs/registryImage"}, {"type": "null"}]},
+        "recipe": {"anyOf": [{"$ref": "#/$defs/dockerfileRecipe"}, {"$ref": "#/$defs/offlineRecipe"}, {"type": "null"}]},
+        "observed_image_ids": {
+          "type": "array", "maxItems": 32, "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$(?![\\s\\S])"}
+        },
+        "source": {"$ref": "#/$defs/text"},
+        "license": {"$ref": "#/$defs/text"},
+        "blockers": {"$ref": "#/$defs/strings"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "registry"}}},
+          "then": {"properties": {"reference": {"$ref": "#/$defs/registryImage"}, "recipe": {"type": "null"}, "observed_image_ids": {"maxItems": 0}}},
+          "else": {"properties": {"reference": {"type": "null"}}}
+        },
+        {"if": {"properties": {"kind": {"const": "dockerfile"}}}, "then": {"properties": {"recipe": {"$ref": "#/$defs/dockerfileRecipe"}}}},
+        {"if": {"properties": {"kind": {"const": "openshorts-offline"}}}, "then": {"properties": {"platform": {"const": "linux/amd64"}, "recipe": {"$ref": "#/$defs/offlineRecipe"}}}},
+        {"if": {"properties": {"kind": {"const": "blocked-build"}}}, "then": {"properties": {"recipe": {"type": "null"}, "blockers": {"minItems": 1}}}}
+      ]
+    },
+    "materializerLock": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "profile", "artifacts", "input_sets", "components", "applications"],
+      "properties": {
+        "schema": {"const": "rapp-dock-components/1"},
+        "profile": {
+          "type": "object", "additionalProperties": false,
+          "required": ["host", "docker_context", "guest_platforms", "amd64_emulation_required", "assurance", "fresh_machine_acceptance", "bit_identical_rebuilds_claimed"],
+          "properties": {
+            "host": {"const": "darwin/arm64"},
+            "docker_context": {"const": "desktop-linux"},
+            "guest_platforms": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["linux/arm64", "linux/amd64"]}},
+            "amd64_emulation_required": {"const": true},
+            "assurance": {"const": "locked-public-inputs-and-local-image-observations-not-signed-builds"},
+            "fresh_machine_acceptance": {"$ref": "#/$defs/status"},
+            "bit_identical_rebuilds_claimed": {"const": false}
+          }
+        },
+        "artifacts": {
+          "type": "object", "maxProperties": 64,
+          "propertyNames": {"$ref": "#/$defs/materializerArtifactId"},
+          "additionalProperties": {"$ref": "#/$defs/publicArtifact"}
+        },
+        "input_sets": {
+          "type": "object", "maxProperties": 16,
+          "propertyNames": {"$ref": "#/$defs/materializerId"},
+          "additionalProperties": {"$ref": "#/$defs/materializerInputSet"}
+        },
+        "components": {
+          "type": "object", "minProperties": 1, "maxProperties": 64,
+          "propertyNames": {"$ref": "#/$defs/materializerId"},
+          "additionalProperties": {"$ref": "#/$defs/materializerComponent"}
+        },
+        "applications": {
+          "type": "object", "minProperties": 1, "maxProperties": 6,
+          "propertyNames": {"enum": ["intelligence", "scrapling", "presenton", "open-seo", "dify", "openshorts"]},
+          "additionalProperties": {
+            "type": "object", "minProperties": 1, "maxProperties": 32,
+            "propertyNames": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$(?![\\s\\S])"},
+            "additionalProperties": {"$ref": "#/$defs/materializerId"}
+          }
+        }
+      }
+    },
+    "dependencyArtifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["url"],
+      "properties": {
+        "url": {"$ref": "#/$defs/text"},
+        "filename": {"$ref": "#/$defs/path"},
+        "path": {"$ref": "#/$defs/path"},
+        "package": {"$ref": "#/$defs/text"},
+        "package_path": {"$ref": "#/$defs/text"},
+        "version": {"$ref": "#/$defs/text"},
+        "architecture": {"$ref": "#/$defs/text"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "sha512_hex": {"type": "string", "pattern": "^[0-9a-f]{128}$(?![\\s\\S])"},
+        "integrity": {"type": "string", "pattern": "^sha512-[A-Za-z0-9+/]{86}==$(?![\\s\\S])"},
+        "bytes": {"type": ["integer", "null"], "x-wire-integer": true, "minimum": 1, "maximum": 2147483648},
+        "optional": {"type": "boolean"},
+        "cpu": {"anyOf": [{"$ref": "#/$defs/strings"}, {"type": "null"}]},
+        "os": {"anyOf": [{"$ref": "#/$defs/strings"}, {"type": "null"}]},
+        "libc": {"anyOf": [{"$ref": "#/$defs/strings"}, {"type": "null"}]}
+      }
+    },
+    "dependencyDocument": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifacts"],
+      "properties": {
+        "artifacts": {"type": "array", "minItems": 1, "maxItems": 1024, "items": {"$ref": "#/$defs/dependencyArtifact"}},
+        "resolver": {"$ref": "#/$defs/text"},
+        "resolver_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$(?![\\s\\S])"},
+        "target": {"$ref": "#/$defs/text"},
+        "architecture": {"$ref": "#/$defs/text"},
+        "role": {"enum": ["backend", "frontend", "renderer"]},
+        "verified_by": {"$ref": "#/$defs/text"},
+        "package_index_observations": {
+          "type": "array", "maxItems": 32,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["file", "sha256"],
+            "properties": {"file": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+          }
+        },
+        "nas_files_written": {"const": false},
+        "paid_calls": {"const": 0},
+        "source": {"$ref": "#/$defs/text"},
+        "application": {"$ref": "#/$defs/text"},
+        "service": {"$ref": "#/$defs/text"},
+        "lockfile_sha256": {"$ref": "#/$defs/sha256"},
+        "lockfile": {"$ref": "#/$defs/path"},
+        "artifact_count": {"type": "integer", "minimum": 1, "maximum": 1024},
+        "build_base_libc": {"$ref": "#/$defs/text"},
+        "intended_platform": {"$ref": "#/$defs/text"},
+        "selection": {"$ref": "#/$defs/text"}
+      }
+    },
+    "hostProfiles": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "python_minimum", "grail", "tools", "profiles", "authentication"],
+      "properties": {
+        "schema": {"const": "rapp-local-host-profiles/1"},
+        "python_minimum": {"const": "3.11"},
+        "grail": {"$ref": "application.schema.json#/$defs/runtime"},
+        "tools": {
+          "const": {"git": true, "docker": true, "compose_plugin": true, "buildx_plugin": true, "local_daemon_only": true}
+        },
+        "profiles": {
+          "type": "array", "minItems": 1, "maxItems": 8,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": [
+              "id", "host_os", "host_arch", "guest_platforms", "emulation",
+              "qualification", "fresh_install", "reference_resources"
+            ],
+            "properties": {
+              "id": {"$ref": "#/$defs/text"},
+              "host_os": {"const": "darwin"},
+              "host_arch": {"const": "arm64"},
+              "guest_platforms": {
+                "type": "array", "minItems": 1, "uniqueItems": true,
+                "items": {"enum": ["linux/arm64", "linux/amd64"]}
+              },
+              "emulation": {"type": "boolean"},
+              "qualification": {"enum": ["development-reference", "candidate-qualified"]},
+              "fresh_install": {"$ref": "#/$defs/status"},
+              "reference_resources": {
+                "type": "object", "additionalProperties": false,
+                "required": ["docker_vm_cpus", "docker_vm_memory_gib", "is_minimum"],
+                "properties": {
+                  "docker_vm_cpus": {"type": "integer", "minimum": 1},
+                  "docker_vm_memory_gib": {"type": "number", "exclusiveMinimum": 0},
+                  "is_minimum": {"const": false}
+                }
+              }
+            }
+          }
+        },
+        "authentication": {
+          "const": {
+            "provider": "github-copilot",
+            "custody": "adopter-owned",
+            "required_for_ai_jobs": true,
+            "export_credentials": false
+          }
+        }
+      }
+    },
+    "parameter": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["object", "array", "string", "integer", "number", "boolean", "null"]},
+        "description": {"type": "string"},
+        "enum": {"type": "array", "minItems": 1, "maxItems": 2048},
+        "default": {},
+        "minLength": {"type": "integer", "minimum": 0},
+        "maxLength": {"type": "integer", "minimum": 0},
+        "minimum": {"type": "number"},
+        "maximum": {"type": "number"},
+        "minItems": {"type": "integer", "minimum": 0},
+        "maxItems": {"type": "integer", "minimum": 0},
+        "uniqueItems": {"type": "boolean"},
+        "format": {"enum": ["uri", "url"]},
+        "items": {"$ref": "#/$defs/parameter"},
+        "properties": {
+          "type": "object", "propertyNames": {"type": "string", "minLength": 1},
+          "additionalProperties": {"$ref": "#/$defs/parameter"}
+        },
+        "required": {"$ref": "#/$defs/strings"},
+        "additionalProperties": {"const": false}
+      }
+    },
+    "jobContracts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "jobs"],
+      "properties": {
+        "schema": {"const": "rapp-local-jobs/1"},
+        "jobs": {
+          "type": "array", "minItems": 1, "maxItems": 64,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "application", "journey", "mode", "input_schema", "outputs", "providers", "limitations"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9_]*$(?![\\s\\S])"},
+              "application": {"enum": ["intelligence", "scrapling", "presenton", "open-seo", "dify", "openshorts"]},
+              "journey": {"enum": ["diagnostic", "web-research", "editable-deck", "seo-project", "knowledge-answer", "captioned-shorts"]},
+              "mode": {"$ref": "#/$defs/text"},
+              "input_schema": {
+                "allOf": [
+                  {"$ref": "#/$defs/parameter"},
+                  {
+                    "required": ["type", "properties", "required", "additionalProperties"],
+                    "properties": {"type": {"const": "object"}, "additionalProperties": {"const": false}}
+                  }
+                ]
+              },
+              "outputs": {
+                "type": "array", "minItems": 1, "maxItems": 2048,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["name", "kind", "media_type", "required"],
+                  "properties": {
+                    "name": {"$ref": "#/$defs/text"},
+                    "kind": {"enum": ["artifact", "native-record"]},
+                    "media_type": {"$ref": "#/$defs/text"},
+                    "required": {"type": "boolean"}
+                  }
+                }
+              },
+              "providers": {"type": "array", "uniqueItems": true, "items": {"const": "copilot"}},
+              "limitations": {"$ref": "#/$defs/strings"}
+            }
+          }
+        }
+      }
+    },
+    "stateLifecycle": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "schema", "owned_roots", "volumes", "sealed_inputs", "start", "stop",
+        "uninstall", "upgrade", "recovery", "credential_export", "destructive_operations", "retention"
+      ],
+      "properties": {
+        "schema": {"const": "rapp-local-state-lifecycle/1"},
+        "owned_roots": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/path"}},
+        "volumes": {"$ref": "#/$defs/strings"},
+        "sealed_inputs": {"const": true},
+        "start": {"const": "explicit-use"},
+        "stop": {"const": "retain-data"},
+        "uninstall": {"const": "drain-stop-detach-preserve"},
+        "upgrade": {"const": "preserve-state"},
+        "recovery": {"const": "reconcile-no-replay"},
+        "credential_export": {"const": false},
+        "destructive_operations": {"const": []},
+        "retention": {
+          "type": "object", "additionalProperties": false,
+          "required": ["dify", "openshorts"],
+          "properties": {
+            "intelligence": {"enum": ["volume-backed", "stop-retain"]},
+            "scrapling": {"enum": ["volume-backed", "stop-retain"]},
+            "presenton": {"enum": ["volume-backed", "stop-retain"]},
+            "open-seo": {"enum": ["volume-backed", "stop-retain"]},
+            "dify": {"enum": ["volume-backed", "stop-retain"]},
+            "openshorts": {"enum": ["volume-backed", "stop-retain"]}
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "synthetic", "scope", "candidate_digest", "acceptance_suite_revision", "observed_at", "results", "limitations"],
+      "properties": {
+        "schema": {"const": "rapp-readiness-evidence/1"},
+        "synthetic": {"type": "boolean"},
+        "scope": {"enum": ["authoring-template", "candidate-verification"]},
+        "candidate_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"},
+        "acceptance_suite_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40,64}$(?![\\s\\S])"},
+        "observed_at": {"type": ["string", "null"]},
+        "results": {
+          "type": "array", "maxItems": 2048,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["job", "mode", "status"],
+            "properties": {
+              "job": {"$ref": "#/$defs/text"},
+              "mode": {"$ref": "#/$defs/text"},
+              "status": {"$ref": "#/$defs/status"}
+            }
+          }
+        },
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "loaderDescriptor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "loader_contract", "entrypoint_sha256", "support_sha256"],
+      "properties": {
+        "schema": {"const": "scotty-agent-revision/1"},
+        "loader_contract": {"const": "scotty-revision-loader/1"},
+        "entrypoint_sha256": {"$ref": "#/$defs/sha256"},
+        "support_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "supportLock": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "grail_commit", "files"],
+      "properties": {
+        "schema": {"const": "scotty-capability-files/1"},
+        "grail_commit": {"const": "c60521e2cacbcbfa585a118c1275093d7bb15b74"},
+        "files": {
+          "type": "array", "minItems": 1, "maxItems": 512,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["path", "bytes", "sha256"],
+            "properties": {
+              "path": {"$ref": "#/$defs/path"},
+              "bytes": {"type": "integer", "x-wire-integer": true, "minimum": 0, "maximum": 4194304},
+              "sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

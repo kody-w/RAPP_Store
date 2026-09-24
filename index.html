@@ -423,6 +423,24 @@
   </div>
 </section>
 
+<section class="hero" aria-label="Main rapplication authoring template">
+  <div class="hero-card">
+    <div class="eyebrow">Main authoring template · experimental · unlisted</div>
+    <h2>RAPP Dock / Scotty</h2>
+    <p>One chat-operated application, five journeys: collect web sources, make editable decks,
+      manage SEO projects, answer from documents and render captioned shorts.</p>
+    <p>Local application execution; Copilot cloud inference; tested on Apple Silicon with some amd64 guests under emulation.</p>
+    <p class="note">Development reference profile, not a fresh-install claim or minimum specification.
+      Synthetic authoring sample, not an installable release. Fresh-machine installation remains pending.
+      Copilot uses your entitlement/credits; other paid providers are disabled.</p>
+    <p class="note">On the tested reference profile, Dify full recreation is qualified (15 read-only roles,
+      explicit custody, preserved data/credentials, fresh answer). OpenShorts recreation is qualified for drained
+      completed state (read-only renderer, authenticated ingress, preserved clips, fresh render), not in-flight memory.
+      OpenShorts public cold rebuild remains blocked on npm/PyPI retrieval. These facts do not qualify this template.</p>
+    <a class="btn" href="https://github.com/kody-w/RAPP_Store/blob/main/samples/dock_scotty/README.md">Explore the template</a>
+  </div>
+</section>
+
 <div class="tabs-row" id="tabs">
   <button class="tab active" data-tab="all">All <span class="count" id="countAll">0</span></button>
   <button class="tab" data-tab="rapp">Rapplications <span class="count" id="countRapp">0</span></button>
@@ -492,6 +510,7 @@
   </div>
 </footer>
 
+<script src="./store-contract.js"></script>
 <script>
 'use strict';
 
@@ -583,7 +602,11 @@ async function loadAll() {
 async function loadRapps() {
   try {
     const r = await fetch(SOURCES.rapp.url, { cache: 'no-store' });
-    const cat = await r.json();
+    const body = await r.text();
+    const cat = globalThis.RappStoreContract ? RappStoreContract.parseJSON(body) : JSON.parse(body);
+    if (globalThis.RappStoreContract && (cat.rapplications || []).some(applicationDeclared)) {
+      await RappStoreContract.ready().catch(() => {});
+    }
     state.rapps.push(...(cat.rapplications || []).map(normalizeRapp));
     state.loaded.rapp = true;
   } catch (e) {
@@ -693,8 +716,17 @@ function nativeDesktopFor(r) {
   }
   return d;
 }
+function applicationDeclared(r) {
+  return r.schema === 'rapp-application/2.0'
+    || Object.prototype.hasOwnProperty.call(r, 'application')
+    || Object.prototype.hasOwnProperty.call(r, 'application_schema')
+    || Object.prototype.hasOwnProperty.call(r, 'local_docker')
+    || Object.prototype.hasOwnProperty.call(r, 'requires')
+      && (!Array.isArray(r.requires) || r.requires.length > 0);
+}
 function normalizeRapp(r) {
-  const desktop = nativeDesktopFor(r);
+  const complete = applicationDeclared(r);
+  const desktop = complete ? null : nativeDesktopFor(r);
   return {
     kind: 'rapp',
     id: r.id,
@@ -707,11 +739,12 @@ function normalizeRapp(r) {
     tier: r.quality_tier || 'community',
     surfaces: surfacesFor(r, desktop),
     source: 'rapp',
-    raw_url: catalogLink(r.singleton_url || r.service_url),
+    raw_url: catalogLink(complete ? r.application_url : r.singleton_url || r.service_url),
     ui_url:  catalogLink(r.ui_url),
     egg_url: catalogLink(r.egg_url),
     hatcher_url: catalogLink(r.hatcher_url),
     desktop,
+    application_declared: complete,
     native_declared: Object.prototype.hasOwnProperty.call(r, 'desktop'),
     sha256:  r.singleton_sha256 || null,
     filename: r.singleton_filename || null,
@@ -788,6 +821,7 @@ function normalizePrototype(p, generation, generationUrl) {
 }
 function surfacesFor(r, desktop = null) {
   const out = [];
+  if (applicationDeclared(r)) return ['chat', 'complete-package'];
   if (desktop)      out.push('macos');
   if (r.ui_url)      out.push('ui');
   if (r.service_url) out.push('service');
@@ -813,12 +847,12 @@ function renderHero() {
   $('#heroActions').appendChild(el('button', {
     class: 'btn primary', onclick: () => openModal(pick),
   }, [pick.desktop ? 'Download for macOS' : 'View details']));
-  if (pick.kind === 'rapp' && pick.ui_url) {
+  if (pick.kind === 'rapp' && pick.ui_url && !pick.application_declared) {
     $('#heroActions').appendChild(el('a', {
       class: 'btn', href: `./vbrainstem.html#rapp=${pick.id}`,
     }, [pick.native_declared ? 'Agent integration in vBrainstem' : '💬 Open in vBrainstem']));
   }
-  $('#heroActions').appendChild(el('a', {
+  if (pick.raw_url) $('#heroActions').appendChild(el('a', {
     class: 'btn ghost', href: pick.raw_url, target: '_blank',
   }, ['View source']));
   const meta = $('#heroMeta');
@@ -941,6 +975,10 @@ function makeCard(r) {
     ]),
     r.tagline ? el('div', { class: 'summary', text: r.tagline }) :
                 el('div', { class: 'summary', text: (r.summary || '').slice(0, 140) }),
+    r.application_declared ? el('p', { class: 'note', text:
+      'Complete application contract required; no singleton-only install or browser execution.' }) : null,
+    r.application_declared && r._orig.application?.local_docker ? el('p', { class: 'note', text:
+      'Local application execution; Copilot cloud inference. Other paid providers disabled; check profile and readiness.' }) : null,
     el('div', { class: 'badges' }, [
       el('span', { class: `badge kind-${r.kind}`, text: r.kind }),
       r.category ? el('span', { class: 'badge cat', text: r.category }) : null,
@@ -998,6 +1036,88 @@ function appendNativeDownload(body, r) {
     r.raw_url ? el('a', { class: 'btn', href: r.raw_url, target: '_blank', rel: 'noopener noreferrer' },
       ['View Python integration']) : null,
   ]));
+}
+
+function appendApplicationContract(body, r) {
+  const contract = globalThis.RappStoreContract;
+  const manifest = r._orig.application || (r._orig.schema === 'rapp-application/2.0' ? r._orig : null);
+  const errors = contract ? contract.validate(manifest) : ['Complete contract validator is unavailable.'];
+  const local = manifest && manifest.local_docker;
+  const ready = local && local.readiness;
+  const reference = manifest?.metrics?.reference_readiness;
+  const limited = (entries, describe) => entries.slice(0, 20).map(describe).join('; ')
+    + (entries.length > 20 ? '; ' + (entries.length - 20) + ' more entries in the complete manifest' : '');
+  const statuses = value => value && typeof value === 'object' && !Array.isArray(value)
+    ? limited(Object.entries(value), ([name, status]) => name + ': ' + String(status))
+    : 'unknown';
+  body.appendChild(el('section', {}, [
+    el('h4', { text: 'Chat-operated application — complete package required' }),
+    el('p', { text: 'Grail owns chat; the agent is an entrypoint, not the whole application. '
+      + 'This browser does not install Docker, run jobs or copy a bare singleton.' }),
+    el('p', { text: 'Required features: ' + (Array.isArray(manifest?.requires)
+      ? manifest.requires.join(', ') : 'missing or unsupported') }),
+  ]));
+  if (local) {
+    body.appendChild(el('section', {}, [
+      el('h4', { text: 'Execution, providers and portability' }),
+      el('p', { text: 'Local application execution; Copilot cloud inference. '
+        + 'Copilot uses the adopter’s own entitlement/usage. Other paid providers are disabled. '
+        + 'Unknown monetary cost stays unknown; process limits are not a hard spend cap.' }),
+      el('p', { text: 'RAPP/1 receipts are unsigned structural evidence. Capsules contain selected outputs '
+        + 'and producing source, not full application state, images or credentials.' }),
+      el('h4', { text: 'Readiness — candidate facts, not your current machine’s health' }),
+      el('p', { text: ready ? 'Candidate: ' + String(ready.candidate)
+        + ' · fresh install: ' + String(ready.fresh_install) : 'Readiness not supplied.' }),
+      el('p', { text: 'Package verification: ' + String(ready?.package_verification || 'unknown')
+        + ' · profile installations: ' + statuses(ready?.fresh_install_profiles) }),
+      el('p', { text: 'Job/mode verification: ' + (ready?.jobs && typeof ready.jobs === 'object'
+        ? limited(Object.entries(ready.jobs), ([job, claim]) =>
+          job + ' (' + String(claim?.mode || 'unknown mode') + '): ' + String(claim?.status || 'unknown'))
+        : 'unknown') }),
+      el('p', { text: 'Observed health: ' + String(ready?.current_health?.status || 'unknown')
+        + ' · observation time: ' + String(ready?.current_health?.observed_at || 'none') }),
+      el('p', { text: 'Restart: ' + statuses(ready?.restart) }),
+      el('p', { text: 'Recreation: ' + statuses(ready?.recreation) }),
+      el('p', { text: 'Acceptance suite: ' + String(ready?.acceptance_suite?.status || 'unknown')
+        + ' · revision: ' + String(ready?.acceptance_suite?.revision || 'unassigned') }),
+      el('p', { text: 'Provider blockers: ' + (Array.isArray(ready?.provider_blockers)
+        ? limited(ready.provider_blockers, String) : 'not supplied') }),
+      el('p', { text: 'A tested Apple Silicon development profile with emulated amd64 guests '
+        + 'does not prove fresh installation or whole-bundle Intel support.' }),
+    ]));
+  }
+  if (reference?.schema === 'rapp-reference-readiness/1' && reference.applies_to_this_candidate === false) {
+    body.appendChild(el('section', {}, [
+      el('h4', {text: 'Reported reference-profile qualification — not this candidate'}),
+      el('p', {text: String(reference.scope || 'Reference scope not supplied.')}),
+      el('p', {text: 'Dify full recreation: ' + String(reference.dify?.recreation || 'unknown')
+        + ' · ' + String(reference.dify?.read_only_roles ?? 'unknown') + ' read-only roles; explicit custody, '
+        + 'preserved datasets/documents/indexing/credentials and a fresh answer after recreation.'}),
+      el('p', {text: 'OpenShorts recreation: ' + String(reference.openshorts?.recreation || 'unknown')
+        + ' · ' + String(reference.openshorts?.scope || 'scope unknown')
+        + '; read-only renderer, authenticated ingress, preserved completed clips and a fresh render. '
+        + 'In-flight renderer memory: ' + String(reference.openshorts?.in_flight_renderer_memory || 'unknown') + '.'}),
+      el('p', {text: 'Fresh-machine installation: ' + String(reference.fresh_machine_install || 'unknown')
+        + ' · OpenShorts public cold rebuild: ' + String(reference.openshorts?.public_cold_rebuild || 'unknown') + '.'}),
+      el('p', {text: 'Presenton native generation: ' + String(reference.presenton_native_generation || 'unknown')
+        + ' · Dify native plugin: ' + String(reference.dify?.native_plugin || 'unknown') + '.'}),
+      el('p', {class: 'note', text: String(reference.qualification_note || 'Reference facts do not grant candidate readiness.')}),
+    ]));
+  }
+  if (!errors.length && contract.canInstall(r._orig)) {
+    body.appendChild(el('section', {}, [
+      el('h4', { text: 'Complete verified installer' }),
+      el('p', { text: 'Review the package and device requirements. Installation verifies the exact Grail '
+        + 'baseline and the entire locked closure; it does not activate paid providers.' }),
+      el('a', { class: 'btn primary', href: r._orig.hatcher_url, download: '' }, ['Download complete installer']),
+      el('a', { class: 'btn', href: r._orig.egg_url, download: '' }, ['Download complete source cartridge']),
+    ]));
+  } else {
+    const blockers = Array.isArray(r._orig.install_blockers) ? r._orig.install_blockers : [];
+    body.appendChild(el('p', { class: 'note', text: 'No complete installer is offered. '
+      + [...errors, ...blockers].join(' ')
+      + ' Unsupported features, incomplete artifacts or pending fresh-install evidence cannot fall back to a singleton.' }));
+  }
 }
 
 function openModal(r) {
@@ -1066,7 +1186,8 @@ function openModal(r) {
     }
   }
 
-  if (r.desktop) appendNativeDownload(body, r);
+  if (r.application_declared) appendApplicationContract(body, r);
+  else if (r.desktop) appendNativeDownload(body, r);
   else if (r.native_declared) {
     body.appendChild(el('p', { class: 'note', text: 'Native download metadata is incomplete or unsupported. '
       + 'No native installer is offered; the publisher must resubmit a complete release through the [RAPP] receiver.' }));
@@ -1080,7 +1201,7 @@ function openModal(r) {
                                : (r.filename || `${r.id}.py`);
   const dropDir = (r.kind === 'sense') ? '~/.brainstem/src/rapp_brainstem/utils/senses/'
                                        : '~/.brainstem/src/rapp_brainstem/agents/';
-  if (dropHref && r.kind !== 'prototype' && !r.native_declared) {
+  if (dropHref && r.kind !== 'prototype' && !r.native_declared && !r.application_declared) {
     body.appendChild(el('section', {}, [
       el('h4', { text: r.kind === 'rapp' && !hatcherHref
         ? 'Agent integration — Python singleton' : 'Install — drop it into your brainstem' }),
@@ -1100,7 +1221,7 @@ function openModal(r) {
     ]));
   }
 
-  const eggHref = r.native_declared ? null : r.egg_url;
+  const eggHref = r.native_declared || r.application_declared ? null : r.egg_url;
   if (eggHref) {
     body.appendChild(el('section', {}, [
       el('h4', { text: 'Advanced — raw rapplication cartridge' }),
@@ -1130,10 +1251,10 @@ function openModal(r) {
   m.appendChild(body);
 
   const actions = el('div', { class: 'modal-actions' });
-  if (r.kind === 'rapp' && r.ui_url) {
+  if (r.kind === 'rapp' && r.ui_url && !r.application_declared) {
     actions.appendChild(el('a', { class: r.native_declared ? 'btn' : 'btn primary', href: `./vbrainstem.html#rapp=${r.id}` },
       [r.native_declared ? 'Open agent integration in vBrainstem' : '💬 Open in vBrainstem']));
-  } else if (r.kind === 'rapp') {
+  } else if (r.kind === 'rapp' && !r.application_declared) {
     actions.appendChild(el('a', { class: 'btn primary', href: `./vbrainstem.html#rapp=${r.id}` },
       ['💬 Chat with it']));
   } else if (r.kind === 'agent') {
@@ -1152,7 +1273,7 @@ function openModal(r) {
       rel: 'noopener',
     }, ['MIT evidence ↗']));
   }
-  if (r.ui_url) {
+  if (r.ui_url && !r.application_declared) {
     actions.appendChild(el('a', { class: 'btn', href: `./vbrainstem.html#rapp=${r.id}&view=ui`, target: '_blank' },
       [r.native_declared ? 'Open agent UI ↗' : 'Open UI ↗']));
   }
