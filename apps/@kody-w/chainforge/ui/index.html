@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ChainForge</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+    --text:#e6edf3; --dim:#8b949e; --mute:#6e7681; --accent:#58a6ff;
+    --green:#3fb950; --red:#f85149; --orange:#d29922;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow-x: hidden; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; min-height: 100vh; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 15px; font-weight: 700; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  header .ctx { margin-left: auto; font-size: 11px; color: var(--dim); }
+  header .ctx code { color: var(--accent); }
+  main { display: grid; grid-template-columns: 400px 1fr; gap: 16px; padding: 18px 20px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
+  .tab { background: var(--surface2); border: 1px solid var(--border); color: var(--dim); border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+  .tab small { display: block; font-weight: 400; font-size: 11px; color: var(--mute); margin-top: 2px; }
+  .tab.active { border-color: var(--accent); color: var(--text); }
+  .tab:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  label { display: block; font-size: 12px; color: var(--dim); margin: 12px 0 4px; }
+  input, textarea, select { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; font: inherit; font-size: 13px; }
+  textarea { min-height: 120px; resize: vertical; }
+  .hint { font-size: 11px; color: var(--mute); margin-top: 4px; }
+  .primary { width: 100%; margin-top: 16px; background: var(--accent); color: #0d1117; border: 0; border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .panel[hidden] { display: none; }
+  .empty { color: var(--mute); font-size: 13px; padding: 40px 0; text-align: center; }
+  .result h2 { font-size: 18px; margin-bottom: 4px; }
+  .result .lede { color: var(--dim); font-size: 13px; margin-bottom: 14px; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .fact { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+  .fact b { display: block; font-size: 18px; }
+  .fact span { font-size: 11px; color: var(--dim); }
+  .list { margin: 6px 0 14px 18px; font-size: 13px; }
+  .list li { margin: 3px 0; }
+  .next { border-left: 3px solid var(--green); padding: 8px 12px; background: var(--surface2); border-radius: 0 8px 8px 0; font-size: 13px; margin-bottom: 14px; }
+  .warn { border-left-color: var(--orange); }
+  .err { border-left-color: var(--red); }
+  .confirm { margin-top: 12px; padding: 12px; border: 1px solid var(--orange); border-radius: 8px; font-size: 13px; }
+  .confirm button { margin-top: 10px; margin-right: 8px; border-radius: 8px; padding: 8px 14px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); }
+  .confirm .go { background: var(--orange); color: #0d1117; border: 0; }
+  details { margin-top: 10px; font-size: 12px; color: var(--dim); }
+  details pre { margin-top: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 11px; color: var(--text); }
+  .working { color: var(--dim); font-size: 13px; padding: 40px 0; text-align: center; }
+  @media (prefers-reduced-motion: no-preference) { .working::after { content: "…"; animation: dots 1.2s steps(3) infinite; } }
+  @keyframes dots { 0% { content: "."; } 33% { content: ".."; } 66% { content: "…"; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>ChainForge</h1>
+  <span class="sub">Design the plan. Plant the seed. You approve every step.</span>
+  <span class="ctx" id="ctx"></span>
+</header>
+
+<main>
+  <section>
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tab-compose" role="tab" aria-selected="true" data-panel="compose">Design a plan<small>Turn an idea into steps</small></button>
+      <button class="tab" id="tab-plant" role="tab" aria-selected="false" data-panel="plant">Plant a seed<small>Start a new neighborhood or twin</small></button>
+    </div>
+
+    <div class="panel" id="panel-compose">
+      <label for="prompt">What do you want to build?</label>
+      <textarea id="prompt" placeholder="e.g. A weekly digest that collects our team's shipped work, drafts a summary, and posts it for review"></textarea>
+      <div class="hint">ChainForge writes a step-by-step plan. Steps that change anything are marked for your approval. Nothing runs yet.</div>
+      <button class="primary" id="run-compose">Design the plan</button>
+    </div>
+
+    <div class="panel" id="panel-plant" hidden>
+      <label for="kind">What are you planting?</label>
+      <select id="kind">
+        <option value="neighborhood">Neighborhood: a shared space for a group</option>
+        <option value="twin">Twin: a digital twin</option>
+        <option value="workspace">Workspace</option>
+        <option value="braintrust">Braintrust</option>
+        <option value="ant-farm">Ant farm</option>
+      </select>
+      <label for="display">Name</label>
+      <input id="display" placeholder="e.g. Launch Crew">
+      <label for="purpose">What is it for?</label>
+      <textarea id="purpose" placeholder="One or two sentences about its purpose"></textarea>
+      <div class="hint">You'll see exactly what would be created first. Nothing is created until you confirm.</div>
+      <button class="primary" id="run-plant">Preview</button>
+    </div>
+  </section>
+
+  <section id="out" aria-live="polite">
+    <div class="empty">Your plan or preview appears here.</div>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+// ─── Cartridge ─────────────────────────────────────────────────────────
+let cartridge = null;
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d && d.type === 'rapp:cartridge') { cartridge = d; showContext(); }
+});
+window.parent.postMessage({ type: 'rapp:get_cartridge' }, '*');
+
+function showContext() {
+  const u = cartridge && cartridge.context && cartridge.context.user;
+  const el = document.getElementById('ctx');
+  el.textContent = '';
+  if (u && u.login) { const c = document.createElement('code'); c.textContent = '@' + u.login; el.append(c); }
+}
+
+function invoke(args) {
+  return new Promise((resolve, reject) => {
+    const id = 'inv-' + Math.random().toString(36).slice(2);
+    const handler = (ev) => {
+      const d = ev.data;
+      if (!d || d.type !== 'rapp:invoke:result' || d.id !== id) return;
+      window.removeEventListener('message', handler);
+      d.error ? reject(new Error(d.error)) : resolve(d.result);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+
+// ─── Tabs ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach((x) => {
+    const on = x === t;
+    x.classList.toggle('active', on);
+    x.setAttribute('aria-selected', String(on));
+    document.getElementById('panel-' + x.dataset.panel).hidden = !on;
+  });
+}));
+
+// ─── Rendering helpers (text only; nothing from the result is parsed as HTML) ─
+const out = document.getElementById('out');
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  Object.assign(n, props || {});
+  kids.flat().forEach((k) => n.append(k instanceof Node ? k : document.createTextNode(String(k))));
+  return n;
+}
+function fact(value, label) { return el('div', { className: 'fact' }, el('b', {}, value), el('span', {}, label)); }
+function details(data) {
+  const d = el('details', {}, el('summary', {}, 'Details'), el('pre', {}, JSON.stringify(data, null, 2)));
+  return d;
+}
+function parse(result) {
+  try { return JSON.parse(String(result)); } catch { return { ok: false, error: String(result) }; }
+}
+function working(text) { out.replaceChildren(el('div', { className: 'working' }, text)); }
+function failed(msg, data) {
+  out.replaceChildren(el('div', { className: 'result' },
+    el('div', { className: 'next err' }, msg), data ? details(data) : ''));
+}
+function slugify(s) {
+  return s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+}
+
+// ─── Design a plan ─────────────────────────────────────────────────────
+document.getElementById('run-compose').addEventListener('click', async () => {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) { document.getElementById('prompt').focus(); return; }
+  const btn = document.getElementById('run-compose');
+  btn.disabled = true;
+  working('Designing your plan');
+  try {
+    const r = parse(await invoke({ intent: 'compose', user_prompt: prompt }));
+    if (!r.ok) return failed(r.error || 'The plan could not be designed.', r);
+    const plan = r._inline_plan || {};
+    const steps = Array.isArray(plan.steps) ? plan.steps : [];
+    out.replaceChildren(el('div', { className: 'result' },
+      el('h2', {}, r.plan_title || r.plan_name || 'Your plan'),
+      el('div', { className: 'lede' }, 'A step-by-step plan. Nothing has run yet.'),
+      el('div', { className: 'facts' },
+        fact(r.step_count ?? steps.length, 'steps'),
+        fact((r.approval_steps || []).length, 'need your approval'),
+        fact(r.rough_cost ? String(r.rough_cost) : 'n/a', 'rough cost')),
+      steps.length ? el('ol', { className: 'list' }, steps.map((s, i) =>
+        el('li', {}, (s.title || s.description || s.primitive || ('Step ' + (i + 1))) +
+          (s.operator_approval_required ? '  (your approval)' : '')))) : '',
+      r.operator_next_step ? el('div', { className: 'next' }, 'Next: ' + r.operator_next_step) : '',
+      details(r)));
+  } catch (e) {
+    failed('ChainForge could not be reached: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ─── Plant a seed (preview first, then an explicit confirm) ───────────
+function plantArgs(dryRun) {
+  const display = document.getElementById('display').value.trim();
+  return {
+    intent: 'plant', dry_run: dryRun,
+    kind: document.getElementById('kind').value,
+    display_name: display, name: slugify(display),
+    purpose: document.getElementById('purpose').value.trim(),
+  };
+}
+
+document.getElementById('run-plant').addEventListener('click', async () => {
+  const args = plantArgs(true);
+  if (!args.display_name) { document.getElementById('display').focus(); return; }
+  if (!args.purpose) { document.getElementById('purpose').focus(); return; }
+  const btn = document.getElementById('run-plant');
+  btn.disabled = true;
+  working('Preparing a preview');
+  try {
+    const r = parse(await invoke(args));
+    if (!r.ok) return failed(r.error || 'The preview could not be prepared.', r);
+    const files = r.files_to_create || [];
+    const confirmBox = el('div', { className: 'confirm' },
+      'Create ', el('b', {}, r.target_repo || args.name), ' with these ', String(r.file_count ?? files.length),
+      ' files? This creates a public repository.',
+      el('br'),
+      el('button', { className: 'go', onclick: () => plantForReal(args) }, 'Create it'),
+      el('button', { onclick: () => confirmBox.remove() }, 'Not now'));
+    out.replaceChildren(el('div', { className: 'result' },
+      el('h2', {}, r.display_name || args.display_name),
+      el('div', { className: 'lede' }, 'Preview. Nothing has been created yet.'),
+      el('div', { className: 'facts' },
+        fact(r.kind || args.kind, 'kind'),
+        fact(r.file_count ?? files.length, 'files'),
+        fact(r.incantation || 'n/a', 'seed words')),
+      el('ul', { className: 'list' }, files.slice(0, 12).map((f) => el('li', {}, f)),
+        files.length > 12 ? el('li', {}, 'and ' + (files.length - 12) + ' more') : ''),
+      confirmBox,
+      details(r)));
+  } catch (e) {
+    failed('ChainForge could not be reached: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function plantForReal(previewArgs) {
+  working('Creating it');
+  try {
+    const r = parse(await invoke({ ...previewArgs, dry_run: false }));
+    if (!r.ok) return failed(r.error || 'It could not be created.', r);
+    out.replaceChildren(el('div', { className: 'result' },
+      el('h2', {}, 'Created'),
+      el('div', { className: 'next' }, r.target_repo ? 'Live at ' + r.target_repo : 'Done.'),
+      details(r)));
+  } catch (e) {
+    failed('ChainForge could not be reached: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
