@@ -67,8 +67,9 @@ Complete applications submit through commit-pinned public federation.
 Source-ZIP promotion is refused until its preserving layout is qualified;
 verified installation cartridges are a different artifact, not a fallback.
 
-> Legacy local producer outputs may include a singleton `.py` and portable
-> `.egg` cartridge ([brainstem-egg/2.2-rapplication schema](https://github.com/kody-w/RAPP/blob/main/rapp_brainstem/utils/bond.py)).
+> Local producer outputs may include a singleton `.py` and portable
+> `.egg` cartridge ([RAPP/1 rev-15 §9](https://github.com/kody-w/rapp-1/blob/eb50008011447f5e69372ac22a1755f0978d15ed/SPEC.md#9-the-egg-l5--the-single-egg-spec-of-record)).
+> Previously published legacy cartridges remain immutable.
 > Federation does not imply that an egg, hatcher, lineage or protocol
 > identity exists. Only explicitly published artifacts are offered.
 
@@ -166,9 +167,9 @@ agent/UI integration fields. Native projection does not manufacture a
 `rappid`, parent, sprite, egg or hatcher. Consumers must tolerate absent
 legacy artifact fields.
 
-The [`rapp-zoo`](https://github.com/kody-w/rapp-zoo) consumes this API in its **Discover** tab — sprites + cards + one-click egg downloads. Drag the egg back onto any brainstem to hatch the rapp.
+The [`rapp-zoo`](https://github.com/kody-w/rapp-zoo) consumes this API in its **Discover** tab — sprites + cards + one-click egg downloads. Hatching requires a brainstem that supports the downloaded cartridge's format.
 
-The legacy full producer (`python3 scripts/build_pokedex_api.py`) walks
+The full local producer (`python3 scripts/build_pokedex_api.py`) walks
 `apps/@*/` and rebuilds local JSON/sprite/egg outputs, then projects approved
 native federation metadata. **Do not run it to invent missing federation
 artifacts.** Native promotion instead runs a deterministic, scoped refresh:
@@ -180,6 +181,24 @@ python3 scripts/build_pokedex_api.py --native-only --ids <approved-native-id>
 The scoped command reads the already-approved canonical catalog, writes
 only that ID's v1 detail/list row, preserves unrelated generated files,
 performs no network fetch, and never changes `index.json` at the root.
+
+New local eggs use `schema: rapp/1-egg`, `variant: rapplication`: canonical
+`manifest.json` first, UTF-8-sorted content with domain-separated hashes,
+STORED entries and fixed 1980 ZIP timestamps. The selected singleton is
+`agent.py` at the root. Existing identity bytes and nested `organs/` and
+`rapp_ui/` files are retained, following the pinned
+[reference converter](https://github.com/kody-w/rapp-1/blob/eb50008011447f5e69372ac22a1755f0978d15ed/egg_repack.py);
+Store metadata (including original filenames) lives in `payload`.
+Missing local singleton code is an explicit egg-build refusal, not an empty
+cartridge or a reason to fetch private source.
+
+The container change intentionally changes newly built egg bytes, sizes and
+hashes. It does **not** remint identities, resolve the separate content-derived
+rappid issue, regenerate historical eggs/hatchers, or change application/native
+distribution contracts. Existing published artifacts and catalog pins stay
+untouched; a future publication must coordinate new artifact pins with consumers
+that understand RAPP/1 eggs. Structural reference verification is not authenticated
+acceptance or evidence that legacy hatchers support the new container.
 
 ## Legacy catalog
 

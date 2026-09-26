@@ -50,7 +50,8 @@ def test_two_builds_are_byte_identical(tmp_path):
     work = tmp_path / "store"
     (work / "scripts").mkdir(parents=True)
     shutil.copytree(_REPO / "apps", work / "apps", symlinks=False, ignore=_legacy_apps_only)
-    shutil.copy(_REPO / "scripts" / "build_pokedex_api.py", work / "scripts")
+    for name in ("build_pokedex_api.py", "rapp_egg.py"):
+        shutil.copy(_REPO / "scripts" / name, work / "scripts")
 
     digests = []
     for _ in range(2):
@@ -175,7 +176,7 @@ def test_full_producer_in_isolated_fixture_also_includes_federated_native_metada
         tmp_path, native_release, make_rapp_dir):
     work = tmp_path / "full-producer-fixture"
     (work / "scripts").mkdir(parents=True)
-    for name in ("build_pokedex_api.py", "lib_desktop.py"):
+    for name in ("build_pokedex_api.py", "rapp_egg.py", "lib_desktop.py"):
         shutil.copy(_REPO / "scripts" / name, work / "scripts")
     shutil.copytree(make_rapp_dir(rapp_id="legacy"), work / "apps" / "@alice" / "legacy")
     (work / "index.json").write_text(json.dumps({"rapplications": [native_release.entry()]}))
