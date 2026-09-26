@@ -12,7 +12,7 @@ URL shape (relative to repo root, all under api/v1/):
     api/v1/index.json                       — paginated list + counts
     api/v1/rapplication/                    — directory listing (auto by GitHub)
     api/v1/rapplication/<id>.json           — single rapplication entry
-    api/v1/rapplication/<id>.egg            — pre-built rapplication .egg cartridge
+    api/v1/egg/<id>.egg                    — pre-built rapplication .egg cartridge
     api/v1/sprite/<id>.svg                  — deterministic generative sprite
 
 Each <id>.json carries everything a Pokédex card needs: name, types,
@@ -44,7 +44,6 @@ import sys
 import subprocess
 import datetime
 import time
-import zipfile
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
@@ -74,7 +73,7 @@ def _app_iso(app_dir) -> str:
     Wall-clock stamps inside egg bytes made every producer run rewrite every
     egg — and every egg sha256 pin with it. An egg's bytes must be a pure
     function of its app directory, so identical inputs build identical eggs.
-    Falls back to _now_iso() only outside a git checkout."""
+    Uses a fixed sentinel when no git commit date is available."""
     try:
         out = subprocess.run(
             ["git", "log", "-1", "--format=%cI", "--", str(app_dir)],
@@ -126,14 +125,15 @@ def _sprite_svg(rappid_or_id: str, category: str = "default") -> str:
 
 
 # ── Egg builder ────────────────────────────────────────────────────────────
-# Pack a rapplication's singleton + UI + (optional) state into a portable
-# .egg under the brainstem-egg/2.2-rapplication schema. Standalone — does
-# not depend on bond.py being installed; we inline the small subset of the
-# format we need (single-rapp, no soul, no per-rapp organ for v1).
+# Pack locally available rapplications using the accepted RAPP/1 section 9
+# container. Nested UI/organ paths follow the reference egg_repack mapping;
+# only the singleton moves to the required root agent.py.
 
 def _build_egg(app_dir: Path, manifest: dict) -> bytes:
-    """Build a brainstem-egg/2.2-rapplication blob from an app dir."""
+    """Build an unsigned rapp/1-egg rapplication from an app dir."""
     _refuse_partial_application(manifest)
+    from rapp_egg import pack_rapplication
+
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
     name = manifest.get("name", rapp_id)
@@ -149,87 +149,55 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
     rappid_hash = hashlib.sha256(b"rapp/1:rappid\n" + hashlib.sha256(_content).digest()).hexdigest()
     rappid = f"rappid:@{_owner}/{_slug}:{rappid_hash}"
 
-    counts = {"agent": 0, "ui": 0, "data": 0, "soul": 0, "organ": 0}
-    import io
-    buf = io.BytesIO()
+    if not _srcs:
+        raise ValueError(f"E_EGG_AGENT: {rapp_id} has no local singleton for root agent.py")
+    stamp = _app_iso(app_dir)
+    counts = {"agent": 1, "ui": 0, "data": 0, "soul": 0, "organ": 0}
+    identity = {
+        "schema": "rapp/1",
+        "rappid": rappid,
+        "parent_rappid": "rappid:@kody-w/rapp:9a8f0a4b5a710e20f4d819a0f37d2a4c9f113b5e78fb3c29e70b54fff48a38f9",
+        "kind": "rapplication",
+        "name": name,
+        "version": version,
+        "publisher": publisher,
+        "rapp_id": rapp_id,
+        "born_at": stamp,
+    }
+    files = {
+        "rappid.json": json.dumps(identity, indent=2).encode("utf-8"),
+        "agent.py": _srcs[0].read_bytes(),
+    }
+    organ_dir = app_dir / "organs"
+    organ_filename = None
+    if organ_dir.is_dir():
+        for f in sorted(organ_dir.iterdir()):
+            if f.suffix == ".py" and f.name != "__init__.py":
+                files[f"organs/{f.name}"] = f.read_bytes()
+                organ_filename = f.name
+                counts["organ"] += 1
+                break
 
-    # zipfile stamps each member with the wall clock by default, which makes
-    # every build produce different egg bytes (and break every sha256 pin).
-    # Stamp members with the app's own deterministic date instead.
-    egg_dt = time.strptime(_app_iso(app_dir), "%Y-%m-%dT%H:%M:%SZ")[:6]
+    ui_dir = app_dir / "ui"
+    if ui_dir.is_dir():
+        for f in ui_dir.rglob("*"):
+            if f.is_file():
+                rel = f.relative_to(ui_dir).as_posix()
+                files[f"rapp_ui/{rapp_id}/{rel}"] = f.read_bytes()
+                counts["ui"] += 1
 
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        def _writestr(arcname, data):
-            info = zipfile.ZipInfo(arcname, date_time=egg_dt)
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            z.writestr(info, data)
-        # rappid.json
-        identity = {
-            "schema": "rapp/1",
-            "rappid": rappid,
-            "parent_rappid": "rappid:@kody-w/rapp:9a8f0a4b5a710e20f4d819a0f37d2a4c9f113b5e78fb3c29e70b54fff48a38f9",
-            "kind": "rapplication",
-            "name": name,
-            "version": version,
-            "publisher": publisher,
-            "rapp_id": rapp_id,
-            "born_at": _app_iso(app_dir),
-        }
-        _writestr("rappid.json", json.dumps(identity, indent=2))
-
-        # The singleton agent (one per rapp — the chat face)
-        singleton_dir = app_dir / "singleton"
-        agent_filename = None
-        if singleton_dir.is_dir():
-            for f in sorted(singleton_dir.iterdir()):
-                if f.suffix == ".py":
-                    _writestr(f"agents/{f.name}", f.read_bytes())
-                    agent_filename = f.name
-                    counts["agent"] += 1
-                    break  # one singleton per rapp
-
-        # The organ (one per rapp — the HTTP backplane that serves the UI).
-        # Lifted into the egg under organs/<file>; the brainstem unpacker
-        # places it at utils/organs/<file>, which the kernel autodiscovers.
-        organ_dir = app_dir / "organs"
-        organ_filename = None
-        if organ_dir.is_dir():
-            for f in sorted(organ_dir.iterdir()):
-                if f.suffix == ".py" and f.name != "__init__.py":
-                    _writestr(f"organs/{f.name}", f.read_bytes())
-                    organ_filename = f.name
-                    counts["organ"] += 1
-                    break  # one organ per rapp (matches the agent-first contract)
-
-        # UI bundle (skin)
-        ui_dir = app_dir / "ui"
-        if ui_dir.is_dir():
-            for f in ui_dir.rglob("*"):
-                if f.is_file():
-                    rel = f.relative_to(ui_dir).as_posix()
-                    _writestr(f"rapp_ui/{rapp_id}/{rel}", f.read_bytes())
-                    counts["ui"] += 1
-
-        # Manifest
-        api_manifest = {
-            "schema": "brainstem-egg/2.2-rapplication",
-            "type": "rapplication",
-            "exported_at": _app_iso(app_dir),
-            "rappid": rappid,
-            "rapp_id": rapp_id,
-            "name": name,
-            "version": version,
-            "publisher": publisher,
-            "host": "rapp_store-static-api",
-            "agent_filename": agent_filename,
-            "organ_filename": organ_filename,
-            "has_skin": counts["ui"] > 0,
-            "counts": counts,
-        }
-        _writestr("manifest.json", json.dumps(api_manifest, indent=2))
-
-    return buf.getvalue()
+    payload = {
+        "rapp_id": rapp_id,
+        "name": name,
+        "version": version,
+        "publisher": publisher,
+        "host": "rapp_store-static-api",
+        "agent_filename": _srcs[0].name,
+        "organ_filename": organ_filename,
+        "has_skin": counts["ui"] > 0,
+        "counts": counts,
+    }
+    return pack_rapplication(rappid, stamp[:-1] + ".000Z", files, payload)
 
 
 # ── Per-rapp Pokédex entry ─────────────────────────────────────────────────
@@ -597,12 +565,8 @@ def main(argv=None):
             sprite = _sprite_svg(entry["rappid"], entry.get("category") or "default")
             (_API / "sprite" / f"{rapp_id}.svg").write_text(sprite)
 
-            # Build & write egg — every entry packs as a 2.2-rapplication
-            # egg. Per Article XXXVII, every catalog entry IS a rapplication;
-            # there's no separate tool/rapp distinction. Some rapps run as
-            # their own process today (e.g. rapp-zoo's full local mode);
-            # the install_one_liner field tells consumers how to launch
-            # those, but the egg itself is the same shape as everything else.
+            # Runtime/install hints stay in the catalog; locally available
+            # singletons all use the canonical rapplication egg variant.
             try:
                 egg_blob = _build_egg(app_dir, manifest)
                 (_API / "egg" / f"{rapp_id}.egg").write_bytes(egg_blob)
