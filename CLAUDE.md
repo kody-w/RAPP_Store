@@ -73,7 +73,14 @@ Path is relative to the service prefix. Storage paths resolve from `os.path.dirn
 
 ## Eggs (`.egg`)
 
-A `.egg` is a zip cartridge with `manifest.json` (`schema: "rapp-egg/1.0"`, `type: "rapplication"`) plus optional `agent.py`, `service.py`, `ui/...`, `state/...`. The binder service exports/imports them; treat them as immutable — never overwrite an existing file. Path-traversal guards in `binder_service.py` reject `..` segments on import; preserve those when editing.
+New local catalog eggs from `scripts/build_pokedex_api.py` use the accepted
+RAPP/1 rev-15 §9 `rapp/1-egg` rapplication variant, via `scripts/rapp_egg.py`:
+canonical manifest first, STORED entries with fixed metadata, and root
+`agent.py`. Identity minting is unchanged; do not claim this fixes the separate
+content-derived rappid issue. Preserve historical binder/brainstem cartridges
+and complete-application installers as distinct artifacts; never overwrite an
+existing `.egg` or regenerate published catalog pins as part of a producer fix.
+Path-traversal guards in legacy binder importers must also be preserved.
 
 ## Submitting a rapplication
 
