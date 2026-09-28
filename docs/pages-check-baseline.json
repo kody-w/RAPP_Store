@@ -1,0 +1,15 @@
+{
+  "format": "rapp-store-pages-debt/2",
+  "note": "Reviewed existing lint debt only. Keys are page:rule:selector (element ID, or tag plus identity attributes such as href, name or onclick), never source lines. Counts are exact: an extra matching finding fails as new debt; a missing one is reported as improved. Broken links, HTML structure errors and budgets can never be listed.",
+  "debt": {
+    "index.html:blocking-startup:loadAll": 1,
+    "index.html:control-label:input#search": 1,
+    "index.html:pointer-only:div#modal": 1,
+    "index.html:raw-markdown-link:a[href='./SPEC.md']": 2,
+    "index.html:raw-markdown-link:a[href='./specs/RAPP_ZOO_STORE_V2.md']": 1,
+    "submit.html:control-label:input#federation-url": 1,
+    "submit.html:control-label:input#file-input-bundle": 1,
+    "submit.html:control-label:input#pat-input": 1,
+    "submit.html:pointer-only:div#drop-zone-bundle": 1
+  }
+}
