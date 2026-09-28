@@ -74,9 +74,9 @@ Path is relative to the service prefix. Storage paths resolve from `os.path.dirn
 ## Eggs (`.egg`)
 
 New local catalog eggs from `scripts/build_pokedex_api.py` use the accepted
-RAPP/1 rev-15 §9 `rapp/1-egg` rapplication variant, via `scripts/rapp_egg.py`:
-canonical manifest first, STORED entries with fixed metadata, and root
-`agent.py`. Identity minting is unchanged; do not claim this fixes the separate
+RAPP/1 rev-17 §9 `rapp/1-egg` rapplication variant, via `scripts/rapp_egg.py`:
+canonical manifest first, STORED entries with every §9.1 header field pinned,
+root `agent.py`, and a `rappid.json` that names the packed rappid. Identity minting is unchanged; do not claim this fixes the separate
 content-derived rappid issue. Preserve historical binder/brainstem cartridges
 and complete-application installers as distinct artifacts; never overwrite an
 existing `.egg` or regenerate published catalog pins as part of a producer fix.
