@@ -1,8 +1,8 @@
-"""The active Store producer must emit the accepted rev-15 egg container.
+"""The active Store producer must emit the accepted rev-17 egg container.
 
-The checked-in Dock reference below is byte-identical to rapp.py at
-https://github.com/kody-w/rapp-1/blob/eb50008011447f5e69372ac22a1755f0978d15ed/rapp.py.
-Load it without importing or executing any application payload.
+The checked-in test reference below is byte-identical to rapp.py at
+https://github.com/kody-w/rapp-1/blob/f6bafe76735ba73510518810c8bc8cd133dcf527/rapp.py
+(RAPP/1 rev-17). Load it without importing or executing any application payload.
 """
 
 import binascii
@@ -21,12 +21,8 @@ import build_pokedex_api as producer
 
 
 ROOT = Path(__file__).resolve().parent.parent
-REFERENCE = ROOT / (
-    "apps/@kody-w/dock_scotty/singleton/"
-    "scotty_support_3d47c4537516d094aef2bde15ee014ea0721c4cbef0321254cf3b2a6ebc2d6e3/"
-    "deploy/local/rapp1/rapp.py"
-)
-REFERENCE_SHA256 = "1a04362b02f14c1e37b70c6b4f72d79e92df1cc9c2b5b394e8e1b141fc0b6050"
+REFERENCE = ROOT / "tests/fixtures/rapp1/rapp.py"
+REFERENCE_SHA256 = "76154a2b2e0a71cceda92c2c1b50a1cd8f7878b1892d0d093d523c4e5256eb87"
 STAMP = "2026-09-25T12:34:56Z"
 
 
@@ -146,9 +142,9 @@ def test_local_and_central_headers_are_manifest_first_stored_and_deterministic(a
 
             central = struct.unpack_from("<4s6H3L5H2L", blob, central_cursor)
             assert central == (
-                b"PK\x01\x02", (3 << 8) | 20, 20, 0x800, 0, 0, 33,
+                b"PK\x01\x02", 20, 20, 0x800, 0, 0, 33,
                 crc, len(data), len(data), len(name), 0, 0, 0, 0,
-                0o600 << 16, info.header_offset,
+                0, info.header_offset,
             )
             central_cursor += 46
             assert blob[central_cursor:central_cursor + len(name)] == name
@@ -232,7 +228,16 @@ def test_canonical_port_matches_reference_utf16_order_and_exact_values(value, re
     assert rapp_egg._canonical(value) == reference.canonical(value)
 
 
-@pytest.mark.parametrize("value", [0.5, 2**53, -(2**53)])
+@pytest.mark.parametrize("value", [0.5, 2**53, -(2**53), 1e21, 1e-7, -0.0, 123.456])
+def test_canonical_port_matches_reference_binary64_numbers(value, reference):
+    import rapp_egg
+
+    assert rapp_egg._canonical(value) == reference.canonical(value)
+
+
+@pytest.mark.parametrize("value", [
+    2**53 + 1, float("nan"), float("inf"), "\ud800", "\ufffe", {"\U0010ffff": 1},
+])
 def test_canonical_port_refuses_values_outside_the_reference_domain(value, reference):
     import rapp_egg
 
@@ -292,3 +297,42 @@ def test_cli_writes_verified_eggs_without_changing_catalog_semantics(
     assert refused["egg_url"] is None and refused["egg_bytes"] == 0
     assert not (work / "api/v1/egg/metadata_only.egg").exists()
     assert "E_EGG_AGENT" in capsys.readouterr().err
+
+
+def _identity(rappid):
+    return json.dumps({"schema": "rapp/1", "rappid": rappid}).encode()
+
+
+RAPPID = "rappid:@alice/my-thing:" + "ab" * 32
+
+
+def test_rapplication_identity_must_bind_the_packed_rappid(reference):
+    import rapp_egg
+
+    other = "rappid:@alice/other:" + "cd" * 32
+    files = {"agent.py": b"# agent\n", "rappid.json": _identity(other)}
+    with pytest.raises(ValueError, match="E_EGG_IDENTITY"):
+        rapp_egg.pack_rapplication(RAPPID, "2026-09-25T12:34:56.000Z", files, {})
+    with pytest.raises(ValueError):
+        reference.pack_egg("rapplication", RAPPID, "2026-09-25T12:34:56.000Z", files=files, payload={})
+
+
+def test_non_nfc_payload_member_names_are_refused(reference):
+    import rapp_egg
+
+    files = {"agent.py": b"# agent\n", "rappid.json": _identity(RAPPID)}
+    with pytest.raises(ValueError, match="E_EGG_JSON"):
+        rapp_egg.pack_rapplication(RAPPID, "2026-09-25T12:34:56.000Z", files, {"e\u0301": 1})
+
+
+def test_code_point_distinct_paths_pack_like_the_reference(reference):
+    # rev-17 E-14: paths differing only in case are distinct; the catalog producer's
+    # extractability guard (tested above) is separate from the packer.
+    import rapp_egg
+
+    files = {"agent.py": b"# agent\n", "rappid.json": _identity(RAPPID),
+             "README.md": b"a", "Readme.md": b"b", "docs": b"c", "docs/a.md": b"d"}
+    blob = rapp_egg.pack_rapplication(RAPPID, "0000-01-01T00:00:00.000Z", files, {"n": 0.5})
+    assert blob == reference.pack_egg("rapplication", RAPPID, "0000-01-01T00:00:00.000Z",
+                                      files=files, payload={"n": 0.5})
+    assert reference.verify_egg(blob) == (True, None, "ok")

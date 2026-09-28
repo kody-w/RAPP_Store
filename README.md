@@ -68,7 +68,7 @@ Source-ZIP promotion is refused until its preserving layout is qualified;
 verified installation cartridges are a different artifact, not a fallback.
 
 > Local producer outputs may include a singleton `.py` and portable
-> `.egg` cartridge ([RAPP/1 rev-15 §9](https://github.com/kody-w/rapp-1/blob/eb50008011447f5e69372ac22a1755f0978d15ed/SPEC.md#9-the-egg-l5--the-single-egg-spec-of-record)).
+> `.egg` cartridge ([RAPP/1 rev-17 §9](https://github.com/kody-w/rapp-1/blob/f6bafe76735ba73510518810c8bc8cd133dcf527/SPEC.md#9-the-egg-l5--the-single-egg-spec-of-record)).
 > Previously published legacy cartridges remain immutable.
 > Federation does not imply that an egg, hatcher, lineage or protocol
 > identity exists. Only explicitly published artifacts are offered.
