@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="../">
+  <title>Wildhaven Tools | RAPP Store</title>
+  <meta name="description" content="Explore RAPP tools from Wildhaven Homes LLC for measuring, organizing, and finishing AI work. Clear product status, local-first design, and no hidden promises.">
+  <meta name="theme-color" content="#101716">
+  <link rel="canonical" href="https://kody-w.github.io/RAPP_Store/wildhaven/">
+  <link rel="stylesheet" href="wildhaven/storefront.css">
+  <script src="store-contract.js" defer></script>
+  <script src="wildhaven/storefront.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="wildhaven/#tools">Skip to tools</a>
+  <header class="site-header">
+    <a class="brand" href="wildhaven/" aria-label="Wildhaven tools home">
+      <span class="brand-mark" aria-hidden="true">R</span>
+      <span><strong>RAPP</strong><small>by Wildhaven Homes LLC</small></span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="wildhaven/#tools">Tools</a>
+      <a href="wildhaven/#approach">Our approach</a>
+      <a href="./">RAPP Store <span aria-hidden="true">&nearr;</span></a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span> LOCAL-FIRST AI TOOLS</p>
+        <h1 id="hero-title">Good work deserves<br><em>a finish line.</em></h1>
+        <p class="hero-description">Tools for the work after the prompt. Measure your AI,
+          find what matters, and turn experiments into something useful.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="wildhaven/#tools">Explore the tools <span aria-hidden="true">&darr;</span></a>
+          <a class="button secondary" href="./#rapp=wildhaven_ceo">Try a published workspace app</a>
+        </div>
+        <p class="quiet">Built by RAPP. Offered by Wildhaven Homes LLC.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="art-card art-back"><span>01 / MEASURE</span><strong>Know what works.</strong></div>
+        <div class="art-card art-middle"><span>02 / DISCOVER</span><strong>Find the overlooked.</strong></div>
+        <div class="art-card art-front"><span>03 / FINISH</span><strong>Make it useful.</strong><div class="art-line"></div></div>
+        <span class="art-caption">Our design principles, not a live activity feed.</span>
+      </div>
+    </section>
+
+    <section class="notice" aria-label="Store availability">
+      <span class="notice-icon" aria-hidden="true">i</span>
+      <div><strong id="store-state">Developer preview</strong>
+        <p id="store-notice">Product status and purchase availability are loading.</p></div>
+    </section>
+    <div id="store-error" class="error" role="alert" hidden></div>
+
+    <section id="tools" class="tools-section" aria-labelledby="tools-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">THE TOOLBOX</p><h2 id="tools-title">A clearer view of what's next.</h2></div>
+        <p>Real work behind every idea.<br>Release status before sales promises.</p>
+      </div>
+      <form class="filters" role="search" onsubmit="return false">
+        <label class="search-field" for="product-search"><span aria-hidden="true">&#8981;</span>
+          <input id="product-search" type="search" placeholder="Find a tool, problem, or workflow" autocomplete="off">
+        </label>
+        <label class="category-field" for="product-category">Category
+          <select id="product-category">
+            <option value="all">All tools</option>
+            <option value="efficiency">Efficiency</option>
+            <option value="productivity">Productivity</option>
+            <option value="infrastructure">Infrastructure</option>
+            <option value="trust">Trust &amp; quality</option>
+          </select>
+        </label>
+      </form>
+      <p id="result-count" class="result-count" aria-live="polite">Loading tools...</p>
+      <div id="product-grid" class="product-grid" aria-busy="true"></div>
+      <p id="empty-state" class="empty-state" hidden>No tools match that search. Try another term or category.</p>
+      <noscript><p>This showroom needs JavaScript for product details and purchase checks.
+        You can read the <a href="wildhaven/products.json">product data</a> or browse the <a href="./">RAPP Store</a>.</p></noscript>
+    </section>
+
+    <section id="approach" class="approach" aria-labelledby="approach-title">
+      <div><p class="eyebrow">LESS THEATER. MORE USEFUL WORK.</p>
+        <h2 id="approach-title">The tool should earn<br>its place on your machine.</h2></div>
+      <div class="principles">
+        <article><span>01</span><h3>Your work stays yours.</h3><p>Local-first workflows. This storefront never asks for your AI keys, session history, or private files.</p></article>
+        <article><span>02</span><h3>Small enough to trust.</h3><p>Prefer simple tools, clear inputs, and visible results over another platform to maintain.</p></article>
+        <article><span>03</span><h3>Proof before promises.</h3><p>Prototypes are labeled. An idea is not a release, a score is not a certificate, and a preview is not a purchase.</p></article>
+      </div>
+    </section>
+
+    <section class="buying" aria-labelledby="buying-title">
+      <p class="eyebrow">BUYING, WITHOUT THE GUESSWORK</p>
+      <h2 id="buying-title">Know exactly what you're getting.</h2>
+      <p>When sales open, each offer will show its release, price, customer license, prerequisites,
+        and delivery method before checkout. Payment and digital delivery take place with the configured
+        merchant provider, not on an agent's machine.</p>
+      <p>For now, explore the previews or ask about a tool. Inquiries open on GitHub and are public:
+        don't include payment details, credentials, or confidential information.</p>
+      <a class="text-link" id="general-inquiry" href="https://github.com/kody-w/RAPP_Store/issues/new?title=Wildhaven%20tools%20inquiry">Ask about Wildhaven tools <span aria-hidden="true">&nearr;</span></a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">R</span>
+      <span><strong>RAPP tools</strong><small>Wildhaven Homes LLC</small></span></div>
+    <p>Tools that make the work count.</p>
+    <div><a href="./">RAPP Store</a><a href="wildhaven/products.json">Product data</a><a href="docs/wildhaven-storefront.md">Store information</a></div>
+  </footer>
+
+  <dialog id="product-details" aria-labelledby="details-title">
+    <form method="dialog"><button class="close-dialog" aria-label="Close product details">Close <span aria-hidden="true">&times;</span></button></form>
+    <div id="details-content"></div>
+  </dialog>
+</body>
+</html>
