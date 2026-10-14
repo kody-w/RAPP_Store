@@ -8,6 +8,17 @@ Native macOS release downloads remain an independent optional distribution.
 Existing integrations load into a brainstem; native applications install separately. Browse the
 [store](https://kody-w.github.io/RAPP_Store/) or [Pokédex API](#pokédex-api).
 
+## Wildhaven Homes LLC storefront
+
+[Browse Wildhaven tools](https://kody-w.github.io/RAPP_Store/wildhaven/).
+The static seller showroom describes ten product candidates with explicit
+prototype, concept, or archive status. It does not admit them to `index.json`,
+invent release artifacts, or promote their quality tiers.
+
+Paid checkout is off until approved, deliverable releases and real merchant
+links are configured. See [storefront operations](docs/wildhaven-storefront.md).
+No payment credentials, customer accounts, or agent runtime live in this repo.
+
 ## RAPP Dock / Scotty
 
 [**RAPP Dock / Scotty**](./apps/@kody-w/dock_scotty/README.md) is the real,
