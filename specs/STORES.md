@@ -67,8 +67,11 @@ spec and MUST land here first.
 - A **sense** is a single `*_sense.py` exporting `name / delimiter / response_key / wrapper_tag /
   system_prompt` (+ optional `surfaces`) and **no** `BasicAgent` / `perform()`. A per-channel output
   overlay — a system-prompt fragment plus a parse contract. Smallest *installable* unit.
-- A **rapplication** is a directory bundle (`manifest.json` + a singleton agent + optional UI / state
-  `.egg` / twin port / service) — a self-describing app, the largest unit.
+- A **rapplication** is **an agent with a UI**: a directory bundle (`manifest.json` + a singleton agent
+  or service + a **required** UI, plus optional state `.egg` / twin port) — a self-describing app, the
+  largest unit. The UI is what makes it a rapplication: an agent without a UI is an **agent** and lives
+  in RAR, however it is packaged. This matches `schemas/application.schema.json`, whose simple form
+  requires `ui` and an `agent` or `service`.
 
 The presence/absence of `BasicAgent`+`perform()` versus the sense five-tuple versus a
 `manifest.json: rapp-application/1.0` is a **total, mutually-exclusive** classifier. See §4.
