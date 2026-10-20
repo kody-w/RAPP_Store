@@ -132,7 +132,7 @@ def _sprite_svg(rappid_or_id: str, category: str = "default") -> str:
 def _build_egg(app_dir: Path, manifest: dict) -> bytes:
     """Build an unsigned rapp/1-egg rapplication from an app dir."""
     _refuse_partial_application(manifest)
-    from rapp_egg import pack_rapplication
+    from rapp_egg import check_extractable, pack_rapplication
 
     rapp_id = manifest["id"]
     publisher = manifest.get("publisher", "@anon")
@@ -197,6 +197,9 @@ def _build_egg(app_dir: Path, manifest: dict) -> bytes:
         "has_skin": counts["ui"] > 0,
         "counts": counts,
     }
+    # RAPP/1 paths are equal only as code points (rev-17 E-14); catalog eggs are hatched onto
+    # host filesystems, so the Store still refuses to pack paths that cannot coexist there.
+    check_extractable(["manifest.json", *files])
     return pack_rapplication(rappid, stamp[:-1] + ".000Z", files, payload)
 
 
