@@ -4,9 +4,7 @@ on:
   issues:
     types: [opened, edited, reopened]
 
-permissions:
-  contents: write
-  issues: write
+permissions: {}
 
 concurrency:
   group: rapp-store-state
@@ -15,81 +13,69 @@ concurrency:
 jobs:
   process:
     if: startsWith(github.event.issue.title, '[RAPP]')
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
+
+      - name: Invalidate outdated issue candidates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 .github/workflows/rapplication_pr.py invalidate --event-path "$GITHUB_EVENT_PATH"
 
       - name: Validate submission
         id: validate
         run: |
           set -euo pipefail
           mkdir -p .ci-work
-          python3 scripts/process_rapplication.py \
-            --event-path "$GITHUB_EVENT_PATH" \
-            --staging-dir staging/ \
-            --catalog index.json \
-            > .ci-work/process-report.md
+          python3 .github/workflows/rapplication_pr.py stage \
+            --event-path "$GITHUB_EVENT_PATH" > .ci-work/process-report.md
 
-      - name: Commit staging changes
+      - name: Open checked staging PR
         id: persist
         if: steps.validate.outcome == 'success'
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git config user.name "rapp-store-bot"
-          git config user.email "rapp-store-bot@users.noreply.github.com"
-          # staging/ is in .gitignore so a local clone doesn't accumulate
-          # half-finished submissions. The receiver bot intentionally forces
-          # the add — the approve workflow (separate run) needs the staged
-          # state committed to read it.
-          git add -fA staging/
-          if git diff --staged --quiet; then
-            echo "Validated pending state is already present in current main."
-            exit 0
-          fi
-          git commit -m "stage: rapplication for issue #${ISSUE_NUMBER} [skip ci]"
-          for i in 1 2 3; do
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            echo "push attempt $i failed; retrying the same commit without rebasing state"
-            sleep 3
-          done
-          echo "::error::Pending state publication was not confirmed. Resubmit from current main."
-          exit 1
+          python3 .github/workflows/rapplication_pr.py open-stage --event-path "$GITHUB_EVENT_PATH"
 
       - name: Report outcome
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           VALIDATION_OUTCOME: ${{ steps.validate.outcome }}
-          PUBLICATION_OUTCOME: ${{ steps.persist.outcome }}
+          PR_OUTCOME: ${{ steps.persist.outcome }}
+          PR_URL: ${{ steps.persist.outputs.pr_url }}
         with:
           script: |
             const fs = require('fs');
-            const validated = process.env.VALIDATION_OUTCOME === 'success';
-            const published = validated && process.env.PUBLICATION_OUTCOME === 'success';
+            const ready = process.env.VALIDATION_OUTCOME === 'success' &&
+                          process.env.PR_OUTCOME === 'success' && process.env.PR_URL;
             const path = '.ci-work/process-report.md';
             const report = fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : '';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = published
-              ? report || '## ✅ Submission validated and pending state published'
-              : validated
-                ? `## ❌ Submission not published\n\nValidation passed, but publication of pending state was not confirmed. Do not approve this attempt. Inspect current main, then resubmit through this issue.\n\nWorkflow: ${runUrl}`
-                : report || `## ❌ Submission validation failed\n\nNo success or pending-state publication is claimed.\n\nWorkflow: ${runUrl}`;
-            await github.rest.issues.createComment({
-              ...context.repo, issue_number: context.issue.number, body
-            });
+            const failure = process.env.VALIDATION_OUTCOME === 'failure' && report
+              ? report : 'Validation, candidate publication or exact-ref validation dispatch failed.';
+            const body = ready
+              ? `## Submission staged for review — not published\n\n${report}\n\nReview ${process.env.PR_URL}. Merge the checked staging PR first; then add \`approved\` to prepare a separate catalog-promotion PR. The issue remains open.`
+              : `## Submission not published\n\n${failure}\n\nDo not approve this attempt. Inspect ${runUrl} and reprocess the issue.`;
+            await github.rest.issues.createComment({...context.repo, issue_number: context.issue.number, body});
             await github.rest.issues.addLabels({
               ...context.repo, issue_number: context.issue.number,
-              labels: published ? ['pending-review', 'rapplication-submission']
-                                : ['failed', 'rapplication-submission']
+              labels: ready ? ['pending-review', 'rapplication-submission'] : ['failed', 'rapplication-submission']
             });

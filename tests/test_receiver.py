@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import io
 import json
 import shutil
@@ -162,7 +163,7 @@ class TestProcessFederation:
 # ── promote_rapplication ──────────────────────────────────────────────────
 
 class TestPromoteBundle:
-    def test_promote_moves_staging_to_root_and_updates_catalog(
+    def test_promote_moves_staging_to_advertised_namespace_and_updates_catalog(
             self, tmp_path, make_rapp_dir, monkeypatch):
         rapp = make_rapp_dir()
         body = _bundle_payload(rapp, "alice")
@@ -176,18 +177,24 @@ class TestPromoteBundle:
                                                      body).read_text()),
                               staging, catalog)
         assert ok
+        shutil.rmtree(rapp)
 
         approve_event = json.loads(_make_event(tmp_path, 7, "alice",
                                                  "[RAPP] @alice/my_thing v0.1.0",
                                                  body).read_text())
         ok2, report = prom.promote(approve_event, staging, catalog)
         assert ok2, report
-        # File should now live under tmp_path/my_thing/
-        assert (tmp_path / "my_thing" / "manifest.json").is_file()
+        assert (tmp_path / "apps/@alice/my_thing/manifest.json").is_file()
+        assert not (tmp_path / "my_thing").exists()
         # And the catalog should have the entry
         cat = json.loads(catalog.read_text())
         ids = [r["id"] for r in cat["rapplications"]]
         assert "my_thing" in ids
+        entry = cat["rapplications"][0]
+        for prefix in ("singleton", "ui"):
+            relative = entry[f"{prefix}_url"].split("/main/", 1)[1]
+            assert hashlib.sha256((tmp_path / relative).read_bytes()).hexdigest() == entry[f"{prefix}_sha256"]
+        assert "not published" in report
 
 
 class TestPromoteFederation:
@@ -500,4 +507,98 @@ def test_missing_pending_issue_is_nonzero_and_preserves_other_state(tmp_path, ca
     assert code == 1
     assert "E_NO_PENDING_FOR_ISSUE" in capsys.readouterr().out
     assert pending.read_bytes() == before
+    assert catalog.read_text() == '{"rapplications":[]}'
+
+
+def test_bundle_update_preserves_complete_previous_distributable_and_snapshots(tmp_path, make_rapp_dir):
+    source = make_rapp_dir()
+    root = tmp_path / "history-store"
+    root.mkdir()
+    catalog, staging = root / "index.json", root / "staging"
+    catalog.write_text('{"rapplications":[]}')
+    event = json.loads(_make_event(root, 150, "alice", "[RAPP] my_thing", _bundle_payload(source, "alice")).read_text())
+    assert proc.process(event, staging, catalog)[0]
+    assert prom.promote(event, staging, catalog)[0]
+    target = root / "apps/@alice/my_thing"
+    old = {p.relative_to(target): p.read_bytes() for p in target.rglob("*") if p.is_file()}
+    (target / "versions/0.0.5").mkdir(parents=True)
+    (target / "versions/0.0.5/pinned.py").write_bytes(b"earlier pinned version")
+    (target / "eggs").mkdir()
+    (target / "eggs/original.egg").write_bytes(b"existing immutable cartridge")
+    manifest = json.loads((source / "manifest.json").read_text())
+    manifest["version"] = "0.2.0"
+    (source / "manifest.json").write_text(json.dumps(manifest))
+    (source / "ui/index.html").write_text("<html><body>new version</body></html>")
+    event["issue"]["body"] = _bundle_payload(source, "alice")
+    assert proc.process(event, staging, catalog)[0]
+    ok, report = prom.promote(event, staging, catalog)
+    assert ok, report
+    for path, blob in old.items():
+        assert (target / "versions/0.1.0" / path).read_bytes() == blob
+    assert (target / "versions/0.0.5/pinned.py").read_bytes() == b"earlier pinned version"
+    assert (target / "versions/0.1.0/eggs/original.egg").read_bytes() == b"existing immutable cartridge"
+    assert (target / "eggs/original.egg").read_bytes() == b"existing immutable cartridge"
+    assert json.loads(catalog.read_text())["rapplications"][0]["version"] == "0.2.0"
+
+
+def test_bundle_immutable_snapshot_conflict_never_deletes_published_tree(tmp_path, make_rapp_dir):
+    source = make_rapp_dir()
+    root = tmp_path / "conflict-store"
+    root.mkdir()
+    catalog, staging = root / "index.json", root / "staging"
+    catalog.write_text('{"rapplications":[]}')
+    event = json.loads(_make_event(root, 151, "alice", "[RAPP] my_thing", _bundle_payload(source, "alice")).read_text())
+    assert proc.process(event, staging, catalog)[0]
+    assert prom.promote(event, staging, catalog)[0]
+    target = root / "apps/@alice/my_thing"
+    (target / "versions/0.0.5").mkdir(parents=True)
+    (target / "versions/0.0.5/pinned.py").write_bytes(b"immutable")
+    manifest = json.loads((source / "manifest.json").read_text())
+    manifest["version"] = "0.2.0"
+    (source / "manifest.json").write_text(json.dumps(manifest))
+    (source / "versions/0.0.5").mkdir(parents=True)
+    (source / "versions/0.0.5/pinned.py").write_bytes(b"overwrite attempt")
+    event["issue"]["body"] = _bundle_payload(source, "alice")
+    assert proc.process(event, staging, catalog)[0]
+    before = {p.relative_to(target): p.read_bytes() for p in target.rglob("*") if p.is_file()}
+    previous_catalog = catalog.read_bytes()
+    ok, report = prom.promote(event, staging, catalog)
+    assert not ok and "E_IMMUTABLE_HISTORY" in report
+    assert before == {p.relative_to(target): p.read_bytes() for p in target.rglob("*") if p.is_file()}
+    assert catalog.read_bytes() == previous_catalog
+    assert (staging / "my_thing").is_dir()
+
+
+def test_legacy_federation_source_pin_and_bytes_must_match_staging(tmp_path, monkeypatch, make_rapp_dir):
+    source = make_rapp_dir()
+    manifest = json.loads((source / "manifest.json").read_text())
+    routes = {f"https://raw.githubusercontent.com/alice/source/main/my_thing/{p.relative_to(source).as_posix()}":
+              p.read_bytes() for p in source.rglob("*") if p.is_file()}
+    commit_url = "https://api.github.com/repos/alice/source/commits/main"
+    routes[commit_url] = json.dumps({"sha": "a" * 40}).encode()
+    monkeypatch.setattr(lib_rapp, "_default_fetcher", lambda: lambda url: routes[url])
+    catalog, staging = tmp_path / "index.json", tmp_path / "staging"
+    catalog.write_text('{"rapplications":[]}')
+    body = _federation_payload("alice/source", "main", "my_thing", manifest)
+    event = json.loads(_make_event(tmp_path, 152, "alice", "[RAPP] my_thing", body).read_text())
+    assert proc.process(event, staging, catalog)[0]
+    routes[commit_url] = json.dumps({"sha": "b" * 40}).encode()
+    ok, report = prom.promote(event, staging, catalog)
+    assert not ok and "E_STALE_PENDING" in report
+    assert catalog.read_text() == '{"rapplications":[]}'
+
+
+def test_bundle_target_parent_symlink_refuses_before_writing_outside_store(tmp_path, make_rapp_dir):
+    source = make_rapp_dir()
+    root, outside = tmp_path / "linked-store", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (root / "apps").symlink_to(outside, target_is_directory=True)
+    catalog, staging = root / "index.json", root / "staging"
+    catalog.write_text('{"rapplications":[]}')
+    event = json.loads(_make_event(root, 153, "alice", "[RAPP] my_thing", _bundle_payload(source, "alice")).read_text())
+    assert proc.process(event, staging, catalog)[0]
+    ok, report = prom.promote(event, staging, catalog)
+    assert not ok and "E_PROMOTION_PATH" in report
+    assert not list(outside.iterdir())
     assert catalog.read_text() == '{"rapplications":[]}'
