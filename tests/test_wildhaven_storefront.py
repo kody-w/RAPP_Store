@@ -169,6 +169,7 @@ def test_missing_approval_delivery_or_release_cannot_enable_sales(complete_appli
     "https://owner@wildhaven.myshopify.com/products/console-game-pack",
     "https://wildhaven.myshopify.com:8443/products/console-game-pack",
     "https://wildhaven.myshopify.com/products/console-game-pack#hidden",
+    "https://wildhaven.myshopify.com/products/console-game-pack?return_to=https://evil.example",
     "javascript://wildhaven.myshopify.com/products/console-game-pack",
 ])
 def test_purchase_never_routes_to_unapproved_checkout(complete_application, url):
@@ -270,3 +271,14 @@ def test_detail_dialog_shows_play_through_videos_and_a_disabled_buy_button():
     assert len(buy) == 1
     assert buy[0]["disabled"] is True
     assert buy[0]["text"] == "Not for sale yet"
+
+
+def test_every_product_media_file_is_shipped():
+    """A listed video or poster must exist in the repo, or the live page shows a broken player."""
+    missing = []
+    for product in CATALOG["products"]:
+        for item in product.get("media") or []:
+            for key in ("video", "poster"):
+                if item.get(key) and not (ROOT / item[key]).is_file():
+                    missing.append(item[key])
+    assert missing == []

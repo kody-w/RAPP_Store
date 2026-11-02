@@ -50,7 +50,7 @@
     const stripe = url.hostname === 'buy.stripe.com' && /^\/[A-Za-z0-9_]+$/.test(url.pathname);
     const gumroad = /^[a-z0-9-]+\.gumroad\.com$/.test(url.hostname) && /^\/l\/[A-Za-z0-9_-]+$/.test(url.pathname);
     const lemon = /^[a-z0-9-]+\.lemonsqueezy\.com$/.test(url.hostname) && /^\/buy\/[A-Za-z0-9-]+$/.test(url.pathname);
-    const shopify = /^[a-z0-9-]+\.myshopify\.com$/.test(url.hostname)
+    const shopify = /^[a-z0-9-]+\.myshopify\.com$/.test(url.hostname) && !url.search
       && /^\/(?:products\/[a-z0-9-]+|cart\/[0-9]+:[1-9][0-9]?)$/.test(url.pathname);
     return stripe || gumroad || lemon || shopify ? url.href : null;
   }
