@@ -12,7 +12,11 @@ this page.
 
 ## What is live
 
-- Ten product candidates, with prototype, concept, or research-archive labels.
+- Eleven product candidates, with prototype, concept, or research-archive labels,
+  including the Console Game Pack (five browser games; not for sale yet).
+- Optional play-through videos in the detail dialog (`media`: label, `.mp4`
+  video and `.jpg` poster under `wildhaven/media/`), shown muted and inline
+  with controls, so a buyer can watch a game before paying.
 - Workflow search, category filtering, and product detail dialogs.
 - Actual deliverable, limitations, platform status, and licensing notes.
 - Public inquiry links; opening the editor does not submit an issue.
@@ -46,8 +50,12 @@ For an individual paid product:
 4. Supply its public hosted `checkout_url` and approved `price`, for example
    `{"amount_minor": 2900, "currency": "USD", "interval": "once"}`.
    Intervals are `once`, `month`, or `year`; this example is not an approved
-   price. Recognized links are Stripe Payment Links, Gumroad product links,
-   and Lemon Squeezy buy links over HTTPS.
+   price. A proposed `price` may be recorded while `sale_approved` is `false`;
+   it never enables checkout on its own. Recognized links are Stripe Payment
+   Links, Gumroad product links, Lemon Squeezy buy links, and Shopify links
+   over HTTPS. Shopify links must use the shop's `<shop>.myshopify.com` host
+   with a `/products/<handle>` or `/cart/<variant-id>:<quantity>` path; custom
+   storefront domains are not recognized, so use the myshopify.com link.
 5. Set the store-level `checkout_enabled` to `true`. Exercise the real
    provider checkout in its authorized test mode, then independently confirm
    live configuration and delivery before claiming that purchases work.

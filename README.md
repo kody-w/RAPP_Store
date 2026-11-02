@@ -11,7 +11,7 @@ Existing integrations load into a brainstem; native applications install separat
 ## Wildhaven Homes LLC storefront
 
 [Browse Wildhaven tools](https://kody-w.github.io/RAPP_Store/wildhaven/).
-The static seller showroom describes ten product candidates with explicit
+The static seller showroom describes eleven product candidates with explicit
 prototype, concept, or archive status. It does not admit them to `index.json`,
 invent release artifacts, or promote their quality tiers.
 

@@ -149,3 +149,8 @@ dialog .disclosure { font-size: 11px; margin-top: 16px; }
   .site-footer { flex-direction: column; align-items: flex-start; gap: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+dialog .media-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+dialog .media-item { margin: 0; }
+dialog .media-item video { width: 100%; aspect-ratio: 16 / 9; border-radius: 9px; background: #050b09; border: 1px solid var(--border); }
+dialog .media-item figcaption { font-size: 11px; color: var(--muted); margin-top: 4px; }
+dialog .button.buy-disabled { margin-right: 10px; opacity: .6; cursor: not-allowed; background: transparent; color: var(--muted); }
