@@ -185,6 +185,55 @@
       "checkout_url": null,
       "sale_approved": false,
       "delivery_configured": false
+    },
+    {
+      "id": "console-game-pack",
+      "name": "Console Game Pack",
+      "mark": "G",
+      "category": "games",
+      "status": "prototype",
+      "summary": "Five browser games you play on a phone, a keyboard, or a game controller, with no account and no internet once loaded.",
+      "deliverable": "Five offline browser games: racing, a lane battle arena, a dungeon crawler, a worm game, and a skate park. Each one has on-screen phone controls and also plays with a keyboard or a game controller.",
+      "limitations": "Tested in Chromium and in phone emulation, not yet on a real iPhone. Phone touch steering is on or off, not gradual. The pack is not for sale yet.",
+      "platforms": "Modern web browsers on desktop and phone; Chromium tested, Safari and real iPhone testing pending.",
+      "license_note": "Planned terms: you pay $2.99 once for all five games and keep them forever. You can watch each game being played before you buy. There are no random paid rewards, no timers, and no streaks. Refunds are easy: ask and you get your money back. Customer terms are not final until sales open.",
+      "catalog_id": null,
+      "version": null,
+      "price": {
+        "amount_minor": 299,
+        "currency": "USD",
+        "interval": "once"
+      },
+      "checkout_url": null,
+      "sale_approved": false,
+      "delivery_configured": false,
+      "media": [
+        {
+          "label": "Racing",
+          "video": "wildhaven/media/console/racing.mp4",
+          "poster": "wildhaven/media/console/racing.jpg"
+        },
+        {
+          "label": "Lane battle arena",
+          "video": "wildhaven/media/console/moba.mp4",
+          "poster": "wildhaven/media/console/moba.jpg"
+        },
+        {
+          "label": "Dungeon crawler",
+          "video": "wildhaven/media/console/dungeon.mp4",
+          "poster": "wildhaven/media/console/dungeon.jpg"
+        },
+        {
+          "label": "Worm",
+          "video": "wildhaven/media/console/worm.mp4",
+          "poster": "wildhaven/media/console/worm.jpg"
+        },
+        {
+          "label": "Skate park",
+          "video": "wildhaven/media/console/skate.mp4",
+          "poster": "wildhaven/media/console/skate.jpg"
+        }
+      ]
     }
   ]
 }

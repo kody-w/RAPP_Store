@@ -6,8 +6,13 @@
   });
   const categories = Object.freeze({
     efficiency: 'Efficiency', productivity: 'Productivity',
-    infrastructure: 'Infrastructure', trust: 'Trust & quality',
+    infrastructure: 'Infrastructure', trust: 'Trust & quality', games: 'Games',
   });
+  const mediaPath = (value, extension) => typeof value === 'string'
+    && new RegExp('^wildhaven/media/[a-z0-9-]+/[a-z0-9-]+\\.' + extension + '$').test(value);
+  const validMedia = media => media === undefined || Array.isArray(media) && media.length > 0
+    && media.every(item => object(item) && text(item.label)
+      && mediaPath(item.video, 'mp4') && mediaPath(item.poster, 'jpg'));
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const text = value => typeof value === 'string' && value.trim().length > 0;
 
@@ -24,7 +29,8 @@
           || ids.has(product.id) || !Object.hasOwn(labels, product.status)
           || !Object.hasOwn(categories, product.category)
           || !['name', 'mark', 'summary', 'deliverable', 'limitations', 'platforms', 'license_note'].every(key => text(product[key]))
-          || typeof product.sale_approved !== 'boolean' || typeof product.delivery_configured !== 'boolean') {
+          || typeof product.sale_approved !== 'boolean' || typeof product.delivery_configured !== 'boolean'
+          || !validMedia(product.media)) {
         throw new Error('A product has missing, duplicate, or unsupported metadata.');
       }
       ids.add(product.id);
@@ -44,7 +50,9 @@
     const stripe = url.hostname === 'buy.stripe.com' && /^\/[A-Za-z0-9_]+$/.test(url.pathname);
     const gumroad = /^[a-z0-9-]+\.gumroad\.com$/.test(url.hostname) && /^\/l\/[A-Za-z0-9_-]+$/.test(url.pathname);
     const lemon = /^[a-z0-9-]+\.lemonsqueezy\.com$/.test(url.hostname) && /^\/buy\/[A-Za-z0-9-]+$/.test(url.pathname);
-    return stripe || gumroad || lemon ? url.href : null;
+    const shopify = /^[a-z0-9-]+\.myshopify\.com$/.test(url.hostname)
+      && /^\/(?:products\/[a-z0-9-]+|cart\/[0-9]+:[1-9][0-9]?)$/.test(url.pathname);
+    return stripe || gumroad || lemon || shopify ? url.href : null;
   }
 
   function purchaseInfo(product, catalog, entries, contract) {
@@ -128,6 +136,33 @@
     ]) {
       content.appendChild(node('h3', '', heading));
       content.appendChild(node('p', '', value));
+    }
+    if (product.media) {
+      content.appendChild(node('h3', '', 'See it played'));
+      const gallery = node('div', 'media-gallery');
+      for (const item of product.media) {
+        const figure = node('figure', 'media-item');
+        const video = node('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.controls = true;
+        video.preload = 'none';
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+        video.poster = item.poster;
+        video.src = item.video;
+        video.setAttribute('aria-label', 'Play-through: ' + item.label);
+        figure.append(video, node('figcaption', '', item.label));
+        gallery.appendChild(figure);
+      }
+      content.appendChild(gallery);
+    }
+    if (!info.enabled) {
+      const buy = node('button', 'button buy-disabled', 'Not for sale yet');
+      buy.type = 'button';
+      buy.disabled = true;
+      buy.title = info.reason;
+      content.appendChild(buy);
     }
     const action = node('a', 'button primary', info.enabled ? 'Buy - ' + info.label : 'Ask about this tool');
     action.href = info.enabled ? info.href : inquire(product);
@@ -219,7 +254,7 @@
       byId('store-state').textContent = available ? 'Hosted checkout available' : 'Developer preview';
       byId('store-notice').textContent = available
         ? 'Only qualified releases with approved merchant links can be purchased. Previews and archives remain unavailable.'
-        : 'These are product previews, not ten finished releases. Paid checkout is not open yet; explore details or make a public inquiry.';
+        : 'These are product previews, not finished releases. Paid checkout is not open yet; explore details or make a public inquiry.';
     } finally {
       clearTimeout(timer);
     }
