@@ -60,5 +60,18 @@ jobs:
           node --check store-contract.js
           python3 -m pytest tests -q --basetemp=.ci-work/pytest
 
+      - name: AI surface is fresh (llms.txt, registry.json, sessions)
+        run: python3 scripts/build_ai_surface.py --check
+
+      - name: rapp-static-api/1.1 lint never gets worse
+        run: |
+          git clone -q --depth 1 https://github.com/kody-w/rapp-static-apis.git $RUNNER_TEMP/static-apis
+          out=$(python3 $RUNNER_TEMP/static-apis/check.py --lint . kody-w/RAPP_Store || true)
+          echo "$out" | tail -20
+          n=$(echo "$out" | sed -n 's/.*(\([0-9]*\) errors.*/\1/p'); n=${n:-0}
+          max=$(cat .static-api-lint-baseline)
+          echo "lint errors: $n (allowed: $max)"
+          [ "$n" -le "$max" ]
+
       - name: Verify catalog and discovery remain unchanged
         run: git diff --exit-code HEAD -- index.json api/

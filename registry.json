@@ -1,0 +1,81 @@
+{
+  "schema": "rapp-store-registry/1.0",
+  "spec": "rapp-static-api/1.1",
+  "generated": "2026-11-03T16:40:04Z",
+  "pages": "https://kody-w.github.io/RAPP_Store/",
+  "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/",
+  "summary": {
+    "endpoints": 8,
+    "pinned_versions": 4
+  },
+  "entries": [
+    {
+      "name": "llms.txt",
+      "sha256": "2bba998daff5f27b426f1f1fb9dd276290003318334a4c3a522513f2e74a6357",
+      "sha8": "2bba998daff5",
+      "bytes": 11518,
+      "url": "https://kody-w.github.io/RAPP_Store/llms.txt",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/llms.txt",
+      "pinned": "https://kody-w.github.io/RAPP_Store/versions/llms.txt/2bba998daff5.txt"
+    },
+    {
+      "name": "llms-full.txt",
+      "sha256": "c7911334da030a0cbcf847f14965cfc2487833037099f1a775fb7d062da58a7e",
+      "sha8": "c7911334da03",
+      "bytes": 16460,
+      "url": "https://kody-w.github.io/RAPP_Store/llms-full.txt",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/llms-full.txt"
+    },
+    {
+      "name": "index.json",
+      "sha256": "3dcbe9e479ec5a6d63cfacbe2af1cad4245b5794b34d50315bfe08a2d3c10892",
+      "sha8": "3dcbe9e479ec",
+      "bytes": 117294,
+      "url": "https://kody-w.github.io/RAPP_Store/index.json",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/index.json"
+    },
+    {
+      "name": "api/v1/ai.json",
+      "sha256": "b49169b49a226d037800374b421eb82756f0af4da4ccfb7f136fe7ad7446082c",
+      "sha8": "b49169b49a22",
+      "bytes": 1418,
+      "url": "https://kody-w.github.io/RAPP_Store/api/v1/ai.json",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/ai.json"
+    },
+    {
+      "name": "api/v1/sessions.json",
+      "sha256": "56501a16b731289bd173b3fb7a47cc5cdfbbaef14b5ccdc1f3b116b8aeaf9e96",
+      "sha8": "56501a16b731",
+      "bytes": 5970,
+      "url": "https://kody-w.github.io/RAPP_Store/api/v1/sessions.json",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/api/v1/sessions.json"
+    },
+    {
+      "name": "sdk/rapplication_sdk_agent.py",
+      "sha256": "06c756d0899c071b71f4d3a332f39f1a52d38f891bc4c02d98dd6168c6e2619f",
+      "sha8": "06c756d0899c",
+      "bytes": 54878,
+      "url": "https://kody-w.github.io/RAPP_Store/sdk/rapplication_sdk_agent.py",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/sdk/rapplication_sdk_agent.py",
+      "pinned": "https://kody-w.github.io/RAPP_Store/versions/sdk/rapplication_sdk_agent.py/06c756d0899c.py"
+    },
+    {
+      "name": "sdk/rapp_intents_mcp.py",
+      "sha256": "b9b713f711bdfc7470080d2418554f1a872150e31ce29e79a5c052bcdfd7bc45",
+      "sha8": "b9b713f711bd",
+      "bytes": 9125,
+      "url": "https://kody-w.github.io/RAPP_Store/sdk/rapp_intents_mcp.py",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/sdk/rapp_intents_mcp.py",
+      "pinned": "https://kody-w.github.io/RAPP_Store/versions/sdk/rapp_intents_mcp.py/b9b713f711bd.py"
+    },
+    {
+      "name": "sdk/TUTORIAL.md",
+      "sha256": "bfb6b3c8d6ca4f7ab460e54370041d594626ec52dc0a36cdcf9600d25b59d8de",
+      "sha8": "bfb6b3c8d6ca",
+      "bytes": 7586,
+      "url": "https://kody-w.github.io/RAPP_Store/sdk/TUTORIAL.md",
+      "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/sdk/TUTORIAL.md",
+      "pinned": "https://kody-w.github.io/RAPP_Store/versions/sdk/TUTORIAL.md/bfb6b3c8d6ca.md"
+    }
+  ]
+}
