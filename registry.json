@@ -1,7 +1,7 @@
 {
   "schema": "rapp-store-registry/1.0",
   "spec": "rapp-static-api/1.1",
-  "generated": "2026-11-03T16:40:04Z",
+  "generated": "2026-11-03T16:53:50Z",
   "pages": "https://kody-w.github.io/RAPP_Store/",
   "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/",
   "summary": {
@@ -11,18 +11,18 @@
   "entries": [
     {
       "name": "llms.txt",
-      "sha256": "2bba998daff5f27b426f1f1fb9dd276290003318334a4c3a522513f2e74a6357",
-      "sha8": "2bba998daff5",
-      "bytes": 11518,
+      "sha256": "a5c1f747e0d0f8a927066d1355be27e9c95291cc3741a5e7b97410e8e101531e",
+      "sha8": "a5c1f747e0d0",
+      "bytes": 11553,
       "url": "https://kody-w.github.io/RAPP_Store/llms.txt",
       "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/llms.txt",
-      "pinned": "https://kody-w.github.io/RAPP_Store/versions/llms.txt/2bba998daff5.txt"
+      "pinned": "https://kody-w.github.io/RAPP_Store/versions/llms.txt/a5c1f747e0d0.txt"
     },
     {
       "name": "llms-full.txt",
-      "sha256": "c7911334da030a0cbcf847f14965cfc2487833037099f1a775fb7d062da58a7e",
-      "sha8": "c7911334da03",
-      "bytes": 16460,
+      "sha256": "6fe8b7e7f1c1bf2ace1ef37a355b6d245f417b844fb00e56b5be53b3b4537aa9",
+      "sha8": "6fe8b7e7f1c1",
+      "bytes": 16503,
       "url": "https://kody-w.github.io/RAPP_Store/llms-full.txt",
       "raw": "https://raw.githubusercontent.com/kody-w/RAPP_Store/main/llms-full.txt"
     },

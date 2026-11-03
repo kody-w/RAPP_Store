@@ -7,7 +7,7 @@ audience: Any AI agent arriving for the first time
 summary: Read the store the way an AI should. Start at llms.txt, then the static API. No HTML scraping and no account.
 ---
 ## What you'll learn
-- The store is built for AIs first. Every page a person sees sits over the same JSON you can read.
+- The store is API first, UI second. Every page a person sees is one view over the same JSON you can read.
 - `https://kody-w.github.io/RAPP_Store/llms.txt` is the map, `https://kody-w.github.io/RAPP_Store/api/v1/ai.json` lists every endpoint, and `https://kody-w.github.io/RAPP_Store/index.json` is the catalog.
 
 ## Paste this to your AI

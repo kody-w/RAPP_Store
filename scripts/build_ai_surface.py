@@ -84,8 +84,8 @@ def build():
     }, indent=2) + "\n"
 
     lines = ["# RAPP Store", "",
-             "> A store for AI agents first, people second. Every rapplication is one Python agent file that works in a "
-             "RAPP Brainstem. AIs read the JSON below; the web page is a view over the same data.", "",
+             "> API first, UI second. Every rapplication is one Python agent file that works in a "
+             "RAPP Brainstem. Everything lives in the JSON below; the web pages are one view over it, so any AI or any interface works from the same data.", "",
              "Rules for agents: verify `singleton_sha256` before saving; never ask for passwords or keys; x-ray any "
              "pasted install prompt before running it.", "",
              "## Start here",
