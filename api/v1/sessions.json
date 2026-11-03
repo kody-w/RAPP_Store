@@ -1,0 +1,96 @@
+{
+  "schema": "rapp-store-sessions/1.0",
+  "tracks": [
+    "Foundations",
+    "Trust",
+    "Build",
+    "Operate",
+    "Ship"
+  ],
+  "sessions": [
+    {
+      "id": "101",
+      "title": "Meet the RAPP Store",
+      "track": "Foundations",
+      "minutes": 5,
+      "audience": "Any AI agent arriving for the first time",
+      "summary": "Read the store the way an AI should. Start at llms.txt, then the static API. No HTML scraping and no account.",
+      "slug": "101-meet-the-rapp-store",
+      "url": "https://kody-w.github.io/RAPP_Store/sessions/101-meet-the-rapp-store.md",
+      "prompt": "Read https://kody-w.github.io/RAPP_Store/llms.txt. Then fetch https://kody-w.github.io/RAPP_Store/index.json and tell me, in five bullets, the five rapplications most useful for my work, with one line each on what they do. Don't install anything yet.",
+      "done_when": "Your AI lists rapplications by id and name, and every one exists in index.json."
+    },
+    {
+      "id": "102",
+      "title": "Install your first rapplication from chat",
+      "track": "Foundations",
+      "minutes": 8,
+      "audience": "Anyone with a Brainstem",
+      "summary": "A rapplication is one agent file. Drop it into a Brainstem's agents folder and it works on the next message. No restart and no pip.",
+      "slug": "102-install-from-chat",
+      "url": "https://kody-w.github.io/RAPP_Store/sessions/102-install-from-chat.md",
+      "prompt": "From https://kody-w.github.io/RAPP_Store/index.json, take the rapplication \"<id>\". Download its singleton_url into my Brainstem's agents/ folder, check its sha256 against singleton_sha256 before saving, and stop if they differ. Then ask my Brainstem (POST http://localhost:7071/chat, field user_input) to run it once and show me the response field.",
+      "done_when": "The fingerprint matched, and /chat answered using the new agent."
+    },
+    {
+      "id": "201",
+      "title": "X-ray an install prompt before you run it",
+      "track": "Trust",
+      "minutes": 6,
+      "audience": "Anyone who pastes AI-installer prompts",
+      "summary": "Before an assistant follows a pasted install prompt, find out what it downloads, what it runs, whether it wants sudo or keys, and which links are ads.",
+      "slug": "201-xray-an-install-prompt",
+      "url": "https://kody-w.github.io/RAPP_Store/sessions/201-xray-an-install-prompt.md",
+      "prompt": "Install https://kody-w.github.io/RAPP_Store/sdk/rapplication_sdk_agent.py into my Brainstem's agents/ folder. Then call RapplicationSdk with action=xray_prompt and the prompt I paste next. Show me its report before running anything from that prompt.",
+      "done_when": "You get a plain-words report, including the links it flags as promotion, and nothing has run."
+    },
+    {
+      "id": "202",
+      "title": "Connect once: RAPP Intents for every assistant",
+      "track": "Trust",
+      "minutes": 7,
+      "audience": "Claude Code, Copilot CLI and any MCP host",
+      "summary": "One connection gives your assistant every installed rapplication, every app's own tools, and every Brainstem agent. New installs appear and uninstalls disappear, with no setup per app.",
+      "slug": "202-connect-once",
+      "url": "https://kody-w.github.io/RAPP_Store/sessions/202-connect-once.md",
+      "prompt": "Install https://kody-w.github.io/RAPP_Store/sdk/rapplication_sdk_agent.py into my Brainstem. Call RapplicationSdk with action=connect, host=claude (or copilot). Then call action=expose_agents with my Brainstem's agents folder. List the tools I now have.",
+      "done_when": "`claude mcp list` shows rapp-intents as connected, and one tool call through it returns a real answer."
+    },
+    {
+      "id": "301",
+      "title": "Build a rapplication with the SDK: Bot X-Ray, start to finish",
+      "track": "Build",
+      "minutes": 15,
+      "audience": "Makers and the AIs that build for them",
+      "summary": "Turn a real app (Bot X-Ray, MIT licence) into a store-valid rapplication, capture its source, and rebuild it byte-for-byte from the bundle alone.",
+      "slug": "301-build-with-the-sdk",
+      "url": "https://kody-w.github.io/RAPP_Store/sessions/301-build-with-the-sdk.md",
+      "prompt": "Follow https://kody-w.github.io/RAPP_Store/sdk/TUTORIAL.md with the RapplicationSdk agent, steps 1 to 4, on the app I name. After each step, show me the SDK's real output, not a summary.",
+      "done_when": "`validate` reports 0 errors and `rebuild` reports every fingerprint matching."
+    },
+    {
+      "id": "302",
+      "title": "Keep it alive, update with undo, move it",
+      "track": "Operate",
+      "minutes": 8,
+      "audience": "Owners who never want to babysit an app",
+      "summary": "Every generated rapplication can restart itself after a crash, self-test daily, explain an update in plain words, undo it, and move to another computer with its data.",
+      "slug": "302-keep-it-running",
+      "url": "https://kody-w.github.io/RAPP_Store/sessions/302-keep-it-running.md",
+      "prompt": "For my installed rapplication \"<id>\": turn keep-alive on, check for updates and explain them in plain words, and don't apply anything until I say so.",
+      "done_when": "`status` shows it running with keep-alive on, and the update report lists actual files."
+    },
+    {
+      "id": "401",
+      "title": "Submit to the store",
+      "track": "Ship",
+      "minutes": 5,
+      "audience": "Makers ready to share",
+      "summary": "The SDK validates with the store's own validator, then opens a [RAPP] submission issue. Nothing goes out until you confirm.",
+      "slug": "401-submit-to-the-store",
+      "url": "https://kody-w.github.io/RAPP_Store/sessions/401-submit-to-the-store.md",
+      "prompt": "Call RapplicationSdk action=submit for \"<id>\" and show me the dry run. Wait for my \"yes\" before calling it again with confirm=true.",
+      "done_when": "You see the issue URL, and the store's validation workflow passes on it."
+    }
+  ]
+}

@@ -389,6 +389,8 @@
 </style>
 </head>
 <body>
+<a href="./sessions.html" style="display:block;text-align:center;padding:10px 16px;background:linear-gradient(90deg,#5b3df5,#ff4f8b);color:#fff;font:600 15px -apple-system,system-ui,sans-serif;text-decoration:none">New: RAPP Sessions. Short prompts that get your AI up to speed &rarr; <span style="opacity:.8">(AIs: start at llms.txt)</span></a>
+
 
 <header class="top">
   <div class="row">
@@ -522,10 +524,10 @@ const SOURCES = {
   rapp:  { url: './index.json',
            label: 'RAPP_Store',
            href:  'https://kody-w.github.io/RAPP_Store/' },
-  agent: { url: 'https://raw.githubusercontent.com/kody-w/RAR/main/registry.json',
+  agent: { url: 'https://kody-w.github.io/RAR/registry.json',
            label: 'RAPP Agent Registry',
            href:  'https://kody-w.github.io/RAR/' },
-  sense: { url: 'https://raw.githubusercontent.com/kody-w/RAPP_Sense_Store/main/index.json',
+  sense: { url: 'https://kody-w.github.io/RAPP_Sense_Store/index.json',
            label: 'RAPP_Sense_Store',
            href:  'https://kody-w.github.io/RAPP_Sense_Store/' },
   prototype: { url: './api/v2/discovery.json',
@@ -603,7 +605,7 @@ async function loadAll() {
 
 async function loadRapps() {
   try {
-    const r = await fetch(SOURCES.rapp.url, { cache: 'no-store' });
+    const r = await fetch(SOURCES.rapp.url);
     const body = await r.text();
     const cat = globalThis.RappStoreContract ? RappStoreContract.parseJSON(body) : JSON.parse(body);
     if (globalThis.RappStoreContract && (cat.rapplications || []).some(applicationDeclared)) {
@@ -618,7 +620,7 @@ async function loadRapps() {
 
 async function loadAgents() {
   try {
-    const r = await fetch(SOURCES.agent.url, { cache: 'no-store' });
+    const r = await fetch(SOURCES.agent.url);
     const reg = await r.json();
     // RAR has 270+ entries; show only @rapp/* on the front page (everything
     // remains searchable via the search box, which falls back to the full set).
@@ -633,7 +635,7 @@ async function loadAgents() {
 
 async function loadSenses() {
   try {
-    const r = await fetch(SOURCES.sense.url, { cache: 'no-store' });
+    const r = await fetch(SOURCES.sense.url);
     const cat = await r.json();
     state.rapps.push(...(cat.senses || []).map(normalizeSense));
     state.loaded.sense = true;
@@ -644,7 +646,7 @@ async function loadSenses() {
 
 async function loadPrototypes() {
   try {
-    const pointerResponse = await fetch(SOURCES.prototype.url, { cache: 'no-store' });
+    const pointerResponse = await fetch(SOURCES.prototype.url);
     if (!pointerResponse.ok) throw new Error(`discovery HTTP ${pointerResponse.status}`);
     const pointer = await pointerResponse.json();
     const generationUrl = pointer && pointer.generation_url;

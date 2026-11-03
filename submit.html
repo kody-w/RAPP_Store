@@ -349,7 +349,7 @@ async function handleAuthCallback() {
 async function checkAuth() {
   if (!ghToken) return;
   try {
-    const r = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${ghToken}` } });
+    const r = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${ghToken}` } });  // static-api-lint: allow (signed-in user action; no static equivalent)
     if (r.ok) {
       ghUser = await r.json();
       document.getElementById('auth-gate').style.display = 'none';
@@ -377,7 +377,7 @@ async function loginWithPAT() {
   const pat = document.getElementById('pat-input').value.trim();
   if (!pat) return;
   try {
-    const r = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${pat}` } });
+    const r = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${pat}` } });  // static-api-lint: allow (signed-in user action; no static equivalent)
     if (r.ok) {
       ghToken = pat;
       localStorage.setItem('rb_access_token', pat);
@@ -563,7 +563,7 @@ async function submitBundle() {
     '```json\n' + JSON.stringify(meta, null, 2) + '\n```\n\n' +
     '```bundle\n' + bundle.b64 + '\n```\n';
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {  // static-api-lint: allow (signed-in user action; no static equivalent)
       method: 'POST',
       headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -619,7 +619,7 @@ async function resolveFederation() {
     if (m?.schema === 'rapp-application/2.0' && globalThis.RappStoreContract) await RappStoreContract.ready();
     const { errs, warns } = validateManifest(m, ghUser?.login);
     if (!errs.length && m.schema === 'rapp-application/2.0') {
-      const resolved = await fetch(`https://api.github.com/repos/${parsed.repo}/commits/${encodeURIComponent(parsed.ref)}`,
+      const resolved = await fetch(`https://api.github.com/repos/${parsed.repo}/commits/${encodeURIComponent(parsed.ref)}`,  // static-api-lint: allow (signed-in user action; no static equivalent)
         {credentials: 'omit', redirect: 'error'});
       if (!resolved.ok) throw new Error('Cannot resolve an immutable source commit.');
       const commit = (await resolved.json()).sha;
@@ -674,7 +674,7 @@ async function submitFederation() {
     `Federation submission via [submit.html](https://kody-w.github.io/RAPP_Store/submit.html) by @${ghUser.login}.\n\n` +
     '```json\n' + JSON.stringify(meta, null, 2) + '\n```\n';
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {  // static-api-lint: allow (signed-in user action; no static equivalent)
       method: 'POST',
       headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -708,7 +708,7 @@ async function loadSubmissions() {
   const list = document.getElementById('submissions-list');
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${REPO}/issues?creator=${ghUser.login}&state=all&per_page=20&sort=created&direction=desc`,
+      `https://api.github.com/repos/${REPO}/issues?creator=${ghUser.login}&state=all&per_page=20&sort=created&direction=desc`,  // static-api-lint: allow (signed-in user action; no static equivalent)
       { headers: { Authorization: `Bearer ${ghToken}` } }
     );
     if (!res.ok) return;

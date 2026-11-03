@@ -36,7 +36,7 @@
         destination.removeAttribute('href');
         destination.textContent = 'Checking the selected application contract…';
         try {
-          const response = await fetch('./index.json', {cache: 'no-store'});
+          const response = await fetch('./index.json');
           if (!response.ok) throw new Error('Catalog is unavailable.');
           const catalog = await response.json();
           const entry = (catalog.rapplications || []).find(item => item.id === selected);

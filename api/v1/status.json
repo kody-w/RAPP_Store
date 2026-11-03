@@ -1,0 +1,7 @@
+{
+  "schema": "rapp-store-status/1.0",
+  "generated": "2026-11-03T16:53:50Z",
+  "ok": true,
+  "endpoints": 8,
+  "pinned_versions": 4
+}
