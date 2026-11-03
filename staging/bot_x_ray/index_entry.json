@@ -1,0 +1,24 @@
+{
+  "id": "bot_x_ray",
+  "name": "Bot X-Ray",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "summary": "It reverse engineers Polymarket trading bots from their public trades: paste any wallet or username and it shows what the bot does, whether it was skill or luck, and whether it still works.",
+  "category": "analysis",
+  "tags": [
+    "polymarket",
+    "trading",
+    "paper-trading"
+  ],
+  "quality_tier": "community",
+  "license": "BSD-style",
+  "singleton_filename": "bot_x_ray_agent.py",
+  "singleton_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/bot_x_ray/singleton/bot_x_ray_agent.py",
+  "singleton_sha256": "bc8db5a1880c12c03bf3964f3892b365cea7d5f026a389124908747ec94aedc8",
+  "singleton_lines": 544,
+  "singleton_bytes": 25326,
+  "ui_filename": "index.html",
+  "ui_url": "https://raw.githubusercontent.com/kody-w/rapp_store/main/apps/@kody-w/bot_x_ray/ui/index.html",
+  "ui_sha256": "56b748cf0136ca3d9ee47e9fcb1569964c3edf1e9eb5fb8c821cf5a122fe6e43",
+  "ui_bytes": 2151
+}

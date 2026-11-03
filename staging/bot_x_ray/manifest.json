@@ -1,0 +1,17 @@
+{
+  "schema": "rapp-application/1.0",
+  "id": "bot_x_ray",
+  "name": "Bot X-Ray",
+  "version": "1.0.0",
+  "publisher": "@kody-w",
+  "summary": "It reverse engineers Polymarket trading bots from their public trades: paste any wallet or username and it shows what the bot does, whether it was skill or luck, and whether it still works.",
+  "category": "analysis",
+  "tags": [
+    "polymarket",
+    "trading",
+    "paper-trading"
+  ],
+  "agent": "singleton/bot_x_ray_agent.py",
+  "ui": "ui/index.html",
+  "quality_tier": "community"
+}

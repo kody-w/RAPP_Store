@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot X-Ray</title>
+<style>
+body{font:16px/1.5 system-ui,-apple-system,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#1b1b1f}
+h1{font-size:28px;margin:0 0 6px}p.s{color:#555;margin:0 0 24px}
+button{font:inherit;padding:12px 22px;border:0;border-radius:10px;background:#1b1b1f;color:#fff;cursor:pointer}
+button.alt{background:#eee;color:#1b1b1f;margin-left:8px}#out{white-space:pre-wrap;margin-top:20px;color:#333}
+</style></head><body>
+<h1>Bot X-Ray</h1><p class="s">It reverse engineers Polymarket trading bots from their public trades: paste any wallet or username and it shows what the bot does, whether it was skill or luck, and whether it still works.</p>
+<button id="go">Start it</button><button class="alt" id="setup">Install or update</button>
+<div id="out"></div>
+<script>
+const out = document.getElementById('out');
+function call(args){
+  return new Promise((ok, bad) => {
+    if (window.parent === window) { bad(new Error('Open this inside a Brainstem, or ask your Brainstem: "start Bot X-Ray".')); return; }
+    const id = Math.random().toString(36).slice(2);
+    const h = e => { if (e.data && e.data.type === 'rapp:invoke:result' && e.data.id === id) {
+      removeEventListener('message', h); e.data.error ? bad(new Error(e.data.error)) : ok(e.data.result); } };
+    addEventListener('message', h);
+    parent.postMessage({ type: 'rapp:invoke', id, args }, '*');
+  });
+}
+async function run(action){
+  out.textContent = action === 'install' ? 'Installing — about a minute…' : 'Starting…';
+  try {
+    const r = String(await call({ action }));
+    const m = r.match(/https?:\/\/localhost:\d+/);
+    out.innerHTML = '';
+    out.textContent = r;
+    if (m) { const a = document.createElement('a'); a.href = m[0]; a.target = '_blank'; a.textContent = ' Open it'; out.appendChild(a); }
+  } catch (e) { out.textContent = e.message; }
+}
+document.getElementById('go').onclick = () => run('start');
+document.getElementById('setup').onclick = () => run('install');
+</script></body></html>
